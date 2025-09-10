@@ -1,0 +1,38 @@
+# Build results
+bin/
+obj/
+[Bb]uild/
+[Ll]og/
+
+# Visual Studio files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio Code
+.vscode/
+
+# NuGet
+*.nupkg
+*.snupkg
+*.nuspec
+packages/
+project.lock.json
+project.fragment.lock.json
+
+# Microsoft auto-generated files
+Generated\ Files/
+
+# Publish
+*.Publish.xml
+*.pubxml
+*.publishproj
+
+# Other
+*.tmp
+*.bak
+*.log
+*.DS_Store
+Thumbs.db
