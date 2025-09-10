@@ -20,8 +20,8 @@ jobs:
               with:
                   dotnet-version: 8.0.x
             - name: Restore dependencies
-              run: dotnet restore QuizUpLearn.sln
+              run: dotnet restore QuizUpLearn/QuizUpLearn.sln
             - name: Build
-              run: dotnet build QuizUpLearn.sln --no-restore
+              run: dotnet build QuizUpLearn/QuizUpLearn.sln --no-restore
             - name: Test
-              run: dotnet test QuizUpLearn.sln --no-build --verbosity normal
+              run: dotnet test QuizUpLearn/QuizUpLearn.sln --no-build --verbosity normal
