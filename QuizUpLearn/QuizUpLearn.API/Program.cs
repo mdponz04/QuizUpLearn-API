@@ -18,6 +18,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseMiddleware<QuizUpLearn.API.Middlewares.ExceptionHandlingMiddleware>();
+app.UseMiddleware<QuizUpLearn.API.Middlewares.ApiResponseWrappingMiddleware>();
+
 app.UseAuthorization();
 
 app.MapControllers();
