@@ -1,20 +1,15 @@
-using Microsoft.EntityFrameworkCore;
-using Repository.DBContext;
+using QuizUpLearn.API.DI;
 
 var builder = WebApplication.CreateBuilder(args);
-
 
 
 // Add services to the container.
 builder.Services.AddControllers();
 
-//Add db context
-builder.Services.AddDbContext<MyDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 

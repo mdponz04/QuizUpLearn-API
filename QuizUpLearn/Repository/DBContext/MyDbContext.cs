@@ -5,6 +5,7 @@ namespace Repository.DBContext
 {
     public class MyDbContext : DbContext
     {
+        public MyDbContext() { }
         public MyDbContext(DbContextOptions<MyDbContext> options) : base(options) { }
 
         public DbSet<Account> Accounts { get; set; }
