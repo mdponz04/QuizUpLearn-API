@@ -73,6 +73,7 @@ namespace QuizUpLearn.API.DI
         public static void AddRepository(this IServiceCollection services)
         {
             services.AddScoped<IRoleRepo, RoleRepo>();
+            services.AddScoped<IAccountRepo, AccountRepo>();
 
 
         }
@@ -88,6 +89,8 @@ namespace QuizUpLearn.API.DI
             services.AddLogging();
 
             services.AddScoped<IRoleService, RoleService>();
+            services.AddScoped<IAccountService, AccountService>();
+            services.AddScoped<IIdentityService, IdentityService>();
         }
     }
 }
