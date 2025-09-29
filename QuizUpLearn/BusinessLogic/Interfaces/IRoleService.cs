@@ -1,4 +1,4 @@
-﻿using BusinessLogic.DTOs;
+﻿using BusinessLogic.DTOs.RoleDtos;
 
 namespace BusinessLogic.Interfaces
 {

@@ -1,4 +1,5 @@
-﻿using BusinessLogic.Interfaces;
+﻿using BusinessLogic.DTOs.RoleDtos;
+using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace QuizUpLearn.API.Controllers
@@ -27,13 +28,13 @@ namespace QuizUpLearn.API.Controllers
             return Ok(role);
         }
         [HttpPost]
-        public async Task<IActionResult> CreateRole([FromBody] BusinessLogic.DTOs.RequestRoleDto roleDto)
+        public async Task<IActionResult> CreateRole([FromBody] RequestRoleDto roleDto)
         {
             var createdRole = await _roleService.CreateRoleAsync(roleDto);
             return CreatedAtAction(nameof(GetRoleById), new { id = createdRole.Id }, createdRole);
         }
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateRole(Guid id, [FromBody] BusinessLogic.DTOs.RequestRoleDto roleDto)
+        public async Task<IActionResult> UpdateRole(Guid id, [FromBody] RequestRoleDto roleDto)
         {
             var updatedRole = await _roleService.UpdateRoleAsync(id, roleDto);
             return Ok(updatedRole);
