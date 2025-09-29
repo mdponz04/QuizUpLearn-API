@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using BusinessLogic.DTOs;
 using BusinessLogic.Interfaces;
+using Repository.Entities;
 using Repository.Interfaces;
 
 namespace BusinessLogic.Services
@@ -18,7 +19,8 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseRoleDto> CreateRoleAsync(RequestRoleDto roleDto)
         {
-            throw new NotImplementedException();
+            var role = await _repo.CreateRoleAsync(_mapper.Map<Role>(roleDto));
+            return _mapper.Map<ResponseRoleDto>(role);
         }
 
         public async Task<IEnumerable<ResponseRoleDto>> GetAllRolesAsync(bool includeDeleted = false)
@@ -26,24 +28,43 @@ namespace BusinessLogic.Services
             return _mapper.Map<IEnumerable<ResponseRoleDto>>(await _repo.GetAllRolesAsync(includeDeleted));
         }
 
-        public Task<ResponseRoleDto> GetRoleByIdAsync(int id)
+        public async Task<ResponseRoleDto> GetRoleByIdAsync(Guid id)
         {
-            throw new NotImplementedException();
+            if (!await IsRoleExists(id))
+                throw new KeyNotFoundException($"Role with id {id} not found.");
+            return _mapper.Map<ResponseRoleDto>(await _repo.GetRoleByIdAsync(id));
         }
 
-        public Task<bool> RestoreRoleAsync(int id)
+        public async Task<bool> RestoreRoleAsync(Guid id)
         {
-            throw new NotImplementedException();
+            if (!IsRoleExists(id).Result)
+                throw new KeyNotFoundException($"Role with id {id} not found.");
+            return await _repo.RestoreRoleAsync(id);
         }
 
-        public Task<bool> SoftDeleteRoleAsync(int id)
+        public async Task<bool> SoftDeleteRoleAsync(Guid id)
         {
-            throw new NotImplementedException();
+            if(!IsRoleExists(id).Result)
+                throw new KeyNotFoundException($"Role with id {id} not found.");
+            return await _repo.SoftDeleteRoleAsync(id);
         }
 
-        public Task<ResponseRoleDto> UpdateRoleAsync(int id, RequestRoleDto roleDto)
+        public async Task<ResponseRoleDto> UpdateRoleAsync(Guid id, RequestRoleDto roleDto)
         {
-            throw new NotImplementedException();
+            if(!IsRoleExists(id).Result)
+                throw new KeyNotFoundException($"Role with id {id} not found.");
+
+            var role = await _repo.UpdateRoleAsync(id, _mapper.Map<Role>(roleDto));
+
+            return _mapper.Map<ResponseRoleDto>(role);
+        }
+
+        private async Task<bool> IsRoleExists(Guid id)
+        {
+            var role = await _repo.GetRoleByIdAsync(id);
+            if(role != null)
+                return true;
+            return false;
         }
     }
 }

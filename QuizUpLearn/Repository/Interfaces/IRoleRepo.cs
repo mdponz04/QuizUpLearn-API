@@ -5,10 +5,10 @@ namespace Repository.Interfaces
     public interface IRoleRepo
     {
         Task<Role> CreateRoleAsync(Role role);
-        Task<Role> GetRoleByIdAsync(int id);
+        Task<Role> GetRoleByIdAsync(Guid id);
         Task<IEnumerable<Role>> GetAllRolesAsync(bool includeDeleted = false);
-        Task<Role> UpdateRoleAsync(int id, Role role);
-        Task<bool> SoftDeleteRoleAsync(int id);
-        Task<bool> RestoreRoleAsync(int id);
+        Task<Role> UpdateRoleAsync(Guid id, Role role);
+        Task<bool> SoftDeleteRoleAsync(Guid id);
+        Task<bool> RestoreRoleAsync(Guid id);
     }
 }

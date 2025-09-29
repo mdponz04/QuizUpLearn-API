@@ -20,5 +20,39 @@ namespace QuizUpLearn.API.Controllers
             var roles = await _roleService.GetAllRolesAsync(includeDeleted);
             return Ok(roles);
         }
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetRoleById(Guid id)
+        {
+            var role = await _roleService.GetRoleByIdAsync(id);
+            return Ok(role);
+        }
+        [HttpPost]
+        public async Task<IActionResult> CreateRole([FromBody] BusinessLogic.DTOs.RequestRoleDto roleDto)
+        {
+            var createdRole = await _roleService.CreateRoleAsync(roleDto);
+            return CreatedAtAction(nameof(GetRoleById), new { id = createdRole.Id }, createdRole);
+        }
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateRole(Guid id, [FromBody] BusinessLogic.DTOs.RequestRoleDto roleDto)
+        {
+            var updatedRole = await _roleService.UpdateRoleAsync(id, roleDto);
+            return Ok(updatedRole);
+        }
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> SoftDeleteRole(Guid id)
+        {
+            var result = await _roleService.SoftDeleteRoleAsync(id);
+            if (!result)
+                return NotFound();
+            return Ok();
+        }
+        [HttpPost("restore/{id}")]
+        public async Task<IActionResult> RestoreRole(Guid id)
+        {
+            var result = await _roleService.RestoreRoleAsync(id);
+            if (!result)
+                return NotFound();
+            return Ok();
+        }
     }
 }

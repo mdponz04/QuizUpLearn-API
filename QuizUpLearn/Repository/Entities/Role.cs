@@ -8,7 +8,7 @@ namespace Repository.Entities
         public required string DisplayName { get; set; }
         public string? Description { get; set; }
         public string Permissions { get; set; } = string.Empty;
-        public bool IsActive { get; set; }
+        public bool IsActive { get; set; } = true;
 
         // Navigation
         public virtual ICollection<Account> Accounts { get; set; } = new List<Account>();

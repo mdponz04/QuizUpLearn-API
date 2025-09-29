@@ -34,12 +34,12 @@ namespace Repository.Repositories
             return roleList;
         }
 
-        public async Task<Role> GetRoleByIdAsync(int id)
+        public async Task<Role> GetRoleByIdAsync(Guid id)
         {
             return await _context.Roles.FindAsync(id);
         }
 
-        public async Task<bool> RestoreRoleAsync(int id)
+        public async Task<bool> RestoreRoleAsync(Guid id)
         {
             var role = await _context.Roles.FindAsync(id);
             if (role == null) return false;
@@ -49,7 +49,7 @@ namespace Repository.Repositories
             return true;
         }
 
-        public async Task<bool> SoftDeleteRoleAsync(int id)
+        public async Task<bool> SoftDeleteRoleAsync(Guid id)
         {
             var role = await _context.Roles.FindAsync(id);
             if (role == null) return false;
@@ -59,11 +59,21 @@ namespace Repository.Repositories
             return true;
         }
 
-        public async Task<Role> UpdateRoleAsync(int id, Role role)
+        public async Task<Role> UpdateRoleAsync(Guid id, Role role)
         {
             var existingRole = await _context.Roles.FindAsync(id);
             if (existingRole == null) return null;
-            existingRole = role;
+
+            if (!string.IsNullOrEmpty(role.RoleName))
+                existingRole.RoleName = role.RoleName;
+            if (!string.IsNullOrEmpty(role.DisplayName))
+                existingRole.DisplayName = role.DisplayName;
+            if (!string.IsNullOrEmpty(role.Description))
+                existingRole.Description = role.Description;
+            if (!string.IsNullOrEmpty(role.Permissions))
+                existingRole.Permissions = role.Permissions;
+            existingRole.IsActive = role.IsActive;
+
             _context.Roles.Update(existingRole);
             await _context.SaveChangesAsync();
             return existingRole;
