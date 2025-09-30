@@ -74,8 +74,6 @@ namespace QuizUpLearn.API.DI
         {
             services.AddScoped<IRoleRepo, RoleRepo>();
             services.AddScoped<IAccountRepo, AccountRepo>();
-
-
         }
 
         public static void AddAutoMapper(this IServiceCollection services)
@@ -91,6 +89,7 @@ namespace QuizUpLearn.API.DI
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<IAccountService, AccountService>();
             services.AddScoped<IIdentityService, IdentityService>();
+            services.AddScoped<IUploadService, UploadService>();
         }
     }
 }
