@@ -51,12 +51,27 @@ namespace QuizUpLearn.API.Controllers
             return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
         }
 
+        [HttpPost("single/start")]
+        public async Task<IActionResult> StartSingle([FromBody] RequestSingleStartDto dto)
+        {
+            var started = await _service.StartSingleAsync(dto);
+            return Ok(started);
+        }
+
         [HttpPut("{id}")]
         public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] RequestQuizAttemptDto dto)
         {
             var updated = await _service.UpdateAsync(id, dto);
             if (updated == null) return NotFound();
             return Ok(updated);
+        }
+
+        [HttpPost("{id}/finish")]
+        public async Task<IActionResult> Finish([FromRoute] Guid id)
+        {
+            var result = await _service.FinishAsync(id);
+            if (result == null) return NotFound();
+            return Ok(result);
         }
 
         [HttpDelete("{id}")]
