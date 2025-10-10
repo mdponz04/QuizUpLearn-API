@@ -37,6 +37,21 @@ namespace QuizUpLearn.API.Controllers
             return Ok(quizAttempts);
         }
 
+        [HttpGet("user/{userId}/history")]
+        public async Task<IActionResult> GetPlayerHistory([FromRoute] Guid userId, [FromQuery] PlayerHistoryRequestDto request)
+        {
+            request.UserId = userId; // Ensure userId from route is used
+            var history = await _service.GetPlayerHistoryAsync(request);
+            return Ok(history);
+        }
+
+        [HttpGet("user/{userId}/stats")]
+        public async Task<IActionResult> GetPlayerStats([FromRoute] Guid userId)
+        {
+            var stats = await _service.GetPlayerStatsAsync(userId);
+            return Ok(stats);
+        }
+
         [HttpGet("quizset/{quizSetId}")]
         public async Task<IActionResult> GetByQuizSetId([FromRoute] Guid quizSetId, [FromQuery] bool isDeleted = false)
         {

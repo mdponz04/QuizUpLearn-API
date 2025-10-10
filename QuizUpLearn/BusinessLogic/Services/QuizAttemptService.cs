@@ -143,5 +143,72 @@ namespace BusinessLogic.Services
             var updatedAttempt = await _repo.UpdateAsync(id, attempt);
             return updatedAttempt == null ? null : _mapper.Map<ResponseQuizAttemptDto>(updatedAttempt);
         }
+
+        public async Task<PlayerHistoryResponseDto> GetPlayerHistoryAsync(PlayerHistoryRequestDto request)
+        {
+            var allAttempts = await _repo.GetByUserIdAsync(request.UserId, includeDeleted: false);
+            var attempts = allAttempts.AsQueryable();
+
+            // Apply filters
+            if (request.QuizSetId.HasValue)
+                attempts = attempts.Where(a => a.QuizSetId == request.QuizSetId.Value);
+
+            if (!string.IsNullOrEmpty(request.Status))
+                attempts = attempts.Where(a => a.Status == request.Status);
+
+            if (!string.IsNullOrEmpty(request.AttemptType))
+                attempts = attempts.Where(a => a.AttemptType == request.AttemptType);
+
+            // Apply sorting
+            attempts = request.SortBy.ToLower() switch
+            {
+                "score" => request.SortOrder.ToLower() == "asc" ? attempts.OrderBy(a => a.Score) : attempts.OrderByDescending(a => a.Score),
+                "accuracy" => request.SortOrder.ToLower() == "asc" ? attempts.OrderBy(a => a.Accuracy) : attempts.OrderByDescending(a => a.Accuracy),
+                _ => request.SortOrder.ToLower() == "asc" ? attempts.OrderBy(a => a.CreatedAt) : attempts.OrderByDescending(a => a.CreatedAt)
+            };
+
+            var totalCount = attempts.Count();
+            var pagedAttempts = attempts
+                .Skip((request.Page - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToList();
+
+            return new PlayerHistoryResponseDto
+            {
+                Attempts = _mapper.Map<IEnumerable<ResponseQuizAttemptDto>>(pagedAttempts),
+                TotalCount = totalCount,
+                Page = request.Page,
+                PageSize = request.PageSize
+            };
+        }
+
+        public async Task<PlayerStatsDto> GetPlayerStatsAsync(Guid userId)
+        {
+            var allAttempts = await _repo.GetByUserIdAsync(userId, includeDeleted: false);
+            var attempts = allAttempts.ToList();
+
+            var completedAttempts = attempts.Where(a => a.Status == "completed").ToList();
+            var inProgressAttempts = attempts.Where(a => a.Status == "in_progress").ToList();
+
+            var totalQuestions = completedAttempts.Sum(a => a.TotalQuestions);
+            var totalCorrect = completedAttempts.Sum(a => a.CorrectAnswers);
+            var totalTimeSpent = completedAttempts.Where(a => a.TimeSpent.HasValue).Sum(a => a.TimeSpent.Value);
+
+            return new PlayerStatsDto
+            {
+                UserId = userId,
+                TotalAttempts = attempts.Count,
+                CompletedAttempts = completedAttempts.Count,
+                InProgressAttempts = inProgressAttempts.Count,
+                AverageScore = completedAttempts.Any() ? (decimal)completedAttempts.Average(a => a.Score) : 0,
+                AverageAccuracy = completedAttempts.Any() ? completedAttempts.Average(a => a.Accuracy) : 0,
+                BestScore = completedAttempts.Any() ? completedAttempts.Max(a => a.Score) : 0,
+                BestAccuracy = completedAttempts.Any() ? completedAttempts.Max(a => a.Accuracy) : 0,
+                TotalQuestionsAnswered = totalQuestions,
+                TotalCorrectAnswers = totalCorrect,
+                TotalTimeSpent = totalTimeSpent > 0 ? TimeSpan.FromSeconds(totalTimeSpent) : null,
+                LastPlayedAt = attempts.Any() ? attempts.Max(a => a.CreatedAt) : null
+            };
+        }
     }
 }
