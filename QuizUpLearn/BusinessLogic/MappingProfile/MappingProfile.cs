@@ -31,6 +31,9 @@ namespace BusinessLogic.MappingProfile
             CreateMap<Repository.Entities.AnswerOption, DTOs.ResponseAnswerOptionDto>().ReverseMap();
             CreateMap<Repository.Entities.AnswerOption, DTOs.RequestAnswerOptionDto>().ReverseMap();
             
+            // Pagination Mappings
+            CreateMap<DTOs.PaginationRequestDto, DTOs.PaginationRequestDto>().ReverseMap();
+            
             //Add other mappings here as needed
         }
     }
