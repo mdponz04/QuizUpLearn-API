@@ -36,9 +36,12 @@ namespace BusinessLogic.MappingProfile
             
             // Dashboard Mappings
             CreateMap<Repository.Entities.QuizAttempt, DTOs.DashboardDtos.QuizHistoryDto>()
-                .ForMember(dest => dest.QuizName, opt => opt.MapFrom(src => src.Quiz.QuestionText))
-                .ForMember(dest => dest.Category, opt => opt.MapFrom(src => src.Quiz.TOEICPart))
-                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.ScorePercentage >= 70 ? "Passed" : "Failed"));
+                .ForMember(dest => dest.QuizName, opt => opt.MapFrom(src => src.QuizSet != null ? src.QuizSet.Title : "Unknown Quiz"))
+                .ForMember(dest => dest.Category, opt => opt.MapFrom(src => src.QuizSet != null ? src.QuizSet.Description : "General"))
+                .ForMember(dest => dest.CompletedAt, opt => opt.MapFrom(src => src.CreatedAt))
+                .ForMember(dest => dest.ScorePercentage, opt => opt.MapFrom(src => (double)src.Accuracy))
+                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Accuracy >= 70 ? "Passed" : "Failed"))
+                .ForMember(dest => dest.TimeSpent, opt => opt.MapFrom(src => src.TimeSpent ?? 0));
             
             //Add other mappings here as needed
         }
