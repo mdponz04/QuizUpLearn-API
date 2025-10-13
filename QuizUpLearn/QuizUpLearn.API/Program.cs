@@ -5,6 +5,17 @@ using QuizUpLearn.API.DI;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add CORS policy
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:3000") // Your frontend URL
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 
 // Add services to the container.
 builder.Services.AddControllers();
@@ -44,6 +55,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Enable CORS - Must be before authentication and authorization
+app.UseCors("AllowFrontend");
 
 app.UseMiddleware<QuizUpLearn.API.Middlewares.ExceptionHandlingMiddleware>();
 app.UseMiddleware<QuizUpLearn.API.Middlewares.ApiResponseWrappingMiddleware>();
