@@ -19,6 +19,10 @@ namespace BusinessLogic.MappingProfile
             CreateMap<Repository.Entities.Account, DTOs.ResponseAccountDto>().ReverseMap();
             CreateMap<Repository.Entities.Account, DTOs.RequestAccountDto>().ReverseMap();
             
+            // User Mappings
+            CreateMap<Repository.Entities.User, DTOs.ResponseUserDto>().ReverseMap();
+            CreateMap<Repository.Entities.User, DTOs.RequestUserDto>().ReverseMap();
+            
             // Quiz Attempt Mappings
             CreateMap<Repository.Entities.QuizAttempt, DTOs.ResponseQuizAttemptDto>().ReverseMap();
             CreateMap<Repository.Entities.QuizAttempt, DTOs.RequestQuizAttemptDto>().ReverseMap();

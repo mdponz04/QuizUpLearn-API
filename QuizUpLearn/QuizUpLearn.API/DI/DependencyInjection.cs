@@ -76,6 +76,7 @@ namespace QuizUpLearn.API.DI
         {
             services.AddScoped<IRoleRepo, RoleRepo>();
             services.AddScoped<IAccountRepo, AccountRepo>();
+            services.AddScoped<IUserRepo, UserRepo>();
             services.AddScoped<IOtpVerificationRepo, OtpVerificationRepo>();
             services.AddScoped<IQuizSetRepo, QuizSetRepo>();
             services.AddScoped<IQuizRepo, QuizRepo>();
@@ -97,6 +98,7 @@ namespace QuizUpLearn.API.DI
 
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<IAccountService, AccountService>();
+            services.AddScoped<IUserService, UserService>();
             services.AddScoped<IIdentityService, IdentityService>();
             services.AddScoped<IUploadService, UploadService>();
             services.AddScoped<IMailerSendService, MailerSendService>();
