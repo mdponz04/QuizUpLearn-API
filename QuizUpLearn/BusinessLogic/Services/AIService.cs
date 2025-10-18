@@ -23,7 +23,7 @@ namespace BusinessLogic.Services
         {
             _httpClient = httpClient;
             _geminiApiKey = configuration["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini API key is not configured.");
-            _openRouterApiKey = configuration["OpenRouter:ApiKey"] ?? throw new ArgumentNullException("Deepseek API key is not configured.");
+            _openRouterApiKey = configuration["OpenRouter:ApiKey"] ?? throw new ArgumentNullException("open router API key is not configured.");
             _quizSetService = quizSetService;
             _quizService = quizService;
             _answerOptionService = answerOptionService;
