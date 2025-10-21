@@ -7,13 +7,8 @@ namespace Repository.Entities
         public string Title { get; set; }
         public string Description { get; set; }
         public string QuizType { get; set; }
-        public string TOEICPart { get; set; } //useless
         public string SkillType { get; set; }
         public string DifficultyLevel { get; set; }
-
-        public int TotalQuestions { get; set; } = 0; //useless
-        public int? TimeLimit { get; set; } //useless
-
         public Guid CreatedBy { get; set; }
         public bool IsAIGenerated { get; set; } = true;
         public bool IsPublished { get; set; } = false;

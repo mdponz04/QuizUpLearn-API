@@ -19,6 +19,10 @@ namespace BusinessLogic.Services
 
         public async Task<QuizSetResponseDto> CreateQuizSetAsync(QuizSetRequestDto quizSetDto)
         {
+            if(quizSetDto.CreatedBy == null || quizSetDto.CreatedBy == Guid.Empty)
+            {
+                throw new ArgumentException("CreatedBy cannot be null or empty");
+            }
             var quizSet = _mapper.Map<QuizSet>(quizSetDto);
             var createdQuizSet = await _quizSetRepo.CreateQuizSetAsync(quizSet);
             return _mapper.Map<QuizSetResponseDto>(createdQuizSet);
@@ -30,9 +34,9 @@ namespace BusinessLogic.Services
             return _mapper.Map<QuizSetResponseDto>(quizSet);
         }
 
-        public async Task<IEnumerable<QuizSetResponseDto>> GetAllQuizSetsAsync()
+        public async Task<IEnumerable<QuizSetResponseDto>> GetAllQuizSetsAsync(bool includeDeleted)
         {
-            var quizSets = await _quizSetRepo.GetAllQuizSetsAsync();
+            var quizSets = await _quizSetRepo.GetAllQuizSetsAsync(includeDeleted);
             return _mapper.Map<IEnumerable<QuizSetResponseDto>>(quizSets);
         }
 
@@ -50,13 +54,7 @@ namespace BusinessLogic.Services
 
         public async Task<QuizSetResponseDto> UpdateQuizSetAsync(Guid id, QuizSetRequestDto quizSetDto)
         {
-            var existingQuizSet = await _quizSetRepo.GetQuizSetByIdAsync(id);
-            
-            if (existingQuizSet == null)
-                return null;
-                
-            _mapper.Map(quizSetDto, existingQuizSet);
-            var updatedQuizSet = await _quizSetRepo.UpdateQuizSetAsync(existingQuizSet);
+            var updatedQuizSet = await _quizSetRepo.UpdateQuizSetAsync(id, _mapper.Map<QuizSet>(quizSetDto));
             return _mapper.Map<QuizSetResponseDto>(updatedQuizSet);
         }
 
@@ -68,6 +66,12 @@ namespace BusinessLogic.Services
         public async Task<bool> HardDeleteQuizSetAsync(Guid id)
         {
             return await _quizSetRepo.HardDeleteQuizSetAsync(id);
+        }
+
+        public async Task<QuizSetResponseDto> RestoreQuizSetAsync(Guid id)
+        {
+            var quizSet = await _quizSetRepo.RestoreQuizSetAsync(id);
+            return _mapper.Map<QuizSetResponseDto>(quizSet);
         }
     }
 }
