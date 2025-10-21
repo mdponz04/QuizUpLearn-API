@@ -30,11 +30,11 @@ namespace Repository.Repositories
                 .FirstOrDefaultAsync(qs => qs.Id == id && qs.DeletedAt == null);
         }
 
-        public async Task<IEnumerable<QuizSet>> GetAllQuizSetsAsync()
+        public async Task<IEnumerable<QuizSet>> GetAllQuizSetsAsync(bool includeDeleted)
         {
             return await _context.QuizSets
                 .Include(qs => qs.Creator)
-                .Where(qs => qs.DeletedAt == null)
+                .Where(qs => includeDeleted || qs.DeletedAt == null)
                 .ToListAsync();
         }
 
@@ -54,10 +54,28 @@ namespace Repository.Repositories
                 .ToListAsync();
         }
 
-        public async Task<QuizSet> UpdateQuizSetAsync(QuizSet quizSet)
+        public async Task<QuizSet> UpdateQuizSetAsync(Guid id, QuizSet quizSet)
         {
+            var existingQuizSet = await _context.QuizSets.FindAsync(id);
+            if (existingQuizSet == null || existingQuizSet.DeletedAt != null)
+                return null;
+
+            if(!string.IsNullOrEmpty(quizSet.Title))
+                existingQuizSet.Title = quizSet.Title;
+            if(!string.IsNullOrEmpty(quizSet.Description))
+                existingQuizSet.Description = quizSet.Description;
+            if(!string.IsNullOrEmpty(quizSet.QuizType))
+                existingQuizSet.QuizType = quizSet.QuizType;
+            if(!string.IsNullOrEmpty(quizSet.SkillType))
+                existingQuizSet.SkillType = quizSet.SkillType;
+            if(!string.IsNullOrEmpty(quizSet.DifficultyLevel))
+                existingQuizSet.DifficultyLevel = quizSet.DifficultyLevel;
+
+            existingQuizSet.IsPublished = quizSet.IsPublished;
+            existingQuizSet.IsPremiumOnly = quizSet.IsPremiumOnly;
+            
             quizSet.UpdatedAt = DateTime.UtcNow;
-            _context.QuizSets.Update(quizSet);
+            _context.QuizSets.Update(existingQuizSet);
             await _context.SaveChangesAsync();
             return quizSet;
         }
@@ -87,6 +105,20 @@ namespace Repository.Repositories
         public async Task<bool> QuizSetExistsAsync(Guid id)
         {
             return await _context.QuizSets.AnyAsync(qs => qs.Id == id && qs.DeletedAt == null);
+        }
+
+        public async Task<QuizSet> RestoreQuizSetAsync(Guid id)
+        {
+            var quizSet = await _context.QuizSets.FindAsync(id);
+            if (quizSet == null)
+                return null;
+            if (quizSet.DeletedAt == null)
+                return null;
+
+            quizSet.DeletedAt = null;
+            _context.QuizSets.Update(quizSet);
+            await _context.SaveChangesAsync();
+            return quizSet;
         }
     }
 }

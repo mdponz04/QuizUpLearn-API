@@ -14,7 +14,6 @@ namespace BusinessLogic.DTOs.QuizSetDtos
         public int TotalQuestions { get; set; }
         public int? TimeLimit { get; set; }
         public Guid CreatedBy { get; set; }
-        public string CreatorUsername { get; set; }
         public bool IsAIGenerated { get; set; }
         public bool IsPublished { get; set; }
         public bool IsPremiumOnly { get; set; }

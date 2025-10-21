@@ -50,9 +50,9 @@ namespace QuizUpLearn.API.Controllers
         /// </summary>
         /// <returns>List of quiz sets</returns>
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<QuizSetResponseDto>>> GetAllQuizSets()
+        public async Task<ActionResult<IEnumerable<QuizSetResponseDto>>> GetAllQuizSets(bool includeDeleted = false)
         {
-            var quizSets = await _quizSetService.GetAllQuizSetsAsync();
+            var quizSets = await _quizSetService.GetAllQuizSetsAsync(includeDeleted);
             return Ok(quizSets);
         }
 
@@ -126,6 +126,15 @@ namespace QuizUpLearn.API.Controllers
                 return NotFound();
 
             return NoContent();
+        }
+
+        [HttpPost("{id}/restore")]
+        public async Task<ActionResult<QuizSetResponseDto>> RestoreQuizSet(Guid id)
+        {
+            var restoredQuizSet = await _quizSetService.RestoreQuizSetAsync(id);
+            if (restoredQuizSet == null)
+                return NotFound();
+            return Ok(restoredQuizSet);
         }
     }
 }

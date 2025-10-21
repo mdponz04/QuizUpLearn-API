@@ -169,9 +169,7 @@ Return in this structure:
                 QuizType = "Practice",
                 SkillType = inputData.SkillType,
                 DifficultyLevel = inputData.Difficulty,
-                TimeLimit = 100000,
-                CreatedBy = inputData.CreatorId,
-                TOEICPart = inputData.ToeicPart
+                CreatedBy = inputData.CreatorId
             });
 
 

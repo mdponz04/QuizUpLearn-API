@@ -2,7 +2,7 @@
 {
     public class QuizRequestDto
     {
-        public Guid QuizSetId { get; set; }
+        public Guid? QuizSetId { get; set; }
         public required string QuestionText { get; set; }
         public required string TOEICPart { get; set; }
         public bool IsActive { get; set; } = true;

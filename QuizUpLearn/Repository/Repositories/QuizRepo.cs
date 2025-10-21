@@ -52,10 +52,34 @@ namespace Repository.Repositories
                 .ToListAsync();
         }
 
-        public async Task<Quiz> UpdateQuizAsync(Quiz quiz)
+        public async Task<Quiz> UpdateQuizAsync(Guid id, Quiz quiz)
         {
+            var existingQuiz = await _context.Quizzes.FindAsync(id);
+            if (existingQuiz == null || existingQuiz.DeletedAt != null)
+                return null;
+
+            if(!string.IsNullOrEmpty(existingQuiz.QuestionText))
+                existingQuiz.QuestionText = quiz.QuestionText;
+            if(!string.IsNullOrEmpty(existingQuiz.CorrectAnswer))
+                existingQuiz.CorrectAnswer = quiz.CorrectAnswer;
+            if(!string.IsNullOrEmpty(existingQuiz.GroupId))
+                existingQuiz.GroupId = quiz.GroupId;
+            if(!string.IsNullOrEmpty(existingQuiz.AudioURL))
+                existingQuiz.AudioURL = quiz.AudioURL;
+            if(!string.IsNullOrEmpty(existingQuiz.ImageURL))
+                existingQuiz.ImageURL = quiz.ImageURL;
+            if(!string.IsNullOrEmpty(existingQuiz.TOEICPart))
+                existingQuiz.TOEICPart = quiz.TOEICPart;
+            
+            if(existingQuiz.TimesAnswered > 0)
+                existingQuiz.TimesAnswered = quiz.TimesAnswered;
+            if(existingQuiz.TimesCorrect > 0)
+                existingQuiz.TimesCorrect = quiz.TimesCorrect;
+
+            existingQuiz.OrderIndex = quiz.OrderIndex;
+
             quiz.UpdatedAt = DateTime.UtcNow;
-            _context.Quizzes.Update(quiz);
+            _context.Quizzes.Update(existingQuiz);
             await _context.SaveChangesAsync();
             return quiz;
         }
