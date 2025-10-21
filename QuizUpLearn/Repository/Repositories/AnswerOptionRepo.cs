@@ -73,9 +73,11 @@ namespace Repository.Repositories
             var existing = await _context.AnswerOptions.FindAsync(id);
             if (existing == null) return null;
 
-            existing.QuizId = answerOption.QuizId;
-            existing.OptionLabel = answerOption.OptionLabel;
-            existing.OptionText = answerOption.OptionText;
+            if(!string.IsNullOrEmpty(existing.OptionLabel))
+                existing.OptionLabel = answerOption.OptionLabel;
+            if(!string.IsNullOrEmpty(existing.OptionText))
+                existing.OptionText = answerOption.OptionText;
+            
             existing.OrderIndex = answerOption.OrderIndex;
             existing.IsCorrect = answerOption.IsCorrect;
             existing.UpdatedAt = DateTime.Now;
