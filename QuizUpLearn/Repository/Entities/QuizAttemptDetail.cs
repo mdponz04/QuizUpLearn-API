@@ -10,6 +10,11 @@ namespace Repository.Entities
         public bool? IsCorrect { get; set; }
         public int? TimeSpent { get; set; }
 
+        // Foreign key properties to match database schema
+        public Guid? QuizAttemptId { get; set; }
+        public Guid QuizId { get; set; }
+
+        // Navigation properties
         public virtual QuizAttempt? QuizAttempt { get; set; }
         public virtual Quiz Quiz { get; set; }
     }

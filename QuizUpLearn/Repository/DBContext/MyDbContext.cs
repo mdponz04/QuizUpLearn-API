@@ -31,6 +31,19 @@ namespace Repository.DBContext
             modelBuilder.Entity<QuizSet>()
                 .Property(q => q.AverageScore)
                 .HasPrecision(5, 2);
+            
+            // Configure QuizAttemptDetail foreign key relationships
+            modelBuilder.Entity<QuizAttemptDetail>()
+                .HasOne(qad => qad.QuizAttempt)
+                .WithMany(qa => qa.QuizAttemptDetails)
+                .HasForeignKey(qad => qad.QuizAttemptId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
+            modelBuilder.Entity<QuizAttemptDetail>()
+                .HasOne(qad => qad.Quiz)
+                .WithMany(q => q.QuizAttemptDetails)
+                .HasForeignKey(qad => qad.QuizId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

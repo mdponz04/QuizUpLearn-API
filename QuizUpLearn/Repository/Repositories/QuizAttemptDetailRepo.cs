@@ -16,6 +16,10 @@ namespace Repository.Repositories
 
         public async Task<QuizAttemptDetail> CreateAsync(QuizAttemptDetail quizAttemptDetail)
         {
+            // Set the foreign key properties based on the provided IDs
+            quizAttemptDetail.QuizAttemptId = quizAttemptDetail.AttemptId;
+            quizAttemptDetail.QuizId = quizAttemptDetail.QuestionId;
+            
             await _context.QuizAttemptDetails.AddAsync(quizAttemptDetail);
             await _context.SaveChangesAsync();
             return quizAttemptDetail;
@@ -43,7 +47,7 @@ namespace Repository.Repositories
         {
             return await _context.QuizAttemptDetails
                 .AsQueryable()
-                .Where(qad => qad.AttemptId == attemptId && (includeDeleted || qad.DeletedAt == null))
+                .Where(qad => qad.QuizAttemptId == attemptId && (includeDeleted || qad.DeletedAt == null))
                 .Include(qad => qad.Quiz)
                 .OrderBy(qad => qad.CreatedAt)
                 .ToListAsync();
@@ -80,6 +84,10 @@ namespace Repository.Repositories
             existing.IsCorrect = quizAttemptDetail.IsCorrect;
             existing.TimeSpent = quizAttemptDetail.TimeSpent;
             existing.UpdatedAt = DateTime.UtcNow;
+            
+            // Update foreign key properties
+            existing.QuizAttemptId = quizAttemptDetail.AttemptId;
+            existing.QuizId = quizAttemptDetail.QuestionId;
 
             _context.QuizAttemptDetails.Update(existing);
             await _context.SaveChangesAsync();
