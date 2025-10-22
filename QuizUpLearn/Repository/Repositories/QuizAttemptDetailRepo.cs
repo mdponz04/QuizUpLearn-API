@@ -63,7 +63,7 @@ namespace Repository.Repositories
         {
             var quizAttemptDetail = await _context.QuizAttemptDetails.FindAsync(id);
             if (quizAttemptDetail == null) return false;
-            quizAttemptDetail.DeletedAt = DateTime.Now;
+            quizAttemptDetail.DeletedAt = DateTime.UtcNow;
             _context.QuizAttemptDetails.Update(quizAttemptDetail);
             await _context.SaveChangesAsync();
             return true;
@@ -79,7 +79,7 @@ namespace Repository.Repositories
             existing.UserAnswer = quizAttemptDetail.UserAnswer;
             existing.IsCorrect = quizAttemptDetail.IsCorrect;
             existing.TimeSpent = quizAttemptDetail.TimeSpent;
-            existing.UpdatedAt = DateTime.Now;
+            existing.UpdatedAt = DateTime.UtcNow;
 
             _context.QuizAttemptDetails.Update(existing);
             await _context.SaveChangesAsync();

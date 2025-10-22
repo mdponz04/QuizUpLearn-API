@@ -74,7 +74,7 @@ namespace Repository.Repositories
         {
             var quizAttempt = await _context.QuizAttempts.FindAsync(id);
             if (quizAttempt == null) return false;
-            quizAttempt.DeletedAt = DateTime.Now;
+            quizAttempt.DeletedAt = DateTime.UtcNow;
             _context.QuizAttempts.Update(quizAttempt);
             await _context.SaveChangesAsync();
             return true;
@@ -97,7 +97,7 @@ namespace Repository.Repositories
             existing.OpponentId = quizAttempt.OpponentId;
             existing.IsWinner = quizAttempt.IsWinner;
             existing.Status = quizAttempt.Status;
-            existing.UpdatedAt = DateTime.Now;
+            existing.UpdatedAt = DateTime.UtcNow;
 
             _context.QuizAttempts.Update(existing);
             await _context.SaveChangesAsync();

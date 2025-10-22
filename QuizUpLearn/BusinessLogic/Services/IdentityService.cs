@@ -34,16 +34,16 @@ namespace BusinessLogic.Services
             if (!BCrypt.Net.BCrypt.Verify(dto.Password, account.PasswordHash)) return null;
             if (account.DeletedAt != null || !account.IsActive) return null;
 
-            account.LastLoginAt = DateTime.Now;
+            account.LastLoginAt = DateTime.UtcNow;
             await _accountRepo.UpdateAsync(account.Id, account);
             // Token sẽ được tạo ở Controller, service chỉ trả về Account (đơn giản hóa theo yêu cầu)
             return new LoginResponseDto
             {
                 Account = _mapper.Map<ResponseAccountDto>(account),
                 AccessToken = string.Empty,
-                ExpiresAt = DateTime.Now,
+                ExpiresAt = DateTime.UtcNow,
                 RefreshToken = string.Empty,
-                RefreshExpiresAt = DateTime.Now
+                RefreshExpiresAt = DateTime.UtcNow
             };
         }
 

@@ -62,7 +62,7 @@ namespace Repository.Repositories
         {
             var answerOption = await _context.AnswerOptions.FindAsync(id);
             if (answerOption == null) return false;
-            answerOption.DeletedAt = DateTime.Now;
+            answerOption.DeletedAt = DateTime.UtcNow;
             _context.AnswerOptions.Update(answerOption);
             await _context.SaveChangesAsync();
             return true;
@@ -80,7 +80,7 @@ namespace Repository.Repositories
             
             existing.OrderIndex = answerOption.OrderIndex;
             existing.IsCorrect = answerOption.IsCorrect;
-            existing.UpdatedAt = DateTime.Now;
+            existing.UpdatedAt = DateTime.UtcNow;
 
             _context.AnswerOptions.Update(existing);
             await _context.SaveChangesAsync();

@@ -97,7 +97,7 @@ namespace Repository.Repositories
         {
             var account = await _context.Accounts.FindAsync(id);
             if (account == null) return false;
-            account.DeletedAt = DateTime.Now;
+            account.DeletedAt = DateTime.UtcNow;
             account.IsActive = false;
             _context.Accounts.Update(account);
             await _context.SaveChangesAsync();
@@ -119,7 +119,7 @@ namespace Repository.Repositories
             existing.LockoutUntil = account.LockoutUntil;
             existing.IsActive = account.IsActive;
             existing.IsBanned = account.IsBanned;
-            existing.UpdatedAt = DateTime.Now;
+            existing.UpdatedAt = DateTime.UtcNow;
 
             _context.Accounts.Update(existing);
             await _context.SaveChangesAsync();
@@ -132,7 +132,7 @@ namespace Repository.Repositories
             var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Email == normalized);
             if (account == null) return false;
             account.PasswordHash = newPasswordHash;
-            account.UpdatedAt = DateTime.Now;
+            account.UpdatedAt = DateTime.UtcNow;
             _context.Accounts.Update(account);
             await _context.SaveChangesAsync();
             return true;

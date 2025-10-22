@@ -51,7 +51,7 @@ namespace Repository.Repositories
             var user = await _context.Users.FindAsync(id);
             if (user == null) return false;
             user.DeletedAt = null;
-            user.UpdatedAt = DateTime.Now;
+            user.UpdatedAt = DateTime.UtcNow;
             _context.Users.Update(user);
             await _context.SaveChangesAsync();
             return true;
@@ -61,8 +61,8 @@ namespace Repository.Repositories
         {
             var user = await _context.Users.FindAsync(id);
             if (user == null) return false;
-            user.DeletedAt = DateTime.Now;
-            user.UpdatedAt = DateTime.Now;
+            user.DeletedAt = DateTime.UtcNow;
+            user.UpdatedAt = DateTime.UtcNow;
             _context.Users.Update(user);
             await _context.SaveChangesAsync();
             return true;
@@ -79,7 +79,7 @@ namespace Repository.Repositories
             existing.Bio = user.Bio;
             existing.PreferredLanguage = user.PreferredLanguage;
             existing.Timezone = user.Timezone;
-            existing.UpdatedAt = DateTime.Now;
+            existing.UpdatedAt = DateTime.UtcNow;
 
             _context.Users.Update(existing);
             await _context.SaveChangesAsync();
