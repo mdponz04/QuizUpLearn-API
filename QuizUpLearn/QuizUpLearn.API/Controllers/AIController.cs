@@ -15,7 +15,7 @@ namespace QuizUpLearn.API.Controllers
             _aiService = aiService;
         }
         /// <summary>
-        /// This endpoint generates a set of practice quizzes based on the provided input data. And validates the generated quiz set.
+        /// This endpoint generates a set of practice quizzes based on the provided input data
         /// </summary>
         /// <returns></returns>
         [HttpPost("generate-quiz-set")]
@@ -28,12 +28,8 @@ namespace QuizUpLearn.API.Controllers
             try
             {
                 var result = await _aiService.GeneratePracticeQuizSetAsync(inputData);
-                var validationResult = await _aiService.ValidateQuizSetAsync(result.Id);
-                if (!validationResult.Item1) // If not valid
-                {
-                    return BadRequest($"Generated quiz set is invalid: {validationResult.Item2}");
-                }
-                return Ok(new { content = result });
+                
+                return Ok(result);
             }
             catch (Exception ex)
             {
