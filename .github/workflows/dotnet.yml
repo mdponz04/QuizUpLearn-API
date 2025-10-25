@@ -1,6 +1,3 @@
-# This workflow will build a .NET project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
-
 name: .NET
 
 on:
@@ -25,3 +22,52 @@ jobs:
               run: dotnet build QuizUpLearn/QuizUpLearn.sln --no-restore
             - name: Test
               run: dotnet test QuizUpLearn/QuizUpLearn.sln --no-build --verbosity normal
+
+    deploy:
+        runs-on: ubuntu-latest
+        needs: build
+        environment: development
+        steps:
+            - name: Clean previous publish folder
+              run: |
+                  if [ -d "./publish" ]; then
+                    echo "Removing old publish folder..."
+                    sudo rm -rf ./publish
+                  fi
+            - name: Checkout repository
+              uses: actions/checkout@v4
+              with:
+                  path: ./publish
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+            - name: Login to Docker Hub
+              uses: docker/login-action@v3
+              with:
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
+            - name: Create .env file
+              working-directory: ./publish/QuizUpLearn
+              run: |
+                  echo "ASPNETCORE_ENVIRONMENT=${{ secrets.ASPNETCORE_ENVIRONMENT }}" >> .env
+                  echo "CLOUDINARY__APIKEY=${{ secrets.CLOUDINARY__APIKEY }}" >> .env
+                  echo "CLOUDINARY__APISECRET=${{ secrets.CLOUDINARY__APISECRET }}" >> .env
+                  echo "CLOUDINARY__CLOUDNAME=${{ secrets.CLOUDINARY__CLOUDNAME }}" >> .env
+                  echo "CONNECTIONSTRINGS__POSTGRESQLCONNECTION=${{ secrets.CONNECTIONSTRINGS__POSTGRESQLCONNECTION }}" >> .env
+                  echo "GEMINI__APIKEY=${{ secrets.GEMINI__APIKEY }}" >> .env
+                  echo "JWT__ISSUER=${{ secrets.JWT__ISSUER }}" >> .env
+                  echo "JWT__KEY=${{ secrets.JWT__KEY }}" >> .env
+                  echo "MAILERSEND__APIKEY=${{ secrets.MAILERSEND__APIKEY }}" >> .env
+                  echo "MAILERSEND__FROMEMAIL=${{ secrets.MAILERSEND__FROMEMAIL }}" >> .env
+                  echo "MAILERSEND__FROMNAME=${{ secrets.MAILERSEND__FROMNAME }}" >> .env
+                  echo "OPENROUTER__APIKEY=${{ secrets.OPENROUTER__APIKEY }}" >> .env
+            - name: Build images with Docker Compose
+              working-directory: ./publish/QuizUpLearn
+              run: docker compose build
+            - name: Push images to Docker Hub
+              working-directory: ./publish/QuizUpLearn
+              run: docker compose push
+            - name: Logout from Docker Hub
+              run: docker logout
+            - name: redeploy server using webhook
+              if: success()
+              run: curl -X POST ${{ secrets.REDEPLOY_WEBHOOK_URL }}
