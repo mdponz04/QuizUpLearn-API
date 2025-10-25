@@ -39,3 +39,6 @@ Thumbs.db
 
 appsettings.json
 appsettings.*.json
+
+# Ignore all env files in any folder
+**/.env
