@@ -16,8 +16,6 @@ namespace BusinessLogic.DTOs
         
         [Required]
         public Guid QuizSetId { get; set; }
-        
-        public int TimePerQuestion { get; set; } = 30; // seconds
     }
 
     /// <summary>
@@ -53,7 +51,6 @@ namespace BusinessLogic.DTOs
         public string HostUserName { get; set; } = string.Empty;
         public string HostConnectionId { get; set; } = string.Empty;
         public Guid QuizSetId { get; set; }
-        public int TimePerQuestion { get; set; }
         public GameStatus Status { get; set; }
         public List<PlayerInfo> Players { get; set; } = new();
         public List<QuestionDto> Questions { get; set; } = new();
@@ -76,7 +73,6 @@ namespace BusinessLogic.DTOs
         public List<AnswerOptionDto> AnswerOptions { get; set; } = new();
         public int QuestionNumber { get; set; }
         public int TotalQuestions { get; set; }
-        public int TimeLimit { get; set; }
     }
 
     /// <summary>

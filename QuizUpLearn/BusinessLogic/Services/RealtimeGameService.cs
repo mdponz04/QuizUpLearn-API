@@ -19,9 +19,6 @@ namespace BusinessLogic.Services
         private readonly IDistributedCache _cache; // ✨ Redis Cache
         private readonly ILogger<RealtimeGameService> _logger;
 
-        // ⏱️ Timers vẫn giữ in-memory (không thể serialize Timer vào Redis)
-        private static readonly ConcurrentDictionary<string, Timer> _questionTimers = new();
-
         public RealtimeGameService(
             IServiceProvider serviceProvider,
             IDistributedCache cache, // ✨ Inject Redis
@@ -151,7 +148,6 @@ namespace BusinessLogic.Services
                     AudioUrl = quiz.AudioURL,
                     QuestionNumber = questionNumber,
                     TotalQuestions = quizzes.Count(),
-                    TimeLimit = dto.TimePerQuestion,
                     AnswerOptions = answerOptions.Select(ao => new AnswerOptionDto
                     {
                         AnswerId = ao.Id,
@@ -190,7 +186,6 @@ namespace BusinessLogic.Services
                 HostUserId = dto.HostUserId,
                 HostUserName = dto.HostUserName,
                 QuizSetId = dto.QuizSetId,
-                TimePerQuestion = dto.TimePerQuestion,
                 Status = GameStatus.Lobby,
                 Questions = questionsList,
                 CurrentQuestionIndex = 0,
@@ -220,8 +215,8 @@ namespace BusinessLogic.Services
             await SaveGameSessionToRedisAsync(gamePin, session);
             
             _logger.LogInformation($"✅ Host connected to game {gamePin}");
-            return true;
-        }
+                return true;
+            }
 
         // ==================== PLAYER JOIN/LEAVE ====================
         /// <summary>
@@ -289,7 +284,7 @@ namespace BusinessLogic.Services
         /// <summary>
         /// Host start game - chuyển sang câu hỏi đầu tiên
         /// </summary>
-        public async Task<QuestionDto?> StartGameAsync(string gamePin, Action<string> onQuestionTimeout)
+        public async Task<QuestionDto?> StartGameAsync(string gamePin)
         {
             var session = await GetGameSessionFromRedisAsync(gamePin);
             if (session == null)
@@ -308,8 +303,6 @@ namespace BusinessLogic.Services
 
             var question = session.Questions[0];
 
-            // Start timer trên server
-            StartQuestionTimer(gamePin, session.TimePerQuestion, onQuestionTimeout);
             await SaveGameSessionToRedisAsync(gamePin, session);
             
             _logger.LogInformation($"✅ Game {gamePin} started with {session.Players.Count} players");
@@ -323,28 +316,46 @@ namespace BusinessLogic.Services
         /// </summary>
         public async Task<bool> SubmitAnswerAsync(string gamePin, string connectionId, Guid questionId, Guid answerId)
         {
+            _logger.LogInformation($"📥 SubmitAnswer called: GamePin={gamePin}, QuestionId={questionId}, AnswerId={answerId}");
+            
             var session = await GetGameSessionFromRedisAsync(gamePin);
             if (session == null)
+            {
+                _logger.LogWarning($"❌ SubmitAnswer failed: Game {gamePin} not found");
                 return false;
+            }
+
+            _logger.LogInformation($"📊 Game state: Status={session.Status}, CurrentQ={session.CurrentQuestionIndex}, Answers={session.CurrentAnswers.Count}");
 
             if (session.Status != GameStatus.InProgress)
-                return false; // Chỉ submit được khi đang InProgress
+            {
+                _logger.LogWarning($"❌ SubmitAnswer failed: Game {gamePin} status is {session.Status}, not InProgress");
+                return false;
+            }
 
             if (!session.QuestionStartedAt.HasValue)
+            {
+                _logger.LogWarning($"❌ SubmitAnswer failed: Game {gamePin} has no QuestionStartedAt");
                 return false;
+            }
 
             var player = session.Players.FirstOrDefault(p => p.ConnectionId == connectionId);
             if (player == null)
+            {
+                _logger.LogWarning($"❌ SubmitAnswer failed: Player with connection {connectionId} not found in game {gamePin}. Total players: {session.Players.Count}");
                 return false;
+            }
 
             // Check nếu đã submit rồi
             if (session.CurrentAnswers.ContainsKey(connectionId))
-                return false; // Không cho submit lại
+            {
+                _logger.LogWarning($"❌ SubmitAnswer failed: Player '{player.PlayerName}' already submitted answer for question {session.CurrentQuestionIndex}");
+                return false;
+            }
 
-            // Check thời gian
+            // Calculate time spent (for scoring)
             var timeSpent = (DateTime.UtcNow - session.QuestionStartedAt.Value).TotalSeconds;
-            if (timeSpent > session.TimePerQuestion)
-                return false; // Hết giờ rồi
+            _logger.LogInformation($"⏱️ Time spent: {timeSpent:F2}s");
 
             // Check đáp án đúng
             bool isCorrect = false;
@@ -354,12 +365,14 @@ namespace BusinessLogic.Services
                 isCorrect = correctMap.GetValueOrDefault(answerId, false);
             }
 
-            // Tính điểm: 1000 điểm cơ bản + bonus theo thời gian
+            // Tính điểm: 1000 điểm cơ bản + bonus theo tốc độ
             // Nếu trả lời nhanh hơn = điểm cao hơn (Kahoot style)
+            // Giả định max time là 30 giây (có thể adjust)
             int points = 0;
             if (isCorrect)
             {
-                double timeRatio = 1.0 - (timeSpent / session.TimePerQuestion);
+                const int MAX_TIME = 30; // Max expected time in seconds
+                double timeRatio = Math.Max(0, 1.0 - (timeSpent / MAX_TIME));
                 points = (int)(1000 + (timeRatio * 500)); // Tối đa 1500 điểm
             }
 
@@ -463,7 +476,7 @@ namespace BusinessLogic.Services
         {
             var session = await GetGameSessionFromRedisAsync(gamePin);
             if (session == null)
-                return null;
+            return null;
 
             var rankings = session.Players
                 .OrderByDescending(p => p.Score)
@@ -490,7 +503,7 @@ namespace BusinessLogic.Services
         /// <summary>
         /// Host chuyển sang câu hỏi tiếp theo
         /// </summary>
-        public async Task<QuestionDto?> NextQuestionAsync(string gamePin, Action<string> onQuestionTimeout)
+        public async Task<QuestionDto?> NextQuestionAsync(string gamePin)
         {
             var session = await GetGameSessionFromRedisAsync(gamePin);
             if (session == null)
@@ -506,18 +519,16 @@ namespace BusinessLogic.Services
                 return null; // Hết câu hỏi
             }
 
+            // ✨ RESET STATE FOR NEW QUESTION
             session.Status = GameStatus.InProgress;
             session.QuestionStartedAt = DateTime.UtcNow;
             session.CurrentAnswers.Clear();
 
             var question = session.Questions[session.CurrentQuestionIndex];
 
-            // Start timer trên server
-            StartQuestionTimer(gamePin, session.TimePerQuestion, onQuestionTimeout);
-
             await SaveGameSessionToRedisAsync(gamePin, session);
             
-            _logger.LogInformation($"✅ Game {gamePin} moved to question {session.CurrentQuestionIndex + 1}");
+            _logger.LogInformation($"✅ Game {gamePin} moved to question {session.CurrentQuestionIndex + 1}. Status={session.Status}, QuestionStartedAt={session.QuestionStartedAt}, Answers cleared");
 
             return question;
         }
@@ -564,44 +575,10 @@ namespace BusinessLogic.Services
         /// </summary>
         public async Task CleanupGameAsync(string gamePin)
         {
-            // Stop timer nếu đang chạy
-            if (_questionTimers.TryRemove(gamePin, out var timer))
-            {
-                timer.Dispose();
-            }
-
             // ✨ Xóa khỏi Redis
             await DeleteGameFromRedisAsync(gamePin);
 
             _logger.LogInformation($"✅ Game {gamePin} cleaned up from Redis");
-        }
-
-        // ==================== TIMER MANAGEMENT ====================
-        /// <summary>
-        /// Start timer trên server - SOURCE OF TRUTH
-        /// </summary>
-        private void StartQuestionTimer(string gamePin, int seconds, Action<string> onTimeout)
-        {
-            // Stop existing timer nếu có
-            if (_questionTimers.TryRemove(gamePin, out var existingTimer))
-            {
-                existingTimer.Dispose();
-            }
-
-            // Create new timer
-            var timer = new Timer(_ =>
-            {
-                _logger.LogInformation($"⏰ Question timer expired for game {gamePin}");
-                onTimeout(gamePin);
-
-                // Dispose timer sau khi chạy
-                if (_questionTimers.TryRemove(gamePin, out var t))
-                {
-                    t.Dispose();
-                }
-            }, null, TimeSpan.FromSeconds(seconds), Timeout.InfiniteTimeSpan);
-
-            _questionTimers[gamePin] = timer;
         }
 
         // ==================== CONNECTION MANAGEMENT ====================

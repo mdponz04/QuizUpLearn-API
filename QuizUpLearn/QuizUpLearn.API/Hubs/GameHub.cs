@@ -190,7 +190,7 @@ namespace QuizUpLearn.API.Hubs
         {
             try
             {
-                var question = await _gameService.StartGameAsync(gamePin, OnQuestionTimeout);
+                var question = await _gameService.StartGameAsync(gamePin);
                 if (question == null)
                 {
                     await Clients.Caller.SendAsync("Error", "Failed to start game");
@@ -266,11 +266,11 @@ namespace QuizUpLearn.API.Hubs
             }
         }
 
-        // ==================== QUESTION TIMEOUT ====================
+        // ==================== SHOW RESULT (Frontend-triggered) ====================
         /// <summary>
-        /// Callback khi Timer hết giờ (gọi từ service)
+        /// Host trigger show result (được gọi từ frontend khi hết giờ)
         /// </summary>
-        private async void OnQuestionTimeout(string gamePin)
+        public async Task ShowQuestionResult(string gamePin)
         {
             try
             {
@@ -278,17 +278,19 @@ namespace QuizUpLearn.API.Hubs
                 if (result == null)
                 {
                     _logger.LogWarning($"Failed to get question result for game {gamePin}");
+                    await Clients.Caller.SendAsync("Error", "Failed to get question result");
                     return;
                 }
 
-                _logger.LogInformation($"Question timeout for game {gamePin}. Showing results.");
+                _logger.LogInformation($"Showing result for game {gamePin}");
 
                 // Gửi kết quả cho tất cả
                 await Clients.Group($"Game_{gamePin}").SendAsync("ShowAnswerResult", result);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error in OnQuestionTimeout for game {gamePin}");
+                _logger.LogError(ex, $"Error in ShowQuestionResult for game {gamePin}");
+                await Clients.Caller.SendAsync("Error", "An error occurred while showing result");
             }
         }
 
@@ -314,7 +316,7 @@ namespace QuizUpLearn.API.Hubs
                 await Task.Delay(5000);
 
                 // Lấy câu hỏi tiếp theo
-                var nextQuestion = await _gameService.NextQuestionAsync(gamePin, OnQuestionTimeout);
+                var nextQuestion = await _gameService.NextQuestionAsync(gamePin);
 
                 if (nextQuestion == null)
                 {
