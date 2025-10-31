@@ -7,6 +7,9 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+
+builder.Services.AddInfrastructure(builder.Configuration);
+
 // Add CORS policy
 builder.Services.AddCors(options =>
 {
@@ -65,8 +68,6 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-
-builder.Services.AddInfrastructure(builder.Configuration);
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
 var key = Encoding.UTF8.GetBytes(jwtSection["Key"]!);

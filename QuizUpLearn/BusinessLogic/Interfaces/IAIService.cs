@@ -5,9 +5,16 @@ namespace BusinessLogic.Interfaces
 {
     public interface IAIService
     {
-        Task<string> GeminiGenerateContentAsync(string prompt);
-        Task<QuizSetResponseDto> GeneratePracticeQuizSetAsync(AiGenerateQuizSetRequestDto inputData);
         Task AnalyzeUserProgress();
         Task<(bool, string)> ValidateQuizSetAsync(Guid quizSetId);
+        Task<QuizSetResponseDto> GeneratePracticeQuizSetPart1Async(AiGenerateQuizSetRequestDto inputData);
+        Task<QuizSetResponseDto> GeneratePracticeQuizSetPart2Async(AiGenerateQuizSetRequestDto inputData);
+        Task<QuizSetResponseDto> GeneratePracticeQuizSetPart3Async(AiGenerateQuizSetRequestDto inputData);
+        Task<QuizSetResponseDto> GeneratePracticeQuizSetPart4Async(AiGenerateQuizSetRequestDto inputData);
+        Task<QuizSetResponseDto> GeneratePracticeQuizSetPart5Async(AiGenerateQuizSetRequestDto inputData);
+        Task<QuizSetResponseDto> GeneratePracticeQuizSetPart6Async(AiGenerateQuizSetRequestDto inputData);
+        Task<QuizSetResponseDto> GeneratePracticeQuizSetPart7Async(AiGenerateQuizSetRequestDto inputData);
+        Task<(bool, string)> ValidateImageAsync(string context);
+        Task<(bool, string)> ValidateAudioAsync(string script);
     }
 }

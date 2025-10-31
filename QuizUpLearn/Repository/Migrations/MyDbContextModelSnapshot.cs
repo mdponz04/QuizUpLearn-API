@@ -252,6 +252,9 @@ namespace Repository.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("IsCompleted")
+                        .HasColumnType("boolean");
+
                     b.Property<bool?>("IsWinner")
                         .HasColumnType("boolean");
 
@@ -381,10 +384,6 @@ namespace Repository.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<string>("QuizType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("SkillType")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -573,7 +572,8 @@ namespace Repository.Migrations
                 {
                     b.HasOne("Repository.Entities.QuizAttempt", "QuizAttempt")
                         .WithMany("QuizAttemptDetails")
-                        .HasForeignKey("QuizAttemptId");
+                        .HasForeignKey("QuizAttemptId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("Repository.Entities.Quiz", "Quiz")
                         .WithMany("QuizAttemptDetails")

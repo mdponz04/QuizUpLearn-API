@@ -2,8 +2,10 @@
 using BusinessLogic.DTOs.AiDtos;
 using BusinessLogic.DTOs.QuizDtos;
 using BusinessLogic.DTOs.QuizSetDtos;
+using BusinessLogic.Helpers;
 using BusinessLogic.Interfaces;
 using Microsoft.Extensions.Configuration;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -16,17 +18,33 @@ namespace BusinessLogic.Services
         private readonly IQuizSetService _quizSetService;
         private readonly IQuizService _quizService;
         private readonly IAnswerOptionService _answerOptionService;
+        private readonly IUploadService _uploadService;
+        //API keys
         private readonly string _geminiApiKey;
         private readonly string _openRouterApiKey;
-
-        public AIService(HttpClient httpClient, IConfiguration configuration, IQuizSetService quizSetService, IQuizService quizService, IAnswerOptionService answerOptionService)
+        private readonly string _elevenLabsApiKey;
+        private readonly string _nebiusApiKey;
+        //Voice IDs
+        private readonly string _maleVoiceId;
+        private readonly string _femaleVoiceId;
+        private readonly string _narratorVoiceId;
+        public AIService(HttpClient httpClient, IConfiguration configuration, IQuizSetService quizSetService, IQuizService quizService, IAnswerOptionService answerOptionService, IUploadService uploadService)
         {
             _httpClient = httpClient;
-            _geminiApiKey = configuration["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini API key is not configured.");
-            _openRouterApiKey = configuration["OpenRouter:ApiKey"] ?? throw new ArgumentNullException("open router API key is not configured.");
             _quizSetService = quizSetService;
             _quizService = quizService;
             _answerOptionService = answerOptionService;
+            _uploadService = uploadService;
+            //API keys
+            _geminiApiKey = configuration["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini API key is not configured.");
+            _openRouterApiKey = configuration["OpenRouter:ApiKey"] ?? throw new ArgumentNullException("Open router API key is not configured.");
+            _elevenLabsApiKey = configuration["ElevenLabs:ApiKey"] ?? throw new ArgumentNullException("Eleven Labs API key is not configured.");
+            _nebiusApiKey = configuration["Nebius:ApiKey"] ?? throw new ArgumentNullException("Nebius API key is not configured.");
+            //Voice ids
+            _maleVoiceId = configuration["ElevenLabs:Voices:Male"] ?? throw new ArgumentNullException("Male voice id is not configured");
+            _femaleVoiceId = configuration["ElevenLabs:Voices:Female"] ?? throw new ArgumentNullException("Female voice id is not configured"); ;
+            _narratorVoiceId = configuration["ElevenLabs:Voices:Narrator"] ?? throw new ArgumentNullException("Narrator voice id is not configured");
+            
         }
 
         public Task AnalyzeUserProgress()
@@ -34,7 +52,7 @@ namespace BusinessLogic.Services
             throw new NotImplementedException();
         }
 
-        public async Task<string> GeminiGenerateContentAsync(string prompt)
+        private async Task<string> GeminiGenerateContentAsync(string prompt)
         {
             var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
 
@@ -143,66 +161,78 @@ namespace BusinessLogic.Services
             return returnContent;
         }
 
-        public async Task<QuizSetResponseDto> GeneratePracticeQuizSetAsync(AiGenerateQuizSetRequestDto inputData)
+        private async Task<byte[]> GenerateImageAsync(string prompt)
         {
-            var prompt = $@"
-Generate a TOEIC practice quiz titled: '{inputData.Topic}'.
-Description: Focus on {inputData.SkillType} skills (TOEIC Part {inputData.ToeicPart}), 
-suitable for learners with TOEIC scores around {inputData.Difficulty}.
+            var url = $"https://api.studio.nebius.com/v1/images/generations";
 
-Generate ONE question that matches this theme.
-
-Return in this structure:
-{{
-  ""QuestionText"": ""..."",
-  ""AnswerOptions"": [
-    {{ ""OptionLabel"": ""A"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
-    {{ ""OptionLabel"": ""B"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
-    {{ ""OptionLabel"": ""C"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
-    {{ ""OptionLabel"": ""D"", ""OptionText"": ""..."", ""IsCorrect"": true/false }}
-  ]
-}}";
-            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
+            var payload = new
             {
-                Title = inputData.Topic,
-                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic}, focusing on {inputData.SkillType} skills.",
-                QuizType = "Practice",
-                SkillType = inputData.SkillType,
-                DifficultyLevel = inputData.Difficulty,
-                CreatedBy = inputData.CreatorId
-            });
+                model = "black-forest-labs/flux-schnell",
+                prompt = prompt,
+                response_format = "b64_json",
+                response_extension = "png",
+                width = 1024,
+                height = 768,
+                num_inference_steps = 8,
+                negative_prompt = "color",
+                seed = -1,
+                loras = (object?)null
+            };
 
+            var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
-            for (int i = 0; i < inputData.QuestionQuantity; i++)
+            var request = new HttpRequestMessage(HttpMethod.Post, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _nebiusApiKey);
+            request.Content = content;
+
+            var response = await _httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+            var base64 = doc.RootElement.GetProperty("data")[0].GetProperty("b64_json").GetString();
+
+            return Convert.FromBase64String(base64!);
+        }
+
+        private string GetVoiceId(VoiceRoles role)
+        {
+            switch (role)
             {
-                var response = await GeminiGenerateContentAsync(prompt);
-
-                var quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
-                if (quiz == null 
-                    || string.IsNullOrEmpty(quiz.QuestionText) 
-                    || quiz.AnswerOptions.Count == 0)
-                    throw new Exception("Failed to generate valid quiz data from AI.");
-
-                var createdQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
-                {
-                    QuizSetId = createdQuizSet.Id,
-                    QuestionText = quiz.QuestionText,
-                    TOEICPart = inputData.ToeicPart,
-                });
-
-                foreach(var item in quiz.AnswerOptions)
-                {
-                    await _answerOptionService.CreateAsync(new RequestAnswerOptionDto
-                    {
-                        OptionLabel = item.OptionLabel,
-                        OptionText = item.OptionText,
-                        IsCorrect = item.IsCorrect,
-                        QuizId = createdQuiz.Id
-                    });
-                }
+                case VoiceRoles.Male:
+                    return _maleVoiceId;
+                case VoiceRoles.Female:
+                    return _femaleVoiceId;
+                case VoiceRoles.Narrator:
+                    return _narratorVoiceId;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(role), role, "Invalid voice role");
             }
+        }
 
-            return createdQuizSet;
+        private async Task<byte[]> GenerateAudioAsync(string text, VoiceRoles role)
+        {
+            var voiceId = GetVoiceId(role);
+            var url = $"https://api.elevenlabs.io/v1/text-to-speech/{voiceId}";
+
+            var requestBody = new
+            {
+                text,
+                model_id = "eleven_multilingual_v2",
+                voice_settings = new { stability = 0.5, similarity_boost = 0.8 }
+            };
+
+            var request = new HttpRequestMessage(HttpMethod.Post, url);
+            request.Headers.Add("xi-api-key", _elevenLabsApiKey);
+            request.Content = new StringContent(
+                System.Text.Json.JsonSerializer.Serialize(requestBody),
+                System.Text.Encoding.UTF8,
+                "application/json"
+            );
+
+            var response = await _httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsByteArrayAsync();
         }
 
         public async Task<(bool, string)> ValidateQuizSetAsync(Guid quizSetId)
@@ -227,7 +257,7 @@ Review this quiz for correctness and clarity.
 
 ### Quiz Set Context:
 TOEIC practice quiz titled: '{quizSet.Title}'.
-Description: Focus on {quizSet.SkillType} skills (TOEIC Part {quizSet.TOEICPart}), 
+Description: Focus on TOEIC Part {quizSet.TOEICPart}, 
 suitable for learners with TOEIC scores around {quizSet.DifficultyLevel}.
 
 ### Quiz to Validate
@@ -239,6 +269,8 @@ Check the criteria and explain shortly at Feedback field:
 1. The question is grammatically correct and meaningful.
 2. There is ONE or more correct answer.
 3. The correct answer makes sense in context.
+4. Not duplicating or very similar options.
+5. If everything is fine but can be improved just give suggestion in Feedback but the is valid is depend on 4 above criteria.
 
 Return only these 2 fields as JSON structure:
 {{ 
@@ -267,6 +299,247 @@ Return only these 2 fields as JSON structure:
 
             return (allValid, feedbackBuilder.ToString());
         }
+        //Done
+        public async Task<QuizSetResponseDto> GeneratePracticeQuizSetPart1Async(AiGenerateQuizSetRequestDto inputData)
+        {
+            var prompt = $@"
+Generate a TOEIC practice quiz titled: '{inputData.Topic}'.
+Description: Focus on TOEIC Part 1 , 
+suitable for learners with TOEIC scores around {inputData.Difficulty}.
+Question should describe a photo scene with one correct answer among four choices. 
+The image should be described in detail with atleast 50 words.
 
+Generate ONE question that matches this theme.
+
+
+Only return in this structure no need any extended field/infor:
+{{
+  ""ImageDescription"": ""..."",
+  ""QuestionText"": ""..."",
+  ""AnswerOptions"": [
+    {{ ""OptionLabel"": ""A"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
+    {{ ""OptionLabel"": ""B"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
+    {{ ""OptionLabel"": ""C"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
+    {{ ""OptionLabel"": ""D"", ""OptionText"": ""..."", ""IsCorrect"": true/false }}
+  ]
+}}";
+
+            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
+            {
+                Title = inputData.Topic,
+                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC part 1",
+                QuizType = "Practice",
+                SkillType = "",
+                DifficultyLevel = inputData.Difficulty,
+                CreatedBy = inputData.CreatorId
+            });
+
+            for (int i = 0; i < inputData.QuestionQuantity; i++)
+            {
+                var response = await GeminiGenerateContentAsync(prompt);
+                
+                var quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
+                if (quiz == null
+                    || string.IsNullOrEmpty(quiz.QuestionText)
+                    || quiz.AnswerOptions.Count == 0)
+                    throw new Exception("Failed to generate valid quiz data from AI.");
+
+                var audioScript = string.Join(Environment.NewLine,quiz.AnswerOptions.Select(o => $"{o.OptionLabel}. {o.OptionText}"));
+
+                var audio = await GenerateAudioAsync(audioScript, VoiceRoles.Narrator);
+                var image = await GenerateImageAsync(quiz.ImageDescription);
+
+                var audioFile = await _uploadService.ConvertByteArrayToIFormFile(audio, $"audio-Q{i}-{inputData.CreatorId}-{DateTime.UtcNow}.mp3", "audio/mpeg");
+                var imageFile = await _uploadService.ConvertByteArrayToIFormFile(image, $"image-Q{i}-{inputData.CreatorId}-{DateTime.UtcNow}.png", "image/png");
+
+                var audioResult = await _uploadService.UploadAsync(audioFile);
+                var imageResult = await _uploadService.UploadAsync(imageFile);
+
+                var createdQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
+                {
+                    QuizSetId = createdQuizSet.Id,
+                    QuestionText = quiz.QuestionText,
+                    TOEICPart = "Part 1",
+                    AudioURL = audioResult.Url,
+                    ImageURL = imageResult.Url
+                });
+
+                foreach (var item in quiz.AnswerOptions)
+                {
+                    await _answerOptionService.CreateAsync(new RequestAnswerOptionDto
+                    {
+                        OptionLabel = item.OptionLabel,
+                        OptionText = "",
+                        IsCorrect = item.IsCorrect,
+                        QuizId = createdQuiz.Id
+                    });
+                }
+            }
+
+            return createdQuizSet;
+        }
+        //Done
+        public async Task<QuizSetResponseDto> GeneratePracticeQuizSetPart2Async(AiGenerateQuizSetRequestDto inputData)
+        {
+            var prompt = $@"
+Generate a TOEIC practice quiz titled: '{inputData.Topic}'.
+Description: Focus on TOEIC Part 2, 
+suitable for learners with TOEIC scores around {inputData.Difficulty}.
+Question have 3 answers, each answer should have different context then the correct one is the answer that fit with the topic, you have to generate question text, answer options. 
+
+Generate ONE question that matches this theme.
+
+Only return in this structure no need any extended field/infor:
+{{
+  ""QuestionText"": ""..."",
+  ""AnswerOptions"": [
+    {{ ""OptionLabel"": ""A"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
+    {{ ""OptionLabel"": ""B"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
+    {{ ""OptionLabel"": ""C"", ""OptionText"": ""..."", ""IsCorrect"": true/false }}
+  ]
+}}";
+
+            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
+            {
+                Title = inputData.Topic,
+                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC part 2",
+                QuizType = "Practice",
+                SkillType = "",
+                DifficultyLevel = inputData.Difficulty,
+                CreatedBy = inputData.CreatorId
+            });
+
+            for (int i = 0; i < inputData.QuestionQuantity; i++)
+            {
+                var response = await GeminiGenerateContentAsync(prompt);
+
+                var quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
+                if (quiz == null
+                    || string.IsNullOrEmpty(quiz.QuestionText)
+                    || quiz.AnswerOptions.Count == 0)
+                    throw new Exception("Failed to generate valid quiz data from AI.");
+
+                var audioScript = "Question: " + quiz.QuestionText + ".\n" + string.Join(Environment.NewLine, quiz.AnswerOptions.Select(o => $"{o.OptionLabel}. {o.OptionText}"));
+
+                var audio = await GenerateAudioAsync(audioScript, VoiceRoles.Narrator);
+                
+                var audioFile = await _uploadService.ConvertByteArrayToIFormFile(audio, $"audio-Q{i}-{inputData.CreatorId}-{DateTime.UtcNow}.mp3", "audio/mpeg");
+                
+                var audioResult = await _uploadService.UploadAsync(audioFile);
+                
+                var createdQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
+                {
+                    QuizSetId = createdQuizSet.Id,
+                    QuestionText = "",
+                    TOEICPart = "Part 2",
+                    AudioURL = audioResult.Url
+                });
+
+                foreach (var item in quiz.AnswerOptions)
+                {
+                    await _answerOptionService.CreateAsync(new RequestAnswerOptionDto
+                    {
+                        OptionLabel = item.OptionLabel,
+                        OptionText = "",
+                        IsCorrect = item.IsCorrect,
+                        QuizId = createdQuiz.Id
+                    });
+                }
+            }
+            return createdQuizSet;
+        }
+
+        public Task<QuizSetResponseDto> GeneratePracticeQuizSetPart3Async(AiGenerateQuizSetRequestDto inputData)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<QuizSetResponseDto> GeneratePracticeQuizSetPart4Async(AiGenerateQuizSetRequestDto inputData)
+        {
+            throw new NotImplementedException();
+        }
+
+        public async Task<QuizSetResponseDto> GeneratePracticeQuizSetPart5Async(AiGenerateQuizSetRequestDto inputData)
+        {
+            var prompt = $@"
+Generate a TOEIC practice quiz titled: '{inputData.Topic}'.
+Description: Focus on TOEIC Part 5 - in this part the question will be an incomplete sentence with 4 answer to fill in, 
+suitable for learners with TOEIC scores around {inputData.Difficulty}.
+
+
+Generate ONE question that matches this theme.
+
+Only return in this structure no need any extended field/infor:
+{{
+  ""QuestionText"": ""..."",
+  ""AnswerOptions"": [
+    {{ ""OptionLabel"": ""A"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
+    {{ ""OptionLabel"": ""B"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
+    {{ ""OptionLabel"": ""C"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
+    {{ ""OptionLabel"": ""D"", ""OptionText"": ""..."", ""IsCorrect"": true/false }}
+  ]
+}}";
+
+            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
+            {
+                Title = inputData.Topic,
+                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC part 5",
+                QuizType = "Practice",
+                SkillType = "",
+                DifficultyLevel = inputData.Difficulty,
+                CreatedBy = inputData.CreatorId
+            });
+
+            for (int i = 0; i < inputData.QuestionQuantity; i++)
+            {
+                var response = await GeminiGenerateContentAsync(prompt);
+
+                var quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
+                if (quiz == null
+                    || string.IsNullOrEmpty(quiz.QuestionText)
+                    || quiz.AnswerOptions.Count == 0)
+                    throw new Exception("Failed to generate valid quiz data from AI.");
+
+                var createdQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
+                {
+                    QuizSetId = createdQuizSet.Id,
+                    QuestionText = quiz.QuestionText,
+                    TOEICPart = "Part 5",
+                    CorrectAnswer = quiz.AnswerOptions.FirstOrDefault(o => o.IsCorrect)!.OptionLabel,
+                });
+
+                foreach (var item in quiz.AnswerOptions)
+                {
+                    await _answerOptionService.CreateAsync(new RequestAnswerOptionDto
+                    {
+                        OptionLabel = item.OptionLabel,
+                        OptionText = item.OptionText,
+                        IsCorrect = item.IsCorrect,
+                        QuizId = createdQuiz.Id
+                    });
+                }
+            }
+            return createdQuizSet;
+        }
+
+        public Task<QuizSetResponseDto> GeneratePracticeQuizSetPart6Async(AiGenerateQuizSetRequestDto inputData)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<QuizSetResponseDto> GeneratePracticeQuizSetPart7Async(AiGenerateQuizSetRequestDto inputData)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<(bool, string)> ValidateImageAsync(string context)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<(bool, string)> ValidateAudioAsync(string script)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

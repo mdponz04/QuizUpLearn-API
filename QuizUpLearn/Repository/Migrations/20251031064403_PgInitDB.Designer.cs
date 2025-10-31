@@ -12,8 +12,8 @@ using Repository.DBContext;
 namespace Repository.Migrations
 {
     [DbContext(typeof(MyDbContext))]
-    [Migration("20251021042616_InitDB")]
-    partial class InitDB
+    [Migration("20251031064403_PgInitDB")]
+    partial class PgInitDB
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -255,6 +255,9 @@ namespace Repository.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("IsCompleted")
+                        .HasColumnType("boolean");
+
                     b.Property<bool?>("IsWinner")
                         .HasColumnType("boolean");
 
@@ -384,10 +387,6 @@ namespace Repository.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<string>("QuizType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("SkillType")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -576,7 +575,8 @@ namespace Repository.Migrations
                 {
                     b.HasOne("Repository.Entities.QuizAttempt", "QuizAttempt")
                         .WithMany("QuizAttemptDetails")
-                        .HasForeignKey("QuizAttemptId");
+                        .HasForeignKey("QuizAttemptId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("Repository.Entities.Quiz", "Quiz")
                         .WithMany("QuizAttemptDetails")

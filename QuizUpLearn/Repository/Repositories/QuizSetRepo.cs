@@ -66,8 +66,6 @@ namespace Repository.Repositories
                 existingQuizSet.Description = quizSet.Description;
             if(!string.IsNullOrEmpty(quizSet.QuizType))
                 existingQuizSet.QuizType = quizSet.QuizType;
-            if(!string.IsNullOrEmpty(quizSet.SkillType))
-                existingQuizSet.SkillType = quizSet.SkillType;
             if(!string.IsNullOrEmpty(quizSet.DifficultyLevel))
                 existingQuizSet.DifficultyLevel = quizSet.DifficultyLevel;
 

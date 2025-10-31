@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Repository.Migrations
 {
     /// <inheritdoc />
-    public partial class InitDB : Migration
+    public partial class PgInitDB : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -128,7 +128,6 @@ namespace Repository.Migrations
                     Title = table.Column<string>(type: "text", nullable: false),
                     Description = table.Column<string>(type: "text", nullable: false),
                     QuizType = table.Column<string>(type: "text", nullable: false),
-                    SkillType = table.Column<string>(type: "text", nullable: false),
                     DifficultyLevel = table.Column<string>(type: "text", nullable: false),
                     CreatedBy = table.Column<Guid>(type: "uuid", nullable: false),
                     IsAIGenerated = table.Column<bool>(type: "boolean", nullable: false),
@@ -170,6 +169,7 @@ namespace Repository.Migrations
                     WrongAnswers = table.Column<int>(type: "integer", nullable: false),
                     Score = table.Column<int>(type: "integer", nullable: false),
                     Accuracy = table.Column<decimal>(type: "numeric(3,2)", precision: 3, scale: 2, nullable: false),
+                    IsCompleted = table.Column<bool>(type: "boolean", nullable: false),
                     TimeSpent = table.Column<int>(type: "integer", nullable: true),
                     OpponentId = table.Column<Guid>(type: "uuid", nullable: true),
                     IsWinner = table.Column<bool>(type: "boolean", nullable: true),
@@ -274,7 +274,8 @@ namespace Repository.Migrations
                         name: "FK_QuizAttemptDetails_QuizAttempts_QuizAttemptId",
                         column: x => x.QuizAttemptId,
                         principalTable: "QuizAttempts",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_QuizAttemptDetails_Quizzes_QuizId",
                         column: x => x.QuizId,

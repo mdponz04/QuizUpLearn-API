@@ -82,5 +82,20 @@ namespace BusinessLogic.Services
 
             return result.Result == "ok";
         }
+
+        public async Task<IFormFile> ConvertByteArrayToIFormFile(byte[] fileBytes, string fileName, string contentType)
+        {
+            var stream = new MemoryStream();
+            await stream.WriteAsync(fileBytes, 0, fileBytes.Length);
+            stream.Position = 0;
+
+            var file = new FormFile(stream, 0, stream.Length, "file", fileName)
+            {
+                Headers = new HeaderDictionary(),
+                ContentType = contentType
+            };
+
+            return file;
+        }
     }
 }

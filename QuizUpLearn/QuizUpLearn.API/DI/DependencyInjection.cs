@@ -6,7 +6,6 @@ using Microsoft.OpenApi.Models;
 using Repository.DBContext;
 using Repository.Interfaces;
 using Repository.Repositories;
-using System;
 
 namespace QuizUpLearn.API.DI
 {

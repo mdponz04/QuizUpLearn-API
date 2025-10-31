@@ -12,7 +12,7 @@ namespace Repository.Entities
         public int WrongAnswers { get; set; } = 0;
         public int Score { get; set; } = 0;
         public decimal Accuracy { get; set; } = 0;
-
+        public bool IsCompleted { get; set; } = false;
         public int? TimeSpent { get; set; }
 
         public Guid? OpponentId { get; set; }

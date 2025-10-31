@@ -7,7 +7,6 @@ namespace Repository.Entities
         public string Title { get; set; }
         public string Description { get; set; }
         public string QuizType { get; set; }
-        public string SkillType { get; set; }
         public string DifficultyLevel { get; set; }
         public Guid CreatedBy { get; set; }
         public bool IsAIGenerated { get; set; } = true;
