@@ -69,8 +69,8 @@ namespace QuizUpLearn.API.DI
         {
             services.AddDbContext<MyDbContext>(options =>
             {
-                //options.UseSqlServer(configuration.GetConnectionString("DefaultConnection"));
-                options.UseNpgsql(configuration.GetConnectionString("PostgreSqlConnection"));
+                options.UseSqlServer(configuration.GetConnectionString("DefaultConnection"));
+                //options.UseNpgsql(configuration.GetConnectionString("PostgreSqlConnection"));
             });
         }
 

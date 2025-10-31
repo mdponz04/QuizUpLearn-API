@@ -6,7 +6,6 @@
         public required string Difficulty { get; set; }
         public required string Topic { get; set; }
         public Guid CreatorId { get; set; }
-        public required string ToeicPart { get; set; }
     }
     public class AiGenerateQuizResponseDto
     {
