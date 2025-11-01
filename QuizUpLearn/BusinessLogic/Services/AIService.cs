@@ -24,7 +24,7 @@ namespace BusinessLogic.Services
         //API keys
         private readonly string _geminiApiKey;
         private readonly string _openRouterApiKey;
-        private readonly string _elevenLabsApiKey;
+        private readonly string _asyncAiApiKey;
         private readonly string _nebiusApiKey;
         //Voice IDs
         private readonly string _maleVoiceId;
@@ -41,12 +41,12 @@ namespace BusinessLogic.Services
             //API keys
             _geminiApiKey = configuration["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini API key is not configured.");
             _openRouterApiKey = configuration["OpenRouter:ApiKey"] ?? throw new ArgumentNullException("Open router API key is not configured.");
-            _elevenLabsApiKey = configuration["ElevenLabs:ApiKey"] ?? throw new ArgumentNullException("Eleven Labs API key is not configured.");
+            _asyncAiApiKey = configuration["AsyncTTS:ApiKey"] ?? throw new ArgumentNullException("OpenAITTS API key is not configured.");
             _nebiusApiKey = configuration["Nebius:ApiKey"] ?? throw new ArgumentNullException("Nebius API key is not configured.");
             //Voice ids
-            _maleVoiceId = configuration["ElevenLabs:Voices:Male"] ?? throw new ArgumentNullException("Male voice id is not configured");
-            _femaleVoiceId = configuration["ElevenLabs:Voices:Female"] ?? throw new ArgumentNullException("Female voice id is not configured"); ;
-            _narratorVoiceId = configuration["ElevenLabs:Voices:Narrator"] ?? throw new ArgumentNullException("Narrator voice id is not configured");
+            _maleVoiceId = configuration["AsyncTTS:Voices:Male"] ?? throw new ArgumentNullException("Male voice id is not configured");
+            _femaleVoiceId = configuration["AsyncTTS:Voices:Female"] ?? throw new ArgumentNullException("Female voice id is not configured"); ;
+            _narratorVoiceId = configuration["AsyncTTS:Voices:Narrator"] ?? throw new ArgumentNullException("Narrator voice id is not configured");
             
         }
 
@@ -83,11 +83,11 @@ namespace BusinessLogic.Services
 
             var json = JsonSerializer.Serialize(body);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var request = new HttpRequestMessage(HttpMethod.Post, url);
+            using var request = new HttpRequestMessage(HttpMethod.Post, url);
             request.Headers.Add("x-goog-api-key", _geminiApiKey);
             request.Content = content;
 
-            var response = await _httpClient.SendAsync(request);
+            using var response = await _httpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode)
                 return $"Error: {response.StatusCode}";
 
@@ -133,7 +133,7 @@ namespace BusinessLogic.Services
             var json = JsonSerializer.Serialize(body);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsync(url, content);
+            using var response = await _httpClient.PostAsync(url, content);
             var result = await response.Content.ReadAsStringAsync();
 
             using var doc = JsonDocument.Parse(result);
@@ -185,11 +185,11 @@ namespace BusinessLogic.Services
 
             var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
-            var request = new HttpRequestMessage(HttpMethod.Post, url);
+            using var request = new HttpRequestMessage(HttpMethod.Post, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _nebiusApiKey);
             request.Content = content;
 
-            var response = await _httpClient.SendAsync(request);
+            using var response = await _httpClient.SendAsync(request);
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync();
@@ -216,27 +216,37 @@ namespace BusinessLogic.Services
 
         private async Task<byte[]> GenerateAudioAsync(string text, VoiceRoles role)
         {
-            _logger.LogInformation($"Eleven Labs api key: {_elevenLabsApiKey}");
             var voiceId = GetVoiceId(role);
-            var url = $"https://api.elevenlabs.io/v1/text-to-speech/{voiceId}";
+
+            var url = "https://api.async.ai/text_to_speech/streaming";
 
             var requestBody = new
             {
-                text,
-                model_id = "eleven_multilingual_v2",
-                voice_settings = new { stability = 0.5, similarity_boost = 0.8 }
+                model_id = "asyncflow_v2.0",
+                transcript = text,
+                voice = new {
+                    mode = "id",
+                    id = voiceId
+                },
+                output_format = new
+                {
+                    container = "mp3",
+                    encoding = "pcm_s16le",
+                    sample_rate = 44100
+                }
             };
 
-            var request = new HttpRequestMessage(HttpMethod.Post, url);
-            request.Headers.Add("xi-api-key", _elevenLabsApiKey);
+            using var request = new HttpRequestMessage(HttpMethod.Post, url);
+            request.Headers.Add("X-Api-Key", _asyncAiApiKey);
             request.Content = new StringContent(
-                System.Text.Json.JsonSerializer.Serialize(requestBody),
-                System.Text.Encoding.UTF8,
+                JsonSerializer.Serialize(requestBody),
+                Encoding.UTF8,
                 "application/json"
             );
 
-            var response = await _httpClient.SendAsync(request);
+            using var response = await _httpClient.SendAsync(request);
             response.EnsureSuccessStatusCode();
+
             return await response.Content.ReadAsByteArrayAsync();
         }
 
