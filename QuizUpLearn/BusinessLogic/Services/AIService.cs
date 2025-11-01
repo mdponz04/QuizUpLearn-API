@@ -108,7 +108,6 @@ namespace BusinessLogic.Services
 
         private async Task<string> GenerateContentAsync(string prompt)
         {
-            
             var url = "https://openrouter.ai/api/v1/chat/completions";
 
             _httpClient.DefaultRequestHeaders.Clear();
@@ -182,6 +181,7 @@ namespace BusinessLogic.Services
             var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
             var request = new HttpRequestMessage(HttpMethod.Post, url);
+            Console.WriteLine($"Nebius api key: {_nebiusApiKey}");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _nebiusApiKey);
             request.Content = content;
 
@@ -214,14 +214,14 @@ namespace BusinessLogic.Services
         {
             var voiceId = GetVoiceId(role);
             var url = $"https://api.elevenlabs.io/v1/text-to-speech/{voiceId}";
-
+            
             var requestBody = new
             {
                 text,
                 model_id = "eleven_multilingual_v2",
                 voice_settings = new { stability = 0.5, similarity_boost = 0.8 }
             };
-
+            Console.WriteLine($"Eleven labs api key: {_elevenLabsApiKey}");
             var request = new HttpRequestMessage(HttpMethod.Post, url);
             request.Headers.Add("xi-api-key", _elevenLabsApiKey);
             request.Content = new StringContent(
