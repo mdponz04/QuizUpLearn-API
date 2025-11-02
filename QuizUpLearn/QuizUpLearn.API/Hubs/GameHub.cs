@@ -83,6 +83,21 @@ namespace QuizUpLearn.API.Hubs
                     GamePin = gamePin,
                     Message = "Successfully connected as Host"
                 });
+
+                // ✨ Gửi danh sách players hiện tại cho Host khi connect
+                var session = await _gameService.GetGameSessionAsync(gamePin);
+                if (session != null)
+                {
+                    await Clients.Caller.SendAsync("LobbyUpdated", new
+                    {
+                        TotalPlayers = session.Players.Count,
+                        Players = session.Players.Select(p => new
+                        {
+                            PlayerName = p.PlayerName,
+                            Score = p.Score
+                        }).ToList()
+                    });
+                }
             }
             catch (Exception ex)
             {
@@ -135,7 +150,11 @@ namespace QuizUpLearn.API.Hubs
                     await Clients.Group($"Game_{gamePin}").SendAsync("LobbyUpdated", new
                     {
                         TotalPlayers = session.Players.Count,
-                        Players = session.Players.Select(p => p.PlayerName).ToList()
+                        Players = session.Players.Select(p => new
+                        {
+                            PlayerName = p.PlayerName,
+                            Score = p.Score
+                        }).ToList()
                     });
                 }
             }
@@ -171,7 +190,11 @@ namespace QuizUpLearn.API.Hubs
                         await Clients.Group($"Game_{gamePin}").SendAsync("LobbyUpdated", new
                         {
                             TotalPlayers = session.Players.Count,
-                            Players = session.Players.Select(p => p.PlayerName).ToList()
+                            Players = session.Players.Select(p => new
+                            {
+                                PlayerName = p.PlayerName,
+                                Score = p.Score
+                            }).ToList()
                         });
                     }
                 }
@@ -248,7 +271,7 @@ namespace QuizUpLearn.API.Hubs
                     Timestamp = DateTime.UtcNow
                 });
 
-                // (Optional) Thông báo cho Host số người đã submit
+                // Thông báo cho Host số người đã submit
                 var session = await _gameService.GetGameSessionAsync(gamePin);
                 if (session != null)
                 {
@@ -257,6 +280,14 @@ namespace QuizUpLearn.API.Hubs
                         Submitted = session.CurrentAnswers.Count,
                         Total = session.Players.Count
                     });
+
+                    // ✨ Gửi leaderboard cập nhật realtime cho tất cả (Host và Players)
+                    // Dùng GetCurrentLeaderboardAsync để KHÔNG thay đổi status (game vẫn InProgress)
+                    var leaderboard = await _gameService.GetCurrentLeaderboardAsync(gamePin);
+                    if (leaderboard != null)
+                    {
+                        await Clients.Group($"Game_{gamePin}").SendAsync("UpdateLeaderboard", leaderboard);
+                    }
                 }
             }
             catch (Exception ex)

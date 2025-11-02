@@ -114,6 +114,9 @@ namespace QuizUpLearn.API.DI
             
             // RealtimeGameService phải là Singleton vì dùng static state
             services.AddSingleton<BusinessLogic.Services.RealtimeGameService>();
+            
+            // OneVsOneGameService - Singleton để dùng Redis state
+            services.AddSingleton<BusinessLogic.Interfaces.IOneVsOneGameService, BusinessLogic.Services.OneVsOneGameService>();
         }
     }
 }

@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kahoot Game - Complete Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@latest/dist/browser/signalr.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+        .panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        .panel h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input, button {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            font-size: 14px;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 5px;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .status.connected { background: #4CAF50; color: white; }
+        .status.waiting { background: #FFC107; color: #333; }
+        .status.error { background: #f44336; color: white; }
+        .status.info { background: #2196F3; color: white; }
+        .players-list {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        .player-item {
+            background: white;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .question-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+        .question-text {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .question-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            color: #666;
+            font-size: 0.9em;
+        }
+        .timer {
+            font-size: 1.5em;
+            color: #f44336;
+            font-weight: bold;
+        }
+        .answers-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .answer-option {
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+        }
+        .answer-option:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+            transform: scale(1.02);
+        }
+        .answer-option.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+        }
+        .answer-option.correct {
+            border-color: #4CAF50;
+            background: #4CAF50;
+            color: white;
+        }
+        .answer-option.incorrect {
+            border-color: #f44336;
+            background: #f44336;
+            color: white;
+        }
+        .result-info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .leaderboard {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            background: #f5f5f5;
+        }
+        .leaderboard-item.rank-1 { background: #FFD700; font-weight: bold; }
+        .leaderboard-item.rank-2 { background: #C0C0C0; font-weight: bold; }
+        .leaderboard-item.rank-3 { background: #CD7F32; font-weight: bold; }
+        .log {
+            background: rgba(0, 0, 0, 0.8);
+            color: #0f0;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .log-entry {
+            margin: 3px 0;
+            padding: 3px;
+        }
+        .log-entry.error { color: #f44336; }
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .badge.host { background: #FF9800; color: white; }
+        .badge.player { background: #2196F3; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Kahoot Game - Complete Test</h1>
+        
+        <div class="panels">
+            <!-- HOST PANEL -->
+            <div class="panel">
+                <h2>🎤 HOST Panel</h2>
+                
+                <div class="input-group">
+                    <label>SignalR Hub URL:</label>
+                    <input type="text" id="hostHubUrl" value="http://localhost:5005/game-hub">
+                </div>
+                
+                <div class="input-group">
+                    <label>JWT Token:</label>
+                    <input type="text" id="hostToken" placeholder="Paste JWT token">
+                </div>
+                
+                <div class="input-group">
+                    <label>Game PIN:</label>
+                    <input type="text" id="hostGamePin" value="856584">
+                </div>
+                
+                <div class="input-group">
+                    <label>⏱️ Time per Question (seconds):</label>
+                    <input type="number" id="hostQuestionTime" value="15" min="5" max="60">
+                    <small style="color: #666;">Frontend controls timer (5-60 seconds)</small>
+                </div>
+                
+                <button id="hostConnectBtn" onclick="hostConnect()">🔌 Connect as Host</button>
+                <button id="hostStartBtn" onclick="startGame()" disabled>🚀 Start Game</button>
+                <button id="hostShowResultBtn" onclick="showResultNow()" disabled style="background: #FF9800;">⚡ Show Result Now</button>
+                <button id="hostNextBtn" onclick="nextQuestion()" disabled>➡️ Next Question</button>
+                
+                <div id="hostStatus" class="status waiting">⏳ Waiting to connect...</div>
+                
+                <div id="hostPlayersSection" style="display: none;">
+                    <h3>👥 Players in Lobby:</h3>
+                    <div id="hostPlayersList" class="players-list"></div>
+                </div>
+                
+                <div id="hostQuestionSection" style="display: none;">
+                    <h3>📝 Current Question:</h3>
+                    <div id="hostQuestionDisplay" class="question-container"></div>
+                </div>
+                
+                <div id="hostResultSection" style="display: none;">
+                    <h3>📊 Results:</h3>
+                    <div id="hostResultDisplay" class="result-info"></div>
+                </div>
+            </div>
+            
+            <!-- PLAYER PANEL -->
+            <div class="panel">
+                <h2>👤 PLAYER Panel</h2>
+                
+                <div class="input-group">
+                    <label>SignalR Hub URL:</label>
+                    <input type="text" id="playerHubUrl" value="http://localhost:5005/game-hub">
+                </div>
+                
+                <div class="input-group">
+                    <label>JWT Token:</label>
+                    <input type="text" id="playerToken" placeholder="Paste JWT token">
+                </div>
+                
+                <div class="input-group">
+                    <label>Game PIN:</label>
+                    <input type="text" id="playerGamePin" value="856584">
+                </div>
+                
+                <div class="input-group">
+                    <label>Player Name:</label>
+                    <input type="text" id="playerName" placeholder="Your name">
+                </div>
+                
+                <button id="playerConnectBtn" onclick="playerConnect()">🔌 Connect</button>
+                <button id="playerJoinBtn" onclick="joinGame()" disabled>🎯 Join Game</button>
+                
+                <div id="playerStatus" class="status waiting">⏳ Waiting to connect...</div>
+                
+                <div id="playerQuestionSection" style="display: none;">
+                    <h3>📝 Question:</h3>
+                    <div id="playerQuestionDisplay" class="question-container"></div>
+                    <div id="playerAnswersGrid" class="answers-grid"></div>
+                    <button id="submitAnswerBtn" onclick="submitAnswer()" disabled style="margin-top: 15px;">✅ Submit Answer</button>
+                </div>
+                
+                <div id="playerScoreSection" style="display: none;">
+                    <div class="result-info">
+                        <h3>Your Score: <span id="playerScore">0</span></h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- LOG SECTION -->
+        <div class="panel">
+            <h2>📋 Event Log</h2>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        let hostConnection = null;
+        let playerConnection = null;
+        let currentQuestionId = null;
+        let selectedAnswerId = null;
+        let playerCurrentScore = 0;
+        let questionStartTime = null;
+        let countdownTimer = null;
+        let currentTimeLeft = 0;
+        let questionTime = 15; // Will be set from UI
+
+        function addLog(message, isError = false) {
+            const log = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry' + (isError ? ' error' : '');
+            const time = new Date().toLocaleTimeString();
+            entry.textContent = `[${time}] ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // ==================== HOST FUNCTIONS ====================
+        async function hostConnect() {
+            try {
+                const hubUrl = document.getElementById('hostHubUrl').value;
+                const token = document.getElementById('hostToken').value;
+                const gamePin = document.getElementById('hostGamePin').value;
+
+                if (!token) {
+                    alert('Please provide JWT token!');
+                    return;
+                }
+
+                addLog('🎤 HOST: Connecting to SignalR Hub...');
+                
+                hostConnection = new signalR.HubConnectionBuilder()
+                    .withUrl(hubUrl, { accessTokenFactory: () => token })
+                    .build();
+
+                // Setup events
+                hostConnection.on("LobbyUpdated", (data) => {
+                    addLog(`👥 HOST: LobbyUpdated - ${data.totalPlayers} player(s)`);
+                    updateHostPlayersList(data.players);
+                    document.getElementById('hostPlayersSection').style.display = 'block';
+                });
+
+                hostConnection.on("ShowQuestion", (question) => {
+                    addLog(`📝 HOST: Question ${question.questionNumber} shown`);
+                    
+                    // Get timer setting from UI
+                    questionTime = parseInt(document.getElementById('hostQuestionTime').value) || 15;
+                    
+                    displayHostQuestion(question);
+                    document.getElementById('hostStartBtn').disabled = true;
+                    document.getElementById('hostNextBtn').disabled = true;
+                    document.getElementById('hostShowResultBtn').disabled = false; // Enable show result button
+                    
+                    // ✨ Start countdown timer (using frontend config)
+                    startCountdown(questionTime, async () => {
+                        addLog('⏰ HOST: Time expired, showing results...');
+                        await hostConnection.invoke("ShowQuestionResult", document.getElementById('hostGamePin').value);
+                    });
+                });
+
+                hostConnection.on("AnswerCount", (data) => {
+                    addLog(`📊 HOST: ${data.submitted}/${data.total} answered`);
+                });
+
+                hostConnection.on("ShowAnswerResult", (result) => {
+                    addLog('📊 HOST: Answer result received');
+                    stopCountdown(); // ✨ Stop timer
+                    displayHostResult(result);
+                    document.getElementById('hostNextBtn').disabled = false;
+                    document.getElementById('hostShowResultBtn').disabled = true; // Disable show result button
+                });
+
+                hostConnection.on("UpdateLeaderboard", (leaderboard) => {
+                    addLog('🏆 HOST: Leaderboard updated');
+                    displayLeaderboard(leaderboard);
+                });
+
+                hostConnection.on("GameEnded", (finalResult) => {
+                    addLog('🎉 HOST: Game ended!');
+                    displayFinalResult(finalResult);
+                });
+
+                await hostConnection.start();
+                addLog('✅ HOST: Connected successfully');
+                
+                // Host connect to game
+                await hostConnection.invoke("HostConnect", gamePin);
+                addLog(`✅ HOST: Connected to game ${gamePin}`);
+                
+                document.getElementById('hostStatus').textContent = '✅ Connected as Host';
+                document.getElementById('hostStatus').className = 'status connected';
+                document.getElementById('hostConnectBtn').disabled = true;
+                document.getElementById('hostStartBtn').disabled = false;
+
+            } catch (error) {
+                addLog(`❌ HOST ERROR: ${error.message}`, true);
+                document.getElementById('hostStatus').textContent = `❌ Error: ${error.message}`;
+                document.getElementById('hostStatus').className = 'status error';
+            }
+        }
+
+        async function startGame() {
+            try {
+                const gamePin = document.getElementById('hostGamePin').value;
+                addLog('🚀 HOST: Starting game...');
+                await hostConnection.invoke("StartGame", gamePin);
+            } catch (error) {
+                addLog(`❌ HOST ERROR: ${error.message}`, true);
+            }
+        }
+
+        async function showResultNow() {
+            try {
+                const gamePin = document.getElementById('hostGamePin').value;
+                addLog('⚡ HOST: Manually showing result (skipping timer)...');
+                stopCountdown(); // Stop the countdown
+                await hostConnection.invoke("ShowQuestionResult", gamePin);
+                document.getElementById('hostShowResultBtn').disabled = true;
+            } catch (error) {
+                addLog(`❌ HOST ERROR: ${error.message}`, true);
+            }
+        }
+
+        async function nextQuestion() {
+            try {
+                const gamePin = document.getElementById('hostGamePin').value;
+                addLog('➡️ HOST: Moving to next question...');
+                await hostConnection.invoke("NextQuestion", gamePin);
+                document.getElementById('hostNextBtn').disabled = true;
+            } catch (error) {
+                addLog(`❌ HOST ERROR: ${error.message}`, true);
+            }
+        }
+
+        function updateHostPlayersList(players) {
+            const list = document.getElementById('hostPlayersList');
+            list.innerHTML = '';
+            
+            if (!players || players.length === 0) {
+                list.innerHTML = '<div style="text-align: center; color: #999;">No players yet</div>';
+                return;
+            }
+
+            players.forEach((player, index) => {
+                const item = document.createElement('div');
+                item.className = 'player-item';
+                item.innerHTML = `
+                    <span><strong>${index + 1}. ${player.playerName}</strong></span>
+                    <span>Score: ${player.score}</span>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function displayHostQuestion(question) {
+            const display = document.getElementById('hostQuestionDisplay');
+            display.innerHTML = `
+                <div class="question-meta">
+                    <span>Question ${question.questionNumber}/${question.totalQuestions}</span>
+                    <span class="timer" id="hostTimer">⏱️ ${questionTime}s</span>
+                </div>
+                <div class="question-text">${question.questionText}</div>
+                <div style="color: #666; margin-top: 10px;">Waiting for players to answer...</div>
+            `;
+            document.getElementById('hostQuestionSection').style.display = 'block';
+        }
+
+        // ✨ Countdown Timer Functions
+        function startCountdown(seconds, onComplete) {
+            stopCountdown(); // Clear any existing timer
+            currentTimeLeft = seconds;
+            
+            updateTimerDisplay();
+            
+            countdownTimer = setInterval(() => {
+                currentTimeLeft--;
+                updateTimerDisplay();
+                
+                if (currentTimeLeft <= 0) {
+                    stopCountdown();
+                    if (onComplete) onComplete();
+                }
+            }, 1000);
+        }
+
+        function stopCountdown() {
+            if (countdownTimer) {
+                clearInterval(countdownTimer);
+                countdownTimer = null;
+            }
+        }
+
+        function updateTimerDisplay() {
+            const timerElements = document.querySelectorAll('.timer');
+            timerElements.forEach(el => {
+                el.textContent = `⏱️ ${currentTimeLeft}s`;
+                if (currentTimeLeft <= 5) {
+                    el.style.color = '#f44336'; // Red when < 5s
+                } else {
+                    el.style.color = '#666';
+                }
+            });
+        }
+
+        function displayHostResult(result) {
+            const display = document.getElementById('hostResultDisplay');
+            let html = `
+                <h4>✅ Correct Answer: ${result.correctAnswerText}</h4>
+                <h4>Player Results:</h4>
+            `;
+            
+            result.playerResults.forEach(pr => {
+                html += `
+                    <div style="padding: 8px; margin: 5px 0; background: ${pr.isCorrect ? '#e8f5e9' : '#ffebee'}; border-radius: 5px;">
+                        <strong>${pr.playerName}</strong>: 
+                        ${pr.isCorrect ? '✅ Correct' : '❌ Wrong'} | 
+                        Points: +${pr.pointsEarned} | 
+                        Time: ${pr.timeSpent.toFixed(1)}s
+                    </div>
+                `;
+            });
+            
+            display.innerHTML = html;
+            document.getElementById('hostResultSection').style.display = 'block';
+        }
+
+        function displayLeaderboard(leaderboard) {
+            // Display in host result section
+            const display = document.getElementById('hostResultDisplay');
+            let html = '<h4>🏆 Leaderboard:</h4><div class="leaderboard">';
+            
+            leaderboard.rankings.forEach(player => {
+                html += `
+                    <div class="leaderboard-item rank-${player.rank}">
+                        <span><strong>#${player.rank} ${player.playerName}</strong></span>
+                        <span>${player.totalScore} pts</span>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            display.innerHTML = html;
+        }
+
+        function displayFinalResult(finalResult) {
+            const display = document.getElementById('hostResultDisplay');
+            let html = `
+                <h2 style="text-align: center; color: #4CAF50;">🎉 Game Finished!</h2>
+                <h3 style="text-align: center; margin: 15px 0;">
+                    🏆 Winner: ${finalResult.winner?.playerName} (${finalResult.winner?.totalScore} pts)
+                </h3>
+                <h4>Final Rankings:</h4>
+                <div class="leaderboard">
+            `;
+            
+            finalResult.finalRankings.forEach(player => {
+                html += `
+                    <div class="leaderboard-item rank-${player.rank}">
+                        <span><strong>#${player.rank} ${player.playerName}</strong></span>
+                        <span>${player.totalScore} pts</span>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            display.innerHTML = html;
+        }
+
+        // ==================== PLAYER FUNCTIONS ====================
+        async function playerConnect() {
+            try {
+                const hubUrl = document.getElementById('playerHubUrl').value;
+                const token = document.getElementById('playerToken').value;
+
+                if (!token) {
+                    alert('Please provide JWT token!');
+                    return;
+                }
+
+                addLog('👤 PLAYER: Connecting to SignalR Hub...');
+                
+                playerConnection = new signalR.HubConnectionBuilder()
+                    .withUrl(hubUrl, { accessTokenFactory: () => token })
+                    .build();
+
+                // Setup events
+                playerConnection.on("LobbyUpdated", (data) => {
+                    addLog(`✅ PLAYER: Joined lobby with ${data.totalPlayers} player(s)`);
+                    document.getElementById('playerStatus').textContent = `✅ In lobby (${data.totalPlayers} players)`;
+                    document.getElementById('playerStatus').className = 'status connected';
+                });
+
+                playerConnection.on("ShowQuestion", (question) => {
+                    addLog(`📝 PLAYER: Question ${question.questionNumber} received`);
+                    addLog(`   ⏱️ Time limit: ${questionTime} seconds`);
+                    currentQuestionId = question.questionId;
+                    selectedAnswerId = null;
+                    questionStartTime = Date.now();
+                    displayPlayerQuestion(question);
+                });
+
+                playerConnection.on("AnswerSubmitted", (data) => {
+                    addLog('✅ PLAYER: Answer submitted successfully');
+                    document.getElementById('submitAnswerBtn').disabled = true;
+                    document.getElementById('playerStatus').textContent = '✅ Answer recorded!';
+                    document.getElementById('playerStatus').className = 'status connected';
+                });
+
+                playerConnection.on("ShowAnswerResult", (result) => {
+                    addLog('📊 PLAYER: Answer result received');
+                    showAnswerResult(result);
+                });
+
+                playerConnection.on("UpdateLeaderboard", (leaderboard) => {
+                    addLog('🏆 PLAYER: Leaderboard received');
+                    updatePlayerScore(leaderboard);
+                });
+
+                playerConnection.on("GameEnded", (finalResult) => {
+                    addLog('🎉 PLAYER: Game ended!');
+                    showFinalScore(finalResult);
+                });
+
+                playerConnection.on("Error", (error) => {
+                    addLog(`❌ PLAYER ERROR: ${error}`, true);
+                    document.getElementById('playerStatus').textContent = `❌ Error: ${error}`;
+                    document.getElementById('playerStatus').className = 'status error';
+                });
+
+                await playerConnection.start();
+                addLog('✅ PLAYER: Connected successfully');
+                
+                document.getElementById('playerStatus').textContent = '✅ Connected';
+                document.getElementById('playerStatus').className = 'status connected';
+                document.getElementById('playerConnectBtn').disabled = true;
+                document.getElementById('playerJoinBtn').disabled = false;
+
+            } catch (error) {
+                addLog(`❌ PLAYER ERROR: ${error.message}`, true);
+                document.getElementById('playerStatus').textContent = `❌ Error: ${error.message}`;
+                document.getElementById('playerStatus').className = 'status error';
+            }
+        }
+
+        async function joinGame() {
+            try {
+                const gamePin = document.getElementById('playerGamePin').value;
+                const playerName = document.getElementById('playerName').value;
+
+                if (!playerName) {
+                    alert('Please enter your name!');
+                    return;
+                }
+
+                addLog(`🎯 PLAYER: Joining game ${gamePin} as "${playerName}"...`);
+                await playerConnection.invoke("JoinGame", gamePin, playerName);
+                
+                document.getElementById('playerJoinBtn').disabled = true;
+                document.getElementById('playerScoreSection').style.display = 'block';
+
+            } catch (error) {
+                addLog(`❌ PLAYER ERROR: ${error.message}`, true);
+            }
+        }
+
+        function displayPlayerQuestion(question) {
+            const display = document.getElementById('playerQuestionDisplay');
+            display.innerHTML = `
+                <div class="question-meta">
+                    <span>Question ${question.questionNumber}/${question.totalQuestions}</span>
+                    <span class="timer" id="playerTimer">⏱️ ${questionTime}s</span>
+                </div>
+                <div class="question-text">${question.questionText}</div>
+            `;
+
+            const answersGrid = document.getElementById('playerAnswersGrid');
+            answersGrid.innerHTML = '';
+
+            question.answerOptions.forEach(option => {
+                const answerBtn = document.createElement('div');
+                answerBtn.className = 'answer-option';
+                answerBtn.textContent = option.optionText;
+                answerBtn.onclick = () => selectAnswer(option.answerId, answerBtn);
+                answersGrid.appendChild(answerBtn);
+            });
+
+            document.getElementById('playerQuestionSection').style.display = 'block';
+            document.getElementById('submitAnswerBtn').disabled = true;
+            document.getElementById('playerStatus').textContent = '📝 Answer the question!';
+            document.getElementById('playerStatus').className = 'status info';
+        }
+
+        function selectAnswer(answerId, element) {
+            selectedAnswerId = answerId;
+            
+            // Remove selected class from all
+            document.querySelectorAll('.answer-option').forEach(el => {
+                el.classList.remove('selected');
+            });
+            
+            // Add selected class to clicked
+            element.classList.add('selected');
+            
+            document.getElementById('submitAnswerBtn').disabled = false;
+            addLog(`📝 PLAYER: Selected answer: ${answerId.substring(0, 8)}...`);
+        }
+
+        async function submitAnswer() {
+            try {
+                if (!selectedAnswerId || !currentQuestionId) {
+                    alert('Please select an answer!');
+                    return;
+                }
+
+                const gamePin = document.getElementById('playerGamePin').value;
+                const timeElapsed = questionStartTime ? ((Date.now() - questionStartTime) / 1000).toFixed(2) : 'N/A';
+                
+                addLog(`✅ PLAYER: Submitting answer...`);
+                addLog(`   📋 GamePin: ${gamePin}`);
+                addLog(`   📝 QuestionId: ${currentQuestionId}`);
+                addLog(`   ✏️ AnswerId: ${selectedAnswerId}`);
+                addLog(`   ⏱️ Time elapsed: ${timeElapsed}s`);
+                
+                await playerConnection.invoke("SubmitAnswer", gamePin, currentQuestionId, selectedAnswerId);
+                
+                // Disable all answer buttons
+                document.querySelectorAll('.answer-option').forEach(el => {
+                    el.style.pointerEvents = 'none';
+                    el.style.opacity = '0.6';
+                });
+
+            } catch (error) {
+                addLog(`❌ PLAYER ERROR: ${error.message}`, true);
+            }
+        }
+
+        function showAnswerResult(result) {
+            // Highlight correct answer
+            const answersGrid = document.getElementById('playerAnswersGrid');
+            const options = answersGrid.querySelectorAll('.answer-option');
+            
+            options.forEach(option => {
+                const optionText = option.textContent;
+                if (optionText === result.correctAnswerText) {
+                    option.classList.add('correct');
+                } else if (option.classList.contains('selected')) {
+                    option.classList.add('incorrect');
+                }
+            });
+
+            // Find player result
+            const playerName = document.getElementById('playerName').value;
+            const myResult = result.playerResults.find(pr => pr.playerName === playerName);
+            
+            if (myResult) {
+                playerCurrentScore += myResult.pointsEarned;
+                document.getElementById('playerScore').textContent = playerCurrentScore;
+                
+                document.getElementById('playerStatus').textContent = 
+                    myResult.isCorrect 
+                        ? `✅ Correct! +${myResult.pointsEarned} pts` 
+                        : `❌ Wrong! +0 pts`;
+                document.getElementById('playerStatus').className = 
+                    myResult.isCorrect ? 'status connected' : 'status error';
+            }
+        }
+
+        function updatePlayerScore(leaderboard) {
+            const playerName = document.getElementById('playerName').value;
+            const myRanking = leaderboard.rankings.find(r => r.playerName === playerName);
+            
+            if (myRanking) {
+                playerCurrentScore = myRanking.totalScore;
+                document.getElementById('playerScore').textContent = playerCurrentScore;
+                document.getElementById('playerStatus').textContent = `🏆 Rank #${myRanking.rank} - ${myRanking.totalScore} pts`;
+            }
+        }
+
+        function showFinalScore(finalResult) {
+            const playerName = document.getElementById('playerName').value;
+            const myRanking = finalResult.finalRankings.find(r => r.playerName === playerName);
+            
+            if (myRanking) {
+                document.getElementById('playerStatus').textContent = 
+                    `🎉 Final: Rank #${myRanking.rank} - ${myRanking.totalScore} pts`;
+                document.getElementById('playerStatus').className = 'status connected';
+            }
+        }
+
+        // Auto-fill
+        window.onload = function() {
+            const randomNames = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank'];
+            const randomName = randomNames[Math.floor(Math.random() * randomNames.length)];
+            document.getElementById('playerName').value = randomName;
+            addLog('💡 Ready! Enter JWT tokens and start testing.');
+        };
+    </script>
+</body>
+</html>
+

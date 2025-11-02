@@ -88,7 +88,8 @@ builder.Services.AddAuthentication(options =>
             var accessToken = context.Request.Query["access_token"];
             
             var path = context.HttpContext.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/game-hub"))
+            if (!string.IsNullOrEmpty(accessToken) && 
+                (path.StartsWithSegments("/game-hub") || path.StartsWithSegments("/one-vs-one-hub")))
             {
                 context.Token = accessToken;
             }
@@ -130,5 +131,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.MapHub<GameHub>("/game-hub").RequireCors("AllowFrontend");
+app.MapHub<OneVsOneHub>("/one-vs-one-hub").RequireCors("AllowFrontend");
 
 app.Run();

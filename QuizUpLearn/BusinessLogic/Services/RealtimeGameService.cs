@@ -470,13 +470,43 @@ namespace BusinessLogic.Services
 
         // ==================== LEADERBOARD & NEXT QUESTION ====================
         /// <summary>
-        /// Lấy leaderboard hiện tại
+        /// Lấy leaderboard hiện tại (không thay đổi status - dùng cho realtime update)
+        /// </summary>
+        public async Task<LeaderboardDto?> GetCurrentLeaderboardAsync(string gamePin)
+        {
+            var session = await GetGameSessionFromRedisAsync(gamePin);
+            if (session == null)
+                return null;
+
+            var rankings = session.Players
+                .OrderByDescending(p => p.Score)
+                .Select((p, index) => new PlayerScore
+                {
+                    PlayerName = p.PlayerName,
+                    TotalScore = p.Score,
+                    CorrectAnswers = 0, // TODO: Track this
+                    Rank = index + 1
+                })
+                .ToList();
+
+            // ✨ KHÔNG thay đổi status - chỉ để xem realtime
+
+            return new LeaderboardDto
+            {
+                Rankings = rankings,
+                CurrentQuestion = session.CurrentQuestionIndex + 1,
+                TotalQuestions = session.Questions.Count
+            };
+        }
+
+        /// <summary>
+        /// Lấy leaderboard hiện tại và chuyển status sang ShowingLeaderboard (dùng khi hiển thị giữa các câu)
         /// </summary>
         public async Task<LeaderboardDto?> GetLeaderboardAsync(string gamePin)
         {
             var session = await GetGameSessionFromRedisAsync(gamePin);
             if (session == null)
-            return null;
+                return null;
 
             var rankings = session.Players
                 .OrderByDescending(p => p.Score)
