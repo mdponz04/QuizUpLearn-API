@@ -22,6 +22,7 @@ namespace BusinessLogic.DTOs.QuizSetDtos
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public DateTime? DeletedAt { get; set; }
+        public Dictionary<string, string>? GroupItems { get; set; }
         public List<QuizResponseDto> Quizzes { get; set; } = new List<QuizResponseDto>();
     }
 }

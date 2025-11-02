@@ -12,7 +12,7 @@ namespace Repository.Entities
         public bool IsAIGenerated { get; set; } = true;
         public bool IsPublished { get; set; } = false;
         public bool IsPremiumOnly { get; set; } = false;
-
+        public Dictionary<string, string>? GroupItems { get; set; } = new Dictionary<string, string>(); //Map<GroupId, AudioUrl/ImageUrl/Passage>
         public int TotalAttempts { get; set; } = 0;
         public decimal AverageScore { get; set; } = 0;
 
