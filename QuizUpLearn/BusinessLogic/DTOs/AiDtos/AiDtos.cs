@@ -1,4 +1,7 @@
-﻿namespace BusinessLogic.DTOs.AiDtos
+﻿using BusinessLogic.Helpers;
+using System.Text.Json.Serialization;
+
+namespace BusinessLogic.DTOs.AiDtos
 {
     public class AiGenerateQuizSetRequestDto
     {
@@ -20,9 +23,19 @@
         public string OptionText { get; set; }
         public bool IsCorrect { get; set; }
     }
-    public class AIValidationResponseDto
+    public class AiValidationResponseDto
     {
         public bool IsValid { get; set; }
         public string Feedback { get; set; }
+    }
+    public class AiConversationAudioScriptResponseDto
+    {
+        public List<ConversationLineDto> AudioScripts { get; set; }
+    }
+    public class ConversationLineDto
+    {
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public VoiceRoles Role { get; set; }
+        public string Text { get; set; }
     }
 }
