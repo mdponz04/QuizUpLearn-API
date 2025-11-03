@@ -148,6 +148,7 @@ namespace BusinessLogic.Services
                     AudioUrl = quiz.AudioURL,
                     QuestionNumber = questionNumber,
                     TotalQuestions = quizzes.Count(),
+                    TimeLimit = null, // Host sẽ set theo từng câu
                     AnswerOptions = answerOptions.Select(ao => new AnswerOptionDto
                     {
                         AnswerId = ao.Id,
@@ -367,12 +368,15 @@ namespace BusinessLogic.Services
 
             // Tính điểm: 1000 điểm cơ bản + bonus theo tốc độ
             // Nếu trả lời nhanh hơn = điểm cao hơn (Kahoot style)
-            // Giả định max time là 30 giây (có thể adjust)
+            // Sử dụng TimeLimit của câu hỏi nếu Host đã đặt, mặc định 30s
             int points = 0;
             if (isCorrect)
             {
-                const int MAX_TIME = 30; // Max expected time in seconds
-                double timeRatio = Math.Max(0, 1.0 - (timeSpent / MAX_TIME));
+                var currentQuestion = session.Questions[session.CurrentQuestionIndex];
+                int maxTime = currentQuestion.TimeLimit.HasValue && currentQuestion.TimeLimit.Value > 0
+                    ? currentQuestion.TimeLimit.Value
+                    : 30;
+                double timeRatio = Math.Max(0, 1.0 - (timeSpent / maxTime));
                 points = (int)(1000 + (timeRatio * 500)); // Tối đa 1500 điểm
             }
 
@@ -397,6 +401,32 @@ namespace BusinessLogic.Services
 
             _logger.LogInformation($"✅ Player '{player.PlayerName}' submitted answer for question {questionId}. Correct: {isCorrect}, Points: {points}");
 
+            return true;
+        }
+
+        /// <summary>
+        /// Host đặt thời gian trả lời (giây) cho câu hỏi hiện tại
+        /// </summary>
+        public async Task<bool> SetTimeForCurrentQuestionAsync(string gamePin, int seconds)
+        {
+            if (seconds < 5) seconds = 5;
+            if (seconds > 300) seconds = 300;
+
+            var session = await GetGameSessionFromRedisAsync(gamePin);
+            if (session == null)
+                return false;
+
+            if (session.Questions == null || session.Questions.Count == 0)
+                return false;
+
+            var idx = session.CurrentQuestionIndex;
+            if (idx < 0 || idx >= session.Questions.Count)
+                return false;
+
+            session.Questions[idx].TimeLimit = seconds;
+            await SaveGameSessionToRedisAsync(gamePin, session);
+
+            _logger.LogInformation($"⏱️ SetTimeForCurrentQuestion: Game {gamePin}, Q#{idx + 1}, seconds={seconds}");
             return true;
         }
 

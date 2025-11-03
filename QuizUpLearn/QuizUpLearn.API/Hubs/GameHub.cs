@@ -84,7 +84,6 @@ namespace QuizUpLearn.API.Hubs
                     Message = "Successfully connected as Host"
                 });
 
-                // ✨ Gửi danh sách players hiện tại cho Host khi connect
                 var session = await _gameService.GetGameSessionAsync(gamePin);
                 if (session != null)
                 {
@@ -242,6 +241,48 @@ namespace QuizUpLearn.API.Hubs
             }
         }
 
+        /// <summary>
+        /// Host đặt thời gian (giây) cho câu hỏi hiện tại. FE nên gọi trước khi ShowQuestion hoặc ngay khi hiển thị.
+        /// </summary>
+        public async Task SetCurrentQuestionTime(string gamePin, int seconds)
+        {
+            try
+            {
+                var session = await _gameService.GetGameSessionAsync(gamePin);
+                if (session == null)
+                {
+                    await Clients.Caller.SendAsync("Error", "Game not found");
+                    return;
+                }
+
+                // Chỉ cho phép Host đặt thời gian
+                if (!string.Equals(session.HostConnectionId, Context.ConnectionId, StringComparison.OrdinalIgnoreCase))
+                {
+                    await Clients.Caller.SendAsync("Error", "Only host can set time");
+                    return;
+                }
+
+                var ok = await _gameService.SetTimeForCurrentQuestionAsync(gamePin, seconds);
+                if (!ok)
+                {
+                    await Clients.Caller.SendAsync("Error", "Failed to set time for current question");
+                    return;
+                }
+
+                // Phát broadcast để FE cập nhật đồng hồ
+                await Clients.Group($"Game_{gamePin}").SendAsync("QuestionTimeUpdated", new
+                {
+                    QuestionIndex = session.CurrentQuestionIndex + 1,
+                    Seconds = Math.Clamp(seconds, 5, 300)
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error in SetCurrentQuestionTime for game {gamePin}");
+                await Clients.Caller.SendAsync("Error", "An error occurred while setting time");
+            }
+        }
+
         // ==================== SUBMIT ANSWER ====================
         /// <summary>
         /// Player submit câu trả lời
@@ -287,6 +328,17 @@ namespace QuizUpLearn.API.Hubs
                     if (leaderboard != null)
                     {
                         await Clients.Group($"Game_{gamePin}").SendAsync("UpdateLeaderboard", leaderboard);
+                    }
+
+                    // ✨ Gửi cập nhật điểm riêng cho player vừa submit (để FE có thể update nhanh UI)
+                    var justAnswered = session.Players.FirstOrDefault(p => p.ConnectionId == Context.ConnectionId);
+                    if (justAnswered != null)
+                    {
+                        await Clients.Group($"Game_{gamePin}").SendAsync("PlayerScoreUpdated", new
+                        {
+                            PlayerName = justAnswered.PlayerName,
+                            Score = justAnswered.Score
+                        });
                     }
                 }
             }

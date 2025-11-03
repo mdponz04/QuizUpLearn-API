@@ -73,6 +73,7 @@ namespace BusinessLogic.DTOs
         public List<AnswerOptionDto> AnswerOptions { get; set; } = new();
         public int QuestionNumber { get; set; }
         public int TotalQuestions { get; set; }
+        public int? TimeLimit { get; set; } // seconds, do Host đặt cho từng câu
     }
 
     /// <summary>
