@@ -58,17 +58,17 @@ namespace Repository.Repositories
             if (existingQuiz == null || existingQuiz.DeletedAt != null)
                 return null;
 
-            if(!string.IsNullOrEmpty(existingQuiz.QuestionText))
+            if(!string.IsNullOrEmpty(quiz.QuestionText))
                 existingQuiz.QuestionText = quiz.QuestionText;
-            if(!string.IsNullOrEmpty(existingQuiz.CorrectAnswer))
+            if(!string.IsNullOrEmpty(quiz.CorrectAnswer))
                 existingQuiz.CorrectAnswer = quiz.CorrectAnswer;
-            if(!string.IsNullOrEmpty(existingQuiz.GroupId))
+            if(!string.IsNullOrEmpty(quiz.GroupId))
                 existingQuiz.GroupId = quiz.GroupId;
-            if(!string.IsNullOrEmpty(existingQuiz.AudioURL))
+            if(!string.IsNullOrEmpty(quiz.AudioURL))
                 existingQuiz.AudioURL = quiz.AudioURL;
-            if(!string.IsNullOrEmpty(existingQuiz.ImageURL))
+            if(!string.IsNullOrEmpty(quiz.ImageURL))
                 existingQuiz.ImageURL = quiz.ImageURL;
-            if(!string.IsNullOrEmpty(existingQuiz.TOEICPart))
+            if(!string.IsNullOrEmpty(quiz.TOEICPart))
                 existingQuiz.TOEICPart = quiz.TOEICPart;
             
             if(existingQuiz.TimesAnswered > 0)

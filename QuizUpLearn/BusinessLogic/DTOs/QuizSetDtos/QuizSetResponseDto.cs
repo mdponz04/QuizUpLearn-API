@@ -8,7 +8,6 @@ namespace BusinessLogic.DTOs.QuizSetDtos
         public string Title { get; set; }
         public string Description { get; set; }
         public string QuizType { get; set; }
-        public string TOEICPart { get; set; }
         public string SkillType { get; set; }
         public string DifficultyLevel { get; set; }
         public int TotalQuestions { get; set; }
@@ -22,6 +21,7 @@ namespace BusinessLogic.DTOs.QuizSetDtos
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public DateTime? DeletedAt { get; set; }
+        public Dictionary<string, string>? GroupItems { get; set; }
         public List<QuizResponseDto> Quizzes { get; set; } = new List<QuizResponseDto>();
     }
 }

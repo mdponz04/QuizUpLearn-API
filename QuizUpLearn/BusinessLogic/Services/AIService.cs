@@ -6,6 +6,7 @@ using BusinessLogic.Helpers;
 using BusinessLogic.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Identity.Client;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -250,6 +251,23 @@ namespace BusinessLogic.Services
             return await response.Content.ReadAsByteArrayAsync();
         }
 
+        private async Task<byte[]> GenerateConversationAudioAsync(AiConversationAudioScriptResponseDto conversation)
+        {
+            using var combinedStream = new MemoryStream();
+            var silenceBytes = new byte[13230]; //~0.3s silence
+
+            foreach (var line in conversation.AudioScripts)
+            {
+                var lineAudioBytes = await GenerateAudioAsync(line.Text, line.Role);
+
+                await combinedStream.WriteAsync(lineAudioBytes, 0, lineAudioBytes.Length);
+
+                if (line != conversation.AudioScripts.Last())
+                    await combinedStream.WriteAsync(silenceBytes, 0, silenceBytes.Length);
+            }
+
+            return combinedStream.ToArray();
+        }
         public async Task<(bool, string)> ValidateQuizSetAsync(Guid quizSetId)
         {
             var quizSet = await _quizSetService.GetQuizSetByIdAsync(quizSetId);
@@ -272,7 +290,8 @@ Review this quiz for correctness and clarity.
 
 ### Quiz Set Context:
 TOEIC practice quiz titled: '{quizSet.Title}'.
-Description: Focus on TOEIC Part {quizSet.TOEICPart}, 
+Description: {quizSet.Description}, 
+Toeic part: {quiz.TOEICPart},
 suitable for learners with TOEIC scores around {quizSet.DifficultyLevel}.
 
 ### Quiz to Validate
@@ -293,11 +312,9 @@ Return only these 2 fields as JSON structure:
     ""Feedback"": "".....""
 }}
 ";
-
                 var response = await GenerateContentAsync(validationPrompt);
                 
-                
-                var validation = JsonSerializer.Deserialize<AIValidationResponseDto>(response ?? string.Empty);
+                var validation = JsonSerializer.Deserialize<AiValidationResponseDto>(response ?? string.Empty);
 
                 if (validation == null)
                 {
@@ -317,15 +334,32 @@ Return only these 2 fields as JSON structure:
         //Done
         public async Task<QuizSetResponseDto> GeneratePracticeQuizSetPart1Async(AiGenerateQuizSetRequestDto inputData)
         {
-            var prompt = $@"
+            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
+            {
+                Title = inputData.Topic,
+                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC part 1",
+                QuizType = "Practice",
+                SkillType = "",
+                DifficultyLevel = inputData.Difficulty,
+                CreatedBy = inputData.CreatorId
+            });
+            string previousImageDescription = string.Empty;
+            string previousQuestionText = string.Empty;
+
+            for (int i = 0; i < inputData.QuestionQuantity; i++)
+            {
+                var prompt = $@"
 Generate a TOEIC practice quiz titled: '{inputData.Topic}'.
 Description: Focus on TOEIC Part 1 , 
 suitable for learners with TOEIC scores around {inputData.Difficulty}.
 Question should describe a photo scene with one correct answer among four choices. 
 The image should be described in detail with atleast 50 words.
 
+Avoid previous image description(if any): {previousImageDescription}
+
 Generate ONE question that matches this theme.
 
+Avoid previous question text(if any): {previousQuestionText}
 
 Only return in this structure no need any extended field/infor:
 {{
@@ -338,21 +372,9 @@ Only return in this structure no need any extended field/infor:
     {{ ""OptionLabel"": ""D"", ""OptionText"": ""..."", ""IsCorrect"": true/false }}
   ]
 }}";
-
-            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
-            {
-                Title = inputData.Topic,
-                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC part 1",
-                QuizType = "Practice",
-                SkillType = "",
-                DifficultyLevel = inputData.Difficulty,
-                CreatedBy = inputData.CreatorId
-            });
-
-            for (int i = 0; i < inputData.QuestionQuantity; i++)
-            {
                 var response = await GeminiGenerateContentAsync(prompt);
-                
+                previousImageDescription += response + "\n";
+
                 var quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
                 if (quiz == null
                     || string.IsNullOrEmpty(quiz.QuestionText)
@@ -389,6 +411,8 @@ Only return in this structure no need any extended field/infor:
                         QuizId = createdQuiz.Id
                     });
                 }
+
+                previousQuestionText += quiz.QuestionText + ", ";
             }
 
             return createdQuizSet;
@@ -396,13 +420,27 @@ Only return in this structure no need any extended field/infor:
         //Done
         public async Task<QuizSetResponseDto> GeneratePracticeQuizSetPart2Async(AiGenerateQuizSetRequestDto inputData)
         {
-            var prompt = $@"
+            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
+            {
+                Title = inputData.Topic,
+                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC part 2",
+                QuizType = "Practice",
+                SkillType = "",
+                DifficultyLevel = inputData.Difficulty,
+                CreatedBy = inputData.CreatorId
+            });
+            string previousQuestionText = string.Empty;
+            for (int i = 0; i < inputData.QuestionQuantity; i++)
+            {
+                var prompt = $@"
 Generate a TOEIC practice quiz titled: '{inputData.Topic}'.
 Description: Focus on TOEIC Part 2, 
 suitable for learners with TOEIC scores around {inputData.Difficulty}.
 Question have 3 answers, each answer should have different context then the correct one is the answer that fit with the topic, you have to generate question text, answer options. 
 
 Generate ONE question that matches this theme.
+
+Avoid previous question text(if any): {previousQuestionText}
 
 Only return in this structure no need any extended field/infor:
 {{
@@ -413,21 +451,8 @@ Only return in this structure no need any extended field/infor:
     {{ ""OptionLabel"": ""C"", ""OptionText"": ""..."", ""IsCorrect"": true/false }}
   ]
 }}";
-
-            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
-            {
-                Title = inputData.Topic,
-                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC part 2",
-                QuizType = "Practice",
-                SkillType = "",
-                DifficultyLevel = inputData.Difficulty,
-                CreatedBy = inputData.CreatorId
-            });
-
-            for (int i = 0; i < inputData.QuestionQuantity; i++)
-            {
                 var response = await GeminiGenerateContentAsync(prompt);
-
+                
                 var quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
                 if (quiz == null
                     || string.IsNullOrEmpty(quiz.QuestionText)
@@ -460,29 +485,71 @@ Only return in this structure no need any extended field/infor:
                         QuizId = createdQuiz.Id
                     });
                 }
+
+                previousQuestionText += quiz.QuestionText + ", ";
             }
             return createdQuizSet;
         }
-
-        public Task<QuizSetResponseDto> GeneratePracticeQuizSetPart3Async(AiGenerateQuizSetRequestDto inputData)
+        //Done
+        public async Task<QuizSetResponseDto> GeneratePracticeQuizSetPart3Async(AiGenerateQuizSetRequestDto inputData)
         {
-            throw new NotImplementedException();
-        }
+            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
+            {
+                Title = inputData.Topic,
+                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC part 3",
+                QuizType = "Practice",
+                SkillType = "",
+                DifficultyLevel = inputData.Difficulty,
+                CreatedBy = inputData.CreatorId
+            });
+            Guid quizSetId = createdQuizSet.Id;
+            var previousAudioScript = string.Empty;
 
-        public Task<QuizSetResponseDto> GeneratePracticeQuizSetPart4Async(AiGenerateQuizSetRequestDto inputData)
-        {
-            throw new NotImplementedException();
-        }
-
-        public async Task<QuizSetResponseDto> GeneratePracticeQuizSetPart5Async(AiGenerateQuizSetRequestDto inputData)
-        {
-            var prompt = $@"
-Generate a TOEIC practice quiz titled: '{inputData.Topic}'.
-Description: Focus on TOEIC Part 5 - in this part the question will be an incomplete sentence with 4 answer to fill in, 
+            for (int i = 0; i < inputData.QuestionQuantity; i += 3)
+            {
+                var audioPrompt = $@"
+Generate a TOEIC audio topic: '{inputData.Topic}'.
+Description: Focus on TOEIC Part 3, 
 suitable for learners with TOEIC scores around {inputData.Difficulty}.
 
+Avoid the previous audio script(if it is not null): {previousAudioScript}
 
-Generate ONE question that matches this theme.
+Generate ONE generate audio script that contain a short conservation between TWO people (different gender) and matches this theme.
+The audio must have 3-5 exchanges (each person speak 2-3 times) and each exchange should have 15-30 words (must have 2-3 sentences in 1 exchange).
+
+Only return in this structure:
+{{
+  ""AudioScripts"": [
+    {{ ""Role"": ""Male"", ""Text"": ""..."" }},
+    {{ ""Role"": ""Female"", ""Text"": ""..."" }},
+    {{ ""Role"": ""Male"", ""Text"": ""Where are you going?"" }},
+    {{ ""Role"": ""Female"", ""Text"": ""To the office."" }},
+......
+]
+}}";
+                var audioResponse = await GeminiGenerateContentAsync(audioPrompt);
+                previousAudioScript = string.Join("\n", audioResponse);
+                var conversationScripts = JsonSerializer.Deserialize<AiConversationAudioScriptResponseDto>(audioResponse);
+                var audioBytes = await GenerateConversationAudioAsync(conversationScripts!);
+                var audioFile = await _uploadService.ConvertByteArrayToIFormFile(audioBytes, $"audio-G3_{i / 3 + 1}-{inputData.CreatorId}-{DateTime.UtcNow}.mp3", "audio/mpeg");
+                var audioResult = await _uploadService.UploadAsync(audioFile);
+
+                createdQuizSet.GroupItems ??= new Dictionary<string, string>();
+                createdQuizSet.GroupItems.Add($"Group3_{i / 3 + 1}", audioResult.Url);
+
+                await _quizSetService.UpdateQuizSetAsync(quizSetId, new QuizSetRequestDto
+                {
+                    GroupItems = createdQuizSet.GroupItems
+                });
+
+                string previousQuizText = string.Empty;
+                for (int j = 0; j < 3 && i + j < inputData.QuestionQuantity; j++)
+                {
+                    var quizPrompt = $@"
+Based on this audio script: {audioResponse}
+Generate ONE TOEIC Part 3 question with 3 wrong answers and 1 correct answer.
+
+Avoid the previous question text(if it is not null): {previousQuizText}
 
 Only return in this structure no need any extended field/infor:
 {{
@@ -494,7 +561,146 @@ Only return in this structure no need any extended field/infor:
     {{ ""OptionLabel"": ""D"", ""OptionText"": ""..."", ""IsCorrect"": true/false }}
   ]
 }}";
+                    var response = await GeminiGenerateContentAsync(quizPrompt);
 
+                    var quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
+                    if (quiz == null
+                        || string.IsNullOrEmpty(quiz.QuestionText)
+                        || quiz.AnswerOptions.Count == 0)
+                        throw new Exception("Failed to generate valid quiz data from AI.");
+
+                    previousQuizText += quiz.QuestionText + ", ";
+
+                    var createdQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
+                    {
+                        QuizSetId = createdQuizSet.Id,
+                        QuestionText = quiz.QuestionText,
+                        TOEICPart = "Part 3",
+                        GroupId = $"Group3_{i / 3 + 1}"
+                    });
+
+                    foreach (var item in quiz.AnswerOptions)
+                    {
+                        await _answerOptionService.CreateAsync(new RequestAnswerOptionDto
+                        {
+                            OptionLabel = item.OptionLabel,
+                            OptionText = item.OptionText,
+                            IsCorrect = item.IsCorrect,
+                            QuizId = createdQuiz.Id
+                        });
+                    }
+                }
+            }
+            return createdQuizSet;
+        }
+        //Done
+        public async Task<QuizSetResponseDto> GeneratePracticeQuizSetPart4Async(AiGenerateQuizSetRequestDto inputData)
+        {
+            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
+            {
+                Title = inputData.Topic,
+                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC part 4",
+                QuizType = "Practice",
+                SkillType = "",
+                DifficultyLevel = inputData.Difficulty,
+                CreatedBy = inputData.CreatorId
+            });
+
+            Guid quizSetId = createdQuizSet.Id;
+            string previousAudioScript = string.Empty;
+            
+            for (int i = 0; i < inputData.QuestionQuantity; i += 3)
+            {
+                var audioPrompt = $@"
+Generate a TOEIC audio topic: '{inputData.Topic}'.
+Description: Focus on TOEIC Part 4, 
+suitable for learners with TOEIC scores around {inputData.Difficulty}.
+
+Avoid the previous audio script(if it is not null): {previousAudioScript}
+
+Generate ONE audio script that contain a short monologue (announcement/speech) matches this theme.
+
+
+Only return in this structure:
+{{
+  ""AudioScript"": ""...""
+}}";
+                var audioResponse = await GeminiGenerateContentAsync(audioPrompt);
+                
+
+                var audioScripts = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(audioResponse);
+                if(audioScripts == null 
+                    || string.IsNullOrEmpty(audioScripts.AudioScript))
+                    throw new Exception("Failed to generate valid audio script from AI.");
+
+                previousAudioScript = string.Join("\n", audioScripts.AudioScript);
+
+                var audioBytes = await GenerateAudioAsync(audioScripts.AudioScript!, VoiceRoles.Narrator);
+                var audioFile = await _uploadService.ConvertByteArrayToIFormFile(audioBytes, $"audio-G4_{i / 3 + 1}-{inputData.CreatorId}-{DateTime.UtcNow}.mp3", "audio/mpeg");
+                var audioResult = await _uploadService.UploadAsync(audioFile);
+
+                createdQuizSet.GroupItems ??= new Dictionary<string, string>();
+                createdQuizSet.GroupItems.Add($"Group4_{i / 3 + 1}", audioResult.Url);
+
+                await _quizSetService.UpdateQuizSetAsync(quizSetId, new QuizSetRequestDto
+                {
+                    GroupItems = createdQuizSet.GroupItems
+                });
+
+                string previousQuizText = string.Empty;
+                for (int j = 0; j < 3 && i + j < inputData.QuestionQuantity; j++)
+                {
+                    var quizPrompt = $@"
+Based on this audio script: {audioResponse}
+Generate ONE TOEIC Part 4 question with 3 wrong answers and 1 correct answer.
+
+Avoid the previous question text(if it is not null): {previousQuizText}
+
+Only return in this structure no need any extended field/infor:
+{{
+  ""QuestionText"": ""..."",
+  ""AnswerOptions"": [
+    {{ ""OptionLabel"": ""A"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
+    {{ ""OptionLabel"": ""B"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
+    {{ ""OptionLabel"": ""C"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
+    {{ ""OptionLabel"": ""D"", ""OptionText"": ""..."", ""IsCorrect"": true/false }}
+  ]
+}}";
+                    var response = await GeminiGenerateContentAsync(quizPrompt);
+
+                    var quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
+                    if (quiz == null
+                        || string.IsNullOrEmpty(quiz.QuestionText)
+                        || quiz.AnswerOptions.Count == 0)
+                        throw new Exception("Failed to generate valid quiz data from AI.");
+
+                    previousQuizText += quiz.QuestionText + ", ";
+
+                    var createdQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
+                    {
+                        QuizSetId = createdQuizSet.Id,
+                        QuestionText = quiz.QuestionText,
+                        TOEICPart = "Part 3",
+                        GroupId = $"Group3_{i / 3 + 1}"
+                    });
+
+                    foreach (var item in quiz.AnswerOptions)
+                    {
+                        await _answerOptionService.CreateAsync(new RequestAnswerOptionDto
+                        {
+                            OptionLabel = item.OptionLabel,
+                            OptionText = item.OptionText,
+                            IsCorrect = item.IsCorrect,
+                            QuizId = createdQuiz.Id
+                        });
+                    }
+                }
+            }
+            return createdQuizSet;
+        }
+        //Done
+        public async Task<QuizSetResponseDto> GeneratePracticeQuizSetPart5Async(AiGenerateQuizSetRequestDto inputData)
+        {
             var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
             {
                 Title = inputData.Topic,
@@ -505,8 +711,29 @@ Only return in this structure no need any extended field/infor:
                 CreatedBy = inputData.CreatorId
             });
 
+            string previousQuestionText = string.Empty;
+
             for (int i = 0; i < inputData.QuestionQuantity; i++)
             {
+                var prompt = $@"
+Generate a TOEIC practice quiz titled: '{inputData.Topic}'.
+Description: Focus on TOEIC Part 5 - in this part the question will be an incomplete sentence with 4 answer to fill in, 
+suitable for learners with TOEIC scores around {inputData.Difficulty}.
+
+Generate ONE question that matches this theme.
+
+Avoid previous question text(if any): {previousQuestionText}
+
+Only return in this structure no need any extended field/infor:
+{{
+  ""QuestionText"": ""..."",
+  ""AnswerOptions"": [
+    {{ ""OptionLabel"": ""A"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
+    {{ ""OptionLabel"": ""B"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
+    {{ ""OptionLabel"": ""C"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
+    {{ ""OptionLabel"": ""D"", ""OptionText"": ""..."", ""IsCorrect"": true/false }}
+  ]
+}}";
                 var response = await GeminiGenerateContentAsync(prompt);
 
                 var quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
@@ -533,13 +760,118 @@ Only return in this structure no need any extended field/infor:
                         QuizId = createdQuiz.Id
                     });
                 }
+
+                previousQuestionText += quiz.QuestionText + ", ";
             }
             return createdQuizSet;
         }
 
-        public Task<QuizSetResponseDto> GeneratePracticeQuizSetPart6Async(AiGenerateQuizSetRequestDto inputData)
+        public async Task<QuizSetResponseDto> GeneratePracticeQuizSetPart6Async(AiGenerateQuizSetRequestDto inputData)
         {
-            throw new NotImplementedException();
+            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
+            {
+                Title = inputData.Topic,
+                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC part 6",
+                QuizType = "Practice",
+                SkillType = "",
+                DifficultyLevel = inputData.Difficulty,
+                CreatedBy = inputData.CreatorId
+            });
+
+            Guid quizSetId = createdQuizSet.Id;
+            string previousPassages = string.Empty;
+
+            for (int i = 0; i < inputData.QuestionQuantity; i += 4)
+            {
+                var passagePrompt = $@"
+Generate a TOEIC passage: '{inputData.Topic}'.
+Description: Focus on TOEIC Part 6, 
+suitable for learners with TOEIC scores around {inputData.Difficulty}.
+
+Avoid the previous passage(if it is not null): {previousPassages}
+
+Generate ONE passage match the theme - generate fully passage without any blanks (at least 75 words with 6 sentences).
+
+Only return in this structure:
+{{
+  ""Passage"": ""..."",
+}}";
+                var passageResponse = await GeminiGenerateContentAsync(passagePrompt);
+
+                var passageResult = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(passageResponse);
+                if (passageResult == null
+                    || string.IsNullOrEmpty(passageResult.Passage))
+                    throw new Exception("Failed to generate valid passage from AI.");
+
+                previousPassages = string.Join("\n", passageResult.Passage);
+
+                createdQuizSet.GroupItems ??= new Dictionary<string, string>();
+                createdQuizSet.GroupItems.Add($"Group6_{i / 4 + 1}", passageResult.Passage);
+
+                var usedBlanks = string.Empty;
+
+                for (int j = 1; j <= 4 && i + j <= inputData.QuestionQuantity; j++)
+                {
+                    var quizPrompt = $@"
+Based on this passage: {passageResult.Passage}
+Replace the {j}th important word with a blank marked as ({j}).
+
+Avoid using these previous blanks(if any): [{string.Join(", ", usedBlanks)}]
+
+Return the question text with ({j}) and 4 answer options (1 correct, 3 wrong). Return the modified passage as 'QuestionText'
+
+Only return in this structure no need any extended field/infor:
+{{
+  ""QuestionText"": """",
+  ""AnswerOptions"": [
+    {{ ""OptionLabel"": ""A"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
+    {{ ""OptionLabel"": ""B"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
+    {{ ""OptionLabel"": ""C"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
+    {{ ""OptionLabel"": ""D"", ""OptionText"": ""..."", ""IsCorrect"": true/false }}
+  ]
+}}";
+                    var response = await GeminiGenerateContentAsync(quizPrompt);
+
+                    var quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
+                    if (quiz == null
+                        || string.IsNullOrEmpty(quiz.QuestionText)
+                        || quiz.AnswerOptions.Count == 0)
+                        throw new Exception("Failed to generate valid quiz data from AI.");
+
+                    var createdQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
+                    {
+                        QuizSetId = createdQuizSet.Id,
+                        QuestionText = j.ToString(),
+                        TOEICPart = "Part 6",
+                        GroupId = $"Group6_{i / 4 + 1}"
+                    });
+
+                    foreach (var item in quiz.AnswerOptions)
+                    {
+                        await _answerOptionService.CreateAsync(new RequestAnswerOptionDto
+                        {
+                            OptionLabel = item.OptionLabel,
+                            OptionText = item.OptionText,
+                            IsCorrect = item.IsCorrect,
+                            QuizId = createdQuiz.Id
+                        });
+
+                        if (item.IsCorrect)
+                        {
+                            usedBlanks += $"{j}." + item.OptionText + ", ";
+                        }
+                    }
+
+                    passageResult.Passage = quiz.QuestionText;
+                }
+            }
+
+            await _quizSetService.UpdateQuizSetAsync(quizSetId, new QuizSetRequestDto
+            {
+                GroupItems = createdQuizSet.GroupItems
+            });
+
+            return createdQuizSet;
         }
 
         public Task<QuizSetResponseDto> GeneratePracticeQuizSetPart7Async(AiGenerateQuizSetRequestDto inputData)

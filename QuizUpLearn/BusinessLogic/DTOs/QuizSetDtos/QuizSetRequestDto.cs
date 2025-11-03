@@ -13,7 +13,7 @@ namespace BusinessLogic.DTOs.QuizSetDtos
         public bool IsAIGenerated { get; set; } = true;
         public bool IsPublished { get; set; } = false;
         public bool IsPremiumOnly { get; set; } = false;
-        
+        public Dictionary<string, string>? GroupItems { get; set; }
         // navgation property
         public List<QuizRequestDto> Quizzes { get; set; } = new List<QuizRequestDto>();
     }
