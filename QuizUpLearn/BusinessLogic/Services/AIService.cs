@@ -874,10 +874,103 @@ Only return in this structure no need any extended field/infor:
             return createdQuizSet;
         }
 
-        public Task<QuizSetResponseDto> GeneratePracticeQuizSetPart7Async(AiGenerateQuizSetRequestDto inputData)
+        public async Task<QuizSetResponseDto> GeneratePracticeQuizSetPart7Async(AiGenerateQuizSetRequestDto inputData)
         {
-            throw new NotImplementedException();
+            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
+            {
+                Title = inputData.Topic,
+                Description = $"AI-generated TOEIC Part 7 Reading practice on {inputData.Topic}",
+                QuizType = "Practice",
+                SkillType = "",
+                DifficultyLevel = inputData.Difficulty,
+                CreatedBy = inputData.CreatorId
+            });
+
+            Guid quizSetId = createdQuizSet.Id;
+            string previousPassages = string.Empty;
+
+            for (int i = 0; i < inputData.QuestionQuantity; i += 3)
+            {
+                var passagePrompt = $@"
+Generate a TOEIC Part 7 reading passage about '{inputData.Topic}' 
+for learners with TOEIC score around {inputData.Difficulty}.
+Avoid repeating previous passages: {previousPassages}.
+Length: around 120-150 words, realistic topic (email, article, or notice).
+
+Return only JSON:
+{{
+  ""Passage"": ""...""
+}}";
+
+                var passageResponse = await GeminiGenerateContentAsync(passagePrompt);
+                var passageResult = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(passageResponse);
+
+                if (passageResult == null || string.IsNullOrEmpty(passageResult.Passage))
+                    throw new Exception("Failed to generate valid passage.");
+
+                previousPassages = passageResult.Passage;
+
+                createdQuizSet.GroupItems ??= new Dictionary<string, string>();
+                createdQuizSet.GroupItems.Add($"Group7_{i / 3 + 1}", passageResult.Passage);
+
+                await _quizSetService.UpdateQuizSetAsync(quizSetId, new QuizSetRequestDto
+                {
+                    GroupItems = createdQuizSet.GroupItems
+                });
+
+                string previousQuizText = string.Empty;
+                for (int j = 1; j <= 3 && i + j <= inputData.QuestionQuantity; j++)
+                {
+                    var quizPrompt = $@"
+Based on this TOEIC passage: {passageResult.Passage}
+Generate ONE reading comprehension question (like TOEIC Part 7).
+Include 4 options (A–D) with 1 correct answer.
+
+Avoid previous question text(if any): {previousQuizText}
+
+Return JSON:
+{{
+  ""QuestionText"": ""..."",
+  ""AnswerOptions"": [
+    {{ ""OptionLabel"": ""A"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
+    {{ ""OptionLabel"": ""B"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
+    {{ ""OptionLabel"": ""C"", ""OptionText"": ""..."", ""IsCorrect"": true/false }},
+    {{ ""OptionLabel"": ""D"", ""OptionText"": ""..."", ""IsCorrect"": true/false }}
+  ]
+}}";
+
+                    var response = await GeminiGenerateContentAsync(quizPrompt);
+                    var quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
+
+                    if (quiz == null || string.IsNullOrEmpty(quiz.QuestionText))
+                        throw new Exception("Invalid quiz data.");
+
+                    previousQuizText += quiz.QuestionText + ", ";
+
+                    var createdQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
+                    {
+                        QuizSetId = createdQuizSet.Id,
+                        QuestionText = quiz.QuestionText,
+                        TOEICPart = "Part 7",
+                        GroupId = $"Group7_{i / 3 + 1}"
+                    });
+
+                    foreach (var item in quiz.AnswerOptions)
+                    {
+                        await _answerOptionService.CreateAsync(new RequestAnswerOptionDto
+                        {
+                            OptionLabel = item.OptionLabel,
+                            OptionText = item.OptionText,
+                            IsCorrect = item.IsCorrect,
+                            QuizId = createdQuiz.Id
+                        });
+                    }
+                }
+            }
+
+            return createdQuizSet;
         }
+
 
         public Task<(bool, string)> ValidateImageAsync(string context)
         {
