@@ -4,7 +4,7 @@ namespace Repository.Entities
 {
     public class QuizGroupItem : BaseEntity
     {
-        public Guid QuizSet { get; set; }
+        public Guid QuizSetId { get; set; }
         public string? Name { get; set; }
         public string? AudioUrl { get; set; }
         public string? ImageUrl { get; set; }

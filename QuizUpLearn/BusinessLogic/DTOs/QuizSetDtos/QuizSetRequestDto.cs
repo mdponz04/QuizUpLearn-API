@@ -1,4 +1,5 @@
 ﻿using BusinessLogic.DTOs.QuizDtos;
+using BusinessLogic.DTOs.QuizGroupItemDtos;
 using Repository.Enums;
 
 namespace BusinessLogic.DTOs.QuizSetDtos
@@ -15,6 +16,7 @@ namespace BusinessLogic.DTOs.QuizSetDtos
         public bool? IsPublished { get; set; }
         public bool? IsPremiumOnly { get; set; }
         // navgation property
+        public List<RequestQuizGroupItemDto> QuizGroupItems { get; set; } = new List<RequestQuizGroupItemDto>();
         public List<QuizRequestDto> Quizzes { get; set; } = new List<QuizRequestDto>();
     }
 }
