@@ -4,12 +4,13 @@
     {
         public Guid Id { get; set; }
         public Guid QuizSetId { get; set; }
+        public Guid? QuizGroupItemId { get; set; }
+        public string? QuizGroupItemName { get; set; }
         public string? QuestionText { get; set; }
         public string? CorrectAnswer { get; set; }
         public string? AudioURL { get; set; }
         public string? ImageURL { get; set; }
         public string? TOEICPart { get; set; }
-        public string? GroupId { get; set; }
         public int TimesAnswered { get; set; }
         public int TimesCorrect { get; set; }
         public int? OrderIndex { get; set; }

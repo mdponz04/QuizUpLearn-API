@@ -1,12 +1,12 @@
 ﻿using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.AiDtos;
 using BusinessLogic.DTOs.QuizDtos;
+using BusinessLogic.DTOs.QuizGroupItemDtos;
 using BusinessLogic.DTOs.QuizSetDtos;
 using BusinessLogic.Helpers;
 using BusinessLogic.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Microsoft.Identity.Client;
 using Repository.Enums;
 using System.Net.Http.Headers;
 using System.Text;
@@ -23,6 +23,7 @@ namespace BusinessLogic.Services
         private readonly IAnswerOptionService _answerOptionService;
         private readonly IUploadService _uploadService;
         private readonly ILogger<AIService> _logger;
+        private readonly IQuizGroupItemService _quizGroupItemService;
         //API keys
         private readonly string _geminiApiKey;
         private readonly string _openRouterApiKey;
@@ -32,7 +33,7 @@ namespace BusinessLogic.Services
         private readonly string _maleVoiceId;
         private readonly string _femaleVoiceId;
         private readonly string _narratorVoiceId;
-        public AIService(HttpClient httpClient, IConfiguration configuration, IQuizSetService quizSetService, IQuizService quizService, IAnswerOptionService answerOptionService, IUploadService uploadService, ILogger<AIService> logger)
+        public AIService(HttpClient httpClient, IConfiguration configuration, IQuizSetService quizSetService, IQuizService quizService, IAnswerOptionService answerOptionService, IUploadService uploadService, ILogger<AIService> logger, IQuizGroupItemService quizGroupItemService)
         {
             _httpClient = httpClient;
             _quizSetService = quizSetService;
@@ -40,11 +41,14 @@ namespace BusinessLogic.Services
             _answerOptionService = answerOptionService;
             _uploadService = uploadService;
             _logger = logger;
+            _quizGroupItemService = quizGroupItemService;
+
             //API keys
             _geminiApiKey = configuration["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini API key is not configured.");
             _openRouterApiKey = configuration["OpenRouter:ApiKey"] ?? throw new ArgumentNullException("Open router API key is not configured.");
             _asyncAiApiKey = configuration["AsyncTTS:ApiKey"] ?? throw new ArgumentNullException("OpenAITTS API key is not configured.");
             _nebiusApiKey = configuration["Nebius:ApiKey"] ?? throw new ArgumentNullException("Nebius API key is not configured.");
+
             //Voice ids
             _maleVoiceId = configuration["AsyncTTS:Voices:Male"] ?? throw new ArgumentNullException("Male voice id is not configured");
             _femaleVoiceId = configuration["AsyncTTS:Voices:Female"] ?? throw new ArgumentNullException("Female voice id is not configured"); ;
@@ -255,7 +259,7 @@ namespace BusinessLogic.Services
         private async Task<byte[]> GenerateConversationAudioAsync(AiConversationAudioScriptResponseDto conversation)
         {
             using var combinedStream = new MemoryStream();
-            var silenceBytes = new byte[13230]; //~0.3s silence
+            var silenceBytes = new byte[13230];
 
             foreach (var line in conversation.AudioScripts)
             {
@@ -284,16 +288,8 @@ namespace BusinessLogic.Services
             foreach (var quiz in quizzes)
             {
                 var options = await _answerOptionService.GetByQuizIdAsync(quiz.Id);
-                var quizGroupItem = string.Empty;
-                if(quiz.GroupId != null && quizSet.GroupItems.ContainsKey($"{quiz.GroupId}"))
-                {
-                    quizGroupItem = quizSet.GroupItems[$"{quiz.GroupId}"];
-                }
-                else
-                {
-                    quizGroupItem = "No group context (single question).";
-                }
-
+                
+                
                 var validationPrompt = $@"
 You are an expert TOEIC test validator.
 Review this quiz for correctness and clarity.
@@ -306,8 +302,8 @@ suitable for learners with TOEIC scores around {quizSet.DifficultyLevel}.
 
 ### Quiz to Validate
 Question: {quiz.QuestionText}
-Question group name(if any): {quiz.GroupId}
-Group items(if any): {quizSet.GroupItems[$"{quiz.GroupId}"]}
+Question group name(if any):
+Group items(if any):
 Options:
 {string.Join("\n", options.Select(o => $"{o.OptionLabel}. {o.OptionText} (Correct: {o.IsCorrect})"))}
 
@@ -546,12 +542,12 @@ Only return in this structure:
                 var audioFile = await _uploadService.ConvertByteArrayToIFormFile(audioBytes, $"audio-G3_{i / 3 + 1}-{inputData.CreatorId}-{DateTime.UtcNow}.mp3", "audio/mpeg");
                 var audioResult = await _uploadService.UploadAsync(audioFile);
 
-                createdQuizSet.GroupItems ??= new Dictionary<string, string>();
-                createdQuizSet.GroupItems.Add($"Group3_{i / 3 + 1}", audioResult.Url);
-
-                await _quizSetService.UpdateQuizSetAsync(quizSetId, new QuizSetRequestDto
+                var groupItem = await _quizGroupItemService.AddAsync(new RequestQuizGroupItemDto
                 {
-                    GroupItems = createdQuizSet.GroupItems
+                    QuizSetId = quizSetId,
+                    Name = $"Group3_{i / 3 + 1}",
+                    AudioUrl = audioResult.Url,
+                    AudioScript = audioResponse
                 });
 
                 string previousQuizText = string.Empty;
@@ -588,7 +584,7 @@ Only return in this structure no need any extended field/infor:
                         QuizSetId = createdQuizSet.Id,
                         QuestionText = quiz.QuestionText,
                         TOEICPart = "Part 3",
-                        GroupId = $"Group3_{i / 3 + 1}"
+                        QuizGroupItemId = groupItem.Id
                     });
 
                     foreach (var item in quiz.AnswerOptions)
@@ -639,7 +635,6 @@ Only return in this structure:
 }}";
                 var audioResponse = await GeminiGenerateContentAsync(audioPrompt);
                 
-
                 var audioScripts = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(audioResponse);
                 if(audioScripts == null 
                     || string.IsNullOrEmpty(audioScripts.AudioScript))
@@ -651,12 +646,12 @@ Only return in this structure:
                 var audioFile = await _uploadService.ConvertByteArrayToIFormFile(audioBytes, $"audio-G4_{i / 3 + 1}-{inputData.CreatorId}-{DateTime.UtcNow}.mp3", "audio/mpeg");
                 var audioResult = await _uploadService.UploadAsync(audioFile);
 
-                createdQuizSet.GroupItems ??= new Dictionary<string, string>();
-                createdQuizSet.GroupItems.Add($"Group4_{i / 3 + 1}", audioResult.Url);
-
-                await _quizSetService.UpdateQuizSetAsync(quizSetId, new QuizSetRequestDto
+                var groupItem = await _quizGroupItemService.AddAsync(new RequestQuizGroupItemDto
                 {
-                    GroupItems = createdQuizSet.GroupItems
+                    QuizSetId = quizSetId,
+                    Name = $"Group4_{i / 3 + 1}",
+                    AudioUrl = audioResult.Url,
+                    AudioScript = audioScripts.AudioScript
                 });
 
                 string previousQuizText = string.Empty;
@@ -693,7 +688,7 @@ Only return in this structure no need any extended field/infor:
                         QuizSetId = createdQuizSet.Id,
                         QuestionText = quiz.QuestionText,
                         TOEICPart = "Part 3",
-                        GroupId = $"Group3_{i / 3 + 1}"
+                        QuizGroupItemId = groupItem.Id
                     });
 
                     foreach (var item in quiz.AnswerOptions)
@@ -816,9 +811,12 @@ Only return in this structure:
                     throw new Exception("Failed to generate valid passage from AI.");
 
                 previousPassages = string.Join("\n", passageResult.Passage);
-
-                createdQuizSet.GroupItems ??= new Dictionary<string, string>();
-                createdQuizSet.GroupItems.Add($"Group6_{i / 4 + 1}", passageResult.Passage);
+                var groupItem = await _quizGroupItemService.AddAsync(new RequestQuizGroupItemDto
+                {
+                    QuizSetId = quizSetId,
+                    Name = $"Group6_{i / 4 + 1}",
+                    PassageText = passageResult.Passage
+                });
 
                 var usedBlanks = string.Empty;
 
@@ -849,15 +847,15 @@ Only return in this structure no need any extended field/infor:
                         || string.IsNullOrEmpty(quiz.QuestionText)
                         || quiz.AnswerOptions.Count == 0)
                         throw new Exception("Failed to generate valid quiz data from AI.");
-
+                    //create quiz
                     var createdQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
                     {
                         QuizSetId = createdQuizSet.Id,
                         QuestionText = j.ToString(),
                         TOEICPart = "Part 6",
-                        GroupId = $"Group6_{i / 4 + 1}"
+                        QuizGroupItemId = groupItem.Id
                     });
-
+                    //Create answer options
                     foreach (var item in quiz.AnswerOptions)
                     {
                         await _answerOptionService.CreateAsync(new RequestAnswerOptionDto
@@ -873,15 +871,17 @@ Only return in this structure no need any extended field/infor:
                             usedBlanks += $"{j}." + item.OptionText + ", ";
                         }
                     }
-
+                    //update passage with the latest blank
                     passageResult.Passage = quiz.QuestionText;
                 }
+                //Update the last passage with all blanks
+                await _quizGroupItemService.UpdateAsync(groupItem.Id, new RequestQuizGroupItemDto
+                {
+                    PassageText = passageResult.Passage
+                });
+
             }
 
-            await _quizSetService.UpdateQuizSetAsync(quizSetId, new QuizSetRequestDto
-            {
-                GroupItems = createdQuizSet.GroupItems
-            });
 
             return createdQuizSet;
         }
@@ -922,12 +922,11 @@ Return only JSON:
 
                 previousPassages = passageResult.Passage;
 
-                createdQuizSet.GroupItems ??= new Dictionary<string, string>();
-                createdQuizSet.GroupItems.Add($"Group7_{i / 3 + 1}", passageResult.Passage);
-
-                await _quizSetService.UpdateQuizSetAsync(quizSetId, new QuizSetRequestDto
+                var groupItem = await _quizGroupItemService.AddAsync(new RequestQuizGroupItemDto
                 {
-                    GroupItems = createdQuizSet.GroupItems
+                    QuizSetId = quizSetId,
+                    Name = $"Group7_{i / 3 + 1}",
+                    PassageText = passageResult.Passage
                 });
 
                 string previousQuizText = string.Empty;
@@ -950,7 +949,6 @@ Return JSON:
     {{ ""OptionLabel"": ""D"", ""OptionText"": ""..."", ""IsCorrect"": true/false }}
   ]
 }}";
-
                     var response = await GeminiGenerateContentAsync(quizPrompt);
                     var quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
 
@@ -964,7 +962,7 @@ Return JSON:
                         QuizSetId = createdQuizSet.Id,
                         QuestionText = quiz.QuestionText,
                         TOEICPart = "Part 7",
-                        GroupId = $"Group7_{i / 3 + 1}"
+                        QuizGroupItemId = groupItem.Id
                     });
 
                     foreach (var item in quiz.AnswerOptions)
@@ -981,16 +979,6 @@ Return JSON:
             }
 
             return createdQuizSet;
-        }
-
-        public Task<(bool, string)> ValidateImageAsync(string context)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task<(bool, string)> ValidateAudioAsync(string script)
-        {
-            throw new NotImplementedException();
         }
     }
 }

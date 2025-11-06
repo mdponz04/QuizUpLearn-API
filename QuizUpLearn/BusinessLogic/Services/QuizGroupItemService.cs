@@ -1,0 +1,50 @@
+﻿using AutoMapper;
+using BusinessLogic.DTOs.QuizGroupItemDtos;
+using BusinessLogic.Interfaces;
+using Repository.Entities;
+using Repository.Interfaces;
+
+namespace BusinessLogic.Services
+{
+    public class QuizGroupItemService : IQuizGroupItemService
+    {
+        private readonly IQuizGroupItemRepo _repo;
+        private readonly IMapper _mapper;
+
+        public QuizGroupItemService(IQuizGroupItemRepo repo, IMapper mapper)
+        {
+            _repo = repo;
+            _mapper = mapper;
+        }
+
+        public async Task<IEnumerable<ResponseQuizGroupItemDto>> GetAllAsync()
+        {
+            var quizGroupItems = await _repo.GetAllAsync();
+            return _mapper.Map<IEnumerable<ResponseQuizGroupItemDto>>(quizGroupItems);
+        }
+
+        public async Task<ResponseQuizGroupItemDto?> GetByIdAsync(Guid id)
+        {
+            var quizGroupItem = await _repo.GetByIdAsync(id);
+            return quizGroupItem != null ? _mapper.Map<ResponseQuizGroupItemDto>(quizGroupItem) : null;
+        }
+
+        public async Task<ResponseQuizGroupItemDto?> AddAsync(RequestQuizGroupItemDto requestDto)
+        {
+            var quizGroupItem = _mapper.Map<QuizGroupItem>(requestDto);
+            var item = await _repo.CreateAsync(quizGroupItem);
+            return item != null ? _mapper.Map<ResponseQuizGroupItemDto>(item) : null;
+        }
+
+        public async Task<ResponseQuizGroupItemDto?> UpdateAsync(Guid id, RequestQuizGroupItemDto requestDto)
+        {
+            var item = await _repo.UpdateAsync(id, _mapper.Map<QuizGroupItem>(requestDto));
+            return item != null ? _mapper.Map<ResponseQuizGroupItemDto>(item) : null;
+        }
+
+        public async Task<bool> DeleteAsync(Guid id)
+        {
+            return await _repo.DeleteAsync(id);
+        }
+    }
+}
