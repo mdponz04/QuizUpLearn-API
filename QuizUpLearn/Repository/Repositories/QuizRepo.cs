@@ -62,19 +62,18 @@ namespace Repository.Repositories
                 existingQuiz.QuestionText = quiz.QuestionText;
             if(!string.IsNullOrEmpty(quiz.CorrectAnswer))
                 existingQuiz.CorrectAnswer = quiz.CorrectAnswer;
-            if(!string.IsNullOrEmpty(quiz.GroupId))
-                existingQuiz.GroupId = quiz.GroupId;
             if(!string.IsNullOrEmpty(quiz.AudioURL))
                 existingQuiz.AudioURL = quiz.AudioURL;
             if(!string.IsNullOrEmpty(quiz.ImageURL))
                 existingQuiz.ImageURL = quiz.ImageURL;
             if(!string.IsNullOrEmpty(quiz.TOEICPart))
                 existingQuiz.TOEICPart = quiz.TOEICPart;
-            
             if(existingQuiz.TimesAnswered > 0)
                 existingQuiz.TimesAnswered = quiz.TimesAnswered;
             if(existingQuiz.TimesCorrect > 0)
                 existingQuiz.TimesCorrect = quiz.TimesCorrect;
+            if(existingQuiz.QuizGroupItemId != quiz.QuizGroupItemId)
+                existingQuiz.QuizGroupItemId = quiz.QuizGroupItemId;
 
             existingQuiz.OrderIndex = quiz.OrderIndex;
 

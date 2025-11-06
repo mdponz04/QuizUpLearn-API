@@ -14,7 +14,5 @@ namespace BusinessLogic.Interfaces
         Task<QuizSetResponseDto> GeneratePracticeQuizSetPart5Async(AiGenerateQuizSetRequestDto inputData);
         Task<QuizSetResponseDto> GeneratePracticeQuizSetPart6Async(AiGenerateQuizSetRequestDto inputData);
         Task<QuizSetResponseDto> GeneratePracticeQuizSetPart7Async(AiGenerateQuizSetRequestDto inputData);
-        Task<(bool, string)> ValidateImageAsync(string context);
-        Task<(bool, string)> ValidateAudioAsync(string script);
     }
 }

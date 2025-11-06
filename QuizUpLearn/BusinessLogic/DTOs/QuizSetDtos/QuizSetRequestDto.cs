@@ -14,7 +14,6 @@ namespace BusinessLogic.DTOs.QuizSetDtos
         public bool? IsAIGenerated { get; set; }
         public bool? IsPublished { get; set; }
         public bool? IsPremiumOnly { get; set; }
-        public Dictionary<string, string>? GroupItems { get; set; }
         // navgation property
         public List<QuizRequestDto> Quizzes { get; set; } = new List<QuizRequestDto>();
     }

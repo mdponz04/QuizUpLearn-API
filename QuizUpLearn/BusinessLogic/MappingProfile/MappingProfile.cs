@@ -7,14 +7,14 @@ namespace BusinessLogic.MappingProfile
         public MappingProfile()
         {
             //QuizSet Mappings
-            CreateMap<Repository.Entities.QuizSet, BusinessLogic.DTOs.QuizSetDtos.QuizSetRequestDto>().ReverseMap();
-            CreateMap<Repository.Entities.QuizSet, BusinessLogic.DTOs.QuizSetDtos.QuizSetResponseDto>().ReverseMap();
+            CreateMap<Repository.Entities.QuizSet, DTOs.QuizSetDtos.QuizSetRequestDto>().ReverseMap();
+            CreateMap<Repository.Entities.QuizSet, DTOs.QuizSetDtos.QuizSetResponseDto>().ReverseMap();
             //Quiz Mappings
-            CreateMap<Repository.Entities.Quiz, BusinessLogic.DTOs.QuizDtos.QuizRequestDto>().ReverseMap();
-            CreateMap<Repository.Entities.Quiz, BusinessLogic.DTOs.QuizDtos.QuizResponseDto>().ReverseMap();
+            CreateMap<Repository.Entities.Quiz, DTOs.QuizDtos.QuizRequestDto>().ReverseMap();
+            CreateMap<Repository.Entities.Quiz, DTOs.QuizDtos.QuizResponseDto>().ReverseMap();
             //Role Mappings
-            CreateMap<Repository.Entities.Role, BusinessLogic.DTOs.RoleDtos.ResponseRoleDto>().ReverseMap();
-            CreateMap<Repository.Entities.Role, BusinessLogic.DTOs.RoleDtos.RequestRoleDto>().ReverseMap();
+            CreateMap<Repository.Entities.Role, DTOs.RoleDtos.ResponseRoleDto>().ReverseMap();
+            CreateMap<Repository.Entities.Role, DTOs.RoleDtos.RequestRoleDto>().ReverseMap();
             // Account Mappings
             CreateMap<Repository.Entities.Account, DTOs.ResponseAccountDto>().ReverseMap();
             CreateMap<Repository.Entities.Account, DTOs.RequestAccountDto>().ReverseMap();
@@ -54,7 +54,9 @@ namespace BusinessLogic.MappingProfile
             // UserMistake Mappings
             CreateMap<Repository.Entities.UserMistake, DTOs.UserMistakeDtos.RequestUserMistakeDto>().ReverseMap();
             CreateMap<Repository.Entities.UserMistake, DTOs.UserMistakeDtos.ResponseUserMistakeDto>().ReverseMap();
-            
+            // QuizGroupItem Mappings
+            CreateMap<Repository.Entities.QuizGroupItem, DTOs.QuizGroupItemDtos.RequestQuizGroupItemDto>().ReverseMap();
+            CreateMap<Repository.Entities.QuizGroupItem, DTOs.QuizGroupItemDtos.ResponseQuizGroupItemDto>().ReverseMap();
             //Add other mappings here as needed
         }
     }

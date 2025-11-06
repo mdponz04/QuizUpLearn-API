@@ -68,8 +68,6 @@ namespace Repository.Repositories
                 existingQuizSet.QuizType = quizSet.QuizType;
             if (!string.IsNullOrEmpty(quizSet.DifficultyLevel))
                 existingQuizSet.DifficultyLevel = quizSet.DifficultyLevel;
-            if(quizSet.GroupItems != null && quizSet.GroupItems.Count > 0)
-                existingQuizSet.GroupItems = quizSet.GroupItems;
 
             existingQuizSet.IsPublished = quizSet.IsPublished;
             existingQuizSet.IsPremiumOnly = quizSet.IsPremiumOnly;

@@ -49,7 +49,6 @@ namespace BusinessLogic.Services
                     OrderIndex = quiz.GlobalIndex,
                     TOEICPart = $"Part {quiz.Part}",
                     QuizSetId = quizSet.Id,
-                    GroupId = quiz.GroupId,
                     CorrectAnswer = quiz.CorrectAnswer
                 });
 
@@ -65,7 +64,6 @@ namespace BusinessLogic.Services
                 }
             }
 
-            
             return quizSet;
         }
 
