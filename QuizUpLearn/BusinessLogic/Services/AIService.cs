@@ -284,12 +284,25 @@ namespace BusinessLogic.Services
 
             bool allValid = true;
             var feedbackBuilder = new StringBuilder();
+            var groupPassage = string.Empty;
+            var groupAudioScript = string.Empty;
+            var groupImageDescription = string.Empty;
 
             foreach (var quiz in quizzes)
             {
+                //Take group items
+                if (quiz.QuizGroupItemId != null)
+                {
+                    var groupItems = await _quizGroupItemService.GetByIdAsync(quiz.QuizGroupItemId.Value);
+                    if(groupItems != null)
+                    {
+                        groupPassage = groupItems.PassageText ?? string.Empty;
+                        groupAudioScript = groupItems.AudioScript ?? string.Empty;
+                        groupImageDescription = groupItems.ImageDescription ?? string.Empty;
+                    }
+                }
                 var options = await _answerOptionService.GetByQuizIdAsync(quiz.Id);
-                
-                
+                // Prepare validation prompt
                 var validationPrompt = $@"
 You are an expert TOEIC test validator.
 Review this quiz for correctness and clarity.
@@ -301,9 +314,13 @@ Toeic part: {quiz.TOEICPart},
 suitable for learners with TOEIC scores around {quizSet.DifficultyLevel}.
 
 ### Quiz to Validate
+Additional info(if any):
+- Passage: {groupPassage}
+- Audio script: {groupAudioScript}
+- Image description: {groupImageDescription}
+
 Question: {quiz.QuestionText}
-Question group name(if any):
-Group items(if any):
+
 Options:
 {string.Join("\n", options.Select(o => $"{o.OptionLabel}. {o.OptionText} (Correct: {o.IsCorrect})"))}
 
@@ -312,7 +329,7 @@ Check the criteria and explain shortly at Feedback field if the question is inva
 2. There is ONE or more correct answer.
 3. The correct answer makes sense in context.
 4. Not duplicating or very similar options.
-5. If everything is fine but can be improved just give suggestion in Feedback but the is valid is depend on 4 above criteria.
+5. No need suggestion improvement, only validate correctness.
 
 Return only these 2 fields as JSON structure:
 {{ 
@@ -368,6 +385,11 @@ Avoid previous image description(if any): {previousImageDescription}
 Generate ONE question that matches this theme.
 
 Avoid previous question text(if any): {previousQuestionText}
+
+Need to return 3 field:
+- ImageDescription: A detailed description of the image related to the question.
+- QuestionText: The question text.
+- AnswerOptions: List of 4 answer options with labels and correctness. Each option must have option label(A/B/C/D), option text, isCorrect(true/false).
 
 Only return in this structure no need any extended field/infor:
 {{
@@ -449,6 +471,10 @@ Question have 3 answers, each answer should have different context then the corr
 Generate ONE question that matches this theme.
 
 Avoid previous question text(if any): {previousQuestionText}
+
+Need to return 2 field:
+- QuestionText: The question text.
+- AnswerOptions: List of 4 answer options with labels and correctness. Each option must have option label(A/B/C/D), option text, isCorrect(true/false).
 
 Only return in this structure no need any extended field/infor:
 {{
@@ -542,7 +568,7 @@ Only return in this structure:
                 var audioFile = await _uploadService.ConvertByteArrayToIFormFile(audioBytes, $"audio-G3_{i / 3 + 1}-{inputData.CreatorId}-{DateTime.UtcNow}.mp3", "audio/mpeg");
                 var audioResult = await _uploadService.UploadAsync(audioFile);
 
-                var groupItem = await _quizGroupItemService.AddAsync(new RequestQuizGroupItemDto
+                var groupItem = await _quizGroupItemService.CreateAsync(new RequestQuizGroupItemDto
                 {
                     QuizSetId = quizSetId,
                     Name = $"Group3_{i / 3 + 1}",
@@ -558,6 +584,10 @@ Based on this audio script: {audioResponse}
 Generate ONE TOEIC Part 3 question with 3 wrong answers and 1 correct answer.
 
 Avoid the previous question text(if it is not null): {previousQuizText}
+
+Need to return 2 field:
+- QuestionText: The question text.
+- AnswerOptions: List of 4 answer options with labels and correctness. Each option must have option label(A/B/C/D), option text, isCorrect(true/false).
 
 Only return in this structure no need any extended field/infor:
 {{
@@ -628,7 +658,6 @@ Avoid the previous audio script(if it is not null): {previousAudioScript}
 
 Generate ONE audio script that contain a short monologue (announcement/speech) matches this theme.
 
-
 Only return in this structure:
 {{
   ""AudioScript"": ""...""
@@ -646,7 +675,7 @@ Only return in this structure:
                 var audioFile = await _uploadService.ConvertByteArrayToIFormFile(audioBytes, $"audio-G4_{i / 3 + 1}-{inputData.CreatorId}-{DateTime.UtcNow}.mp3", "audio/mpeg");
                 var audioResult = await _uploadService.UploadAsync(audioFile);
 
-                var groupItem = await _quizGroupItemService.AddAsync(new RequestQuizGroupItemDto
+                var groupItem = await _quizGroupItemService.CreateAsync(new RequestQuizGroupItemDto
                 {
                     QuizSetId = quizSetId,
                     Name = $"Group4_{i / 3 + 1}",
@@ -662,6 +691,10 @@ Based on this audio script: {audioResponse}
 Generate ONE TOEIC Part 4 question with 3 wrong answers and 1 correct answer.
 
 Avoid the previous question text(if it is not null): {previousQuizText}
+
+Need to return 2 field:
+- QuestionText: The question text.
+- AnswerOptions: List of 4 answer options with labels and correctness. Each option must have option label(A/B/C/D), option text, isCorrect(true/false).
 
 Only return in this structure no need any extended field/infor:
 {{
@@ -730,6 +763,10 @@ suitable for learners with TOEIC scores around {inputData.Difficulty}.
 Generate ONE question that matches this theme.
 
 Avoid previous question text(if any): {previousQuestionText}
+
+Need to return 2 field:
+- QuestionText: The question text.
+- AnswerOptions: List of 4 answer options with labels and correctness. Each option must have option label(A/B/C/D), option text, isCorrect(true/false).
 
 Only return in this structure no need any extended field/infor:
 {{
@@ -811,7 +848,7 @@ Only return in this structure:
                     throw new Exception("Failed to generate valid passage from AI.");
 
                 previousPassages = string.Join("\n", passageResult.Passage);
-                var groupItem = await _quizGroupItemService.AddAsync(new RequestQuizGroupItemDto
+                var groupItem = await _quizGroupItemService.CreateAsync(new RequestQuizGroupItemDto
                 {
                     QuizSetId = quizSetId,
                     Name = $"Group6_{i / 4 + 1}",
@@ -829,6 +866,10 @@ Replace the {j}th important word with a blank marked as ({j}).
 Avoid using these previous blanks(if any): [{string.Join(", ", usedBlanks)}]
 
 Return the question text with ({j}) and 4 answer options (1 correct, 3 wrong). Return the modified passage as 'QuestionText'
+
+Need to return 2 field:
+- QuestionText: The question text.
+- AnswerOptions: List of 4 answer options with labels and correctness. Each option must have option label(A/B/C/D), option text, isCorrect(true/false).
 
 Only return in this structure no need any extended field/infor:
 {{
@@ -922,7 +963,7 @@ Return only JSON:
 
                 previousPassages = passageResult.Passage;
 
-                var groupItem = await _quizGroupItemService.AddAsync(new RequestQuizGroupItemDto
+                var groupItem = await _quizGroupItemService.CreateAsync(new RequestQuizGroupItemDto
                 {
                     QuizSetId = quizSetId,
                     Name = $"Group7_{i / 3 + 1}",
@@ -938,6 +979,9 @@ Generate ONE reading comprehension question (like TOEIC Part 7).
 Include 4 options (A–D) with 1 correct answer.
 
 Avoid previous question text(if any): {previousQuizText}
+Need to return 2 field:
+- QuestionText: The question text.
+- AnswerOptions: List of 4 answer options with labels and correctness. Each option must have option label(A/B/C/D), option text, isCorrect(true/false).
 
 Return JSON:
 {{

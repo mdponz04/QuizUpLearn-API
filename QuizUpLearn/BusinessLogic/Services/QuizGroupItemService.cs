@@ -29,7 +29,7 @@ namespace BusinessLogic.Services
             return quizGroupItem != null ? _mapper.Map<ResponseQuizGroupItemDto>(quizGroupItem) : null;
         }
 
-        public async Task<ResponseQuizGroupItemDto?> AddAsync(RequestQuizGroupItemDto requestDto)
+        public async Task<ResponseQuizGroupItemDto?> CreateAsync(RequestQuizGroupItemDto requestDto)
         {
             var quizGroupItem = _mapper.Map<QuizGroupItem>(requestDto);
             var item = await _repo.CreateAsync(quizGroupItem);
