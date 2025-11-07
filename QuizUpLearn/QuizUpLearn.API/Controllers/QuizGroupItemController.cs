@@ -33,7 +33,7 @@ namespace QuizUpLearn.API.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] RequestQuizGroupItemDto requestDto)
         {
-            var item = await _quizGroupItemService.AddAsync(requestDto);
+            var item = await _quizGroupItemService.CreateAsync(requestDto);
             if (item == null) {
                 return StatusCode(500, "Creation failed");
             }

@@ -51,7 +51,9 @@ namespace QuizUpLearn.API.Controllers
             try
             {
                 var result = await _aiService.GeneratePracticeQuizSetPart1Async(inputData);
-
+                var validateResult = await _aiService.ValidateQuizSetAsync(result.Id);
+                if (!validateResult.Item1)
+                    return StatusCode(201, "Invalid quiz set: " + validateResult.Item2);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -74,7 +76,9 @@ namespace QuizUpLearn.API.Controllers
             try
             {
                 var result = await _aiService.GeneratePracticeQuizSetPart2Async(inputData);
-
+                var validateResult = await _aiService.ValidateQuizSetAsync(result.Id);
+                if (!validateResult.Item1)
+                    return StatusCode(201, "Invalid quiz set: " + validateResult.Item2);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -97,7 +101,9 @@ namespace QuizUpLearn.API.Controllers
             try
             {
                 var result = await _aiService.GeneratePracticeQuizSetPart3Async(inputData);
-
+                var validateResult = await _aiService.ValidateQuizSetAsync(result.Id);
+                if (!validateResult.Item1)
+                    return StatusCode(201, "Invalid quiz set: " + validateResult.Item2);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -120,7 +126,9 @@ namespace QuizUpLearn.API.Controllers
             try
             {
                 var result = await _aiService.GeneratePracticeQuizSetPart4Async(inputData);
-
+                var validateResult = await _aiService.ValidateQuizSetAsync(result.Id);
+                if (!validateResult.Item1)
+                    return StatusCode(201, "Invalid quiz set: " + validateResult.Item2);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -143,11 +151,9 @@ namespace QuizUpLearn.API.Controllers
             try
             {
                 var result = await _aiService.GeneratePracticeQuizSetPart5Async(inputData);
-                /*var validate = await _aiService.ValidateQuizSetAsync(result.Id);
-                if(!validate.Item1){
-                    return StatusCode(500, $"The quiz set is invalid:\n{validate.Item2}");
-                }*/
-
+                var validateResult = await _aiService.ValidateQuizSetAsync(result.Id);
+                if (!validateResult.Item1)
+                    return StatusCode(201, "Invalid quiz set: " + validateResult.Item2);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -170,12 +176,9 @@ namespace QuizUpLearn.API.Controllers
             try
             {
                 var result = await _aiService.GeneratePracticeQuizSetPart6Async(inputData);
-                /*var validate = await _aiService.ValidateQuizSetAsync(result.Id);
-                if (!validate.Item1)
-                {
-                    return StatusCode(500, $"The quiz set is invalid:\n{validate.Item2}");
-                }*/
-
+                var validateResult = await _aiService.ValidateQuizSetAsync(result.Id);
+                if (!validateResult.Item1)
+                    return StatusCode(201, "Invalid quiz set: " + validateResult.Item2);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -198,12 +201,9 @@ namespace QuizUpLearn.API.Controllers
             try
             {
                 var result = await _aiService.GeneratePracticeQuizSetPart7Async(inputData);
-                /*var validate = await _aiService.ValidateQuizSetAsync(result.Id);
-                if (!validate.Item1)
-                {
-                    return StatusCode(500, $"The quiz set is invalid:\n{validate.Item2}");
-                }*/
-
+                var validateResult = await _aiService.ValidateQuizSetAsync(result.Id);
+                if (!validateResult.Item1)
+                    return StatusCode(201, "Invalid quiz set: " + validateResult.Item2);
                 return Ok(result);
             }
             catch (Exception ex)
