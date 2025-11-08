@@ -73,6 +73,7 @@ namespace BusinessLogic.Services
 
             int correctCount = 0;
             int wrongCount = 0;
+            int totalTimeSpent = 0;
             var answerResults = new List<AnswerResultDto>();
 
             // Lưu và chấm điểm từng câu trả lời
@@ -121,6 +122,12 @@ namespace BusinessLogic.Services
 
                 await _repo.CreateAsync(detail);
 
+                // Tính tổng thời gian
+                if (answer.TimeSpent.HasValue)
+                {
+                    totalTimeSpent += answer.TimeSpent.Value;
+                }
+
                 // Đếm số câu đúng/sai
                 if (isCorrect)
                 {
@@ -146,6 +153,7 @@ namespace BusinessLogic.Services
             attempt.Score = correctCount;
             attempt.Accuracy = attempt.TotalQuestions > 0 ? (decimal)correctCount / attempt.TotalQuestions : 0;
             attempt.Status = "completed";
+            attempt.TimeSpent = totalTimeSpent > 0 ? totalTimeSpent : null;
 
             await _attemptRepo.UpdateAsync(dto.AttemptId, attempt);
 

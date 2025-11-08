@@ -322,19 +322,11 @@ namespace QuizUpLearn.API.Hubs
                         Total = session.Players.Count
                     });
 
-                    // ✨ Gửi leaderboard cập nhật realtime cho tất cả (Host và Players)
-                    // Dùng GetCurrentLeaderboardAsync để KHÔNG thay đổi status (game vẫn InProgress)
-                    var leaderboard = await _gameService.GetCurrentLeaderboardAsync(gamePin);
-                    if (leaderboard != null)
-                    {
-                        await Clients.Group($"Game_{gamePin}").SendAsync("UpdateLeaderboard", leaderboard);
-                    }
-
-                    // ✨ Gửi cập nhật điểm riêng cho player vừa submit (để FE có thể update nhanh UI)
+                    // ✨ Gửi cập nhật điểm riêng cho player vừa submit (chỉ gửi cho người đó)
                     var justAnswered = session.Players.FirstOrDefault(p => p.ConnectionId == Context.ConnectionId);
                     if (justAnswered != null)
                     {
-                        await Clients.Group($"Game_{gamePin}").SendAsync("PlayerScoreUpdated", new
+                        await Clients.Caller.SendAsync("PlayerScoreUpdated", new
                         {
                             PlayerName = justAnswered.PlayerName,
                             Score = justAnswered.Score

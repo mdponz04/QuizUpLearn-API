@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authorization;
 using BusinessLogic.Interfaces;
 using BusinessLogic.DTOs;
 using QuizUpLearn.API.Models;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace QuizUpLearn.API.Controllers
 {
@@ -15,27 +17,52 @@ namespace QuizUpLearn.API.Controllers
     public class OneVsOneController : ControllerBase
     {
         private readonly IOneVsOneGameService _gameService;
+        private readonly IUserService _userService;
         private readonly ILogger<OneVsOneController> _logger;
 
-        public OneVsOneController(IOneVsOneGameService gameService, ILogger<OneVsOneController> logger)
+        public OneVsOneController(
+            IOneVsOneGameService gameService, 
+            IUserService userService,
+            ILogger<OneVsOneController> logger)
         {
             _gameService = gameService;
+            _userService = userService;
             _logger = logger;
         }
 
-        /// <summary>
-        /// Player1 tạo phòng 1vs1 và nhận Room PIN
-        /// </summary>
-        /// <param name="dto">Thông tin phòng (QuizSetId, Player1Name)</param>
-        /// <returns>Room PIN (6 chữ số) để share cho Player2</returns>
         [HttpPost("create")]
         public async Task<ActionResult<ApiResponse<CreateOneVsOneRoomResponseDto>>> CreateRoom([FromBody] CreateOneVsOneRoomDto dto)
         {
             try
             {
+                // Lấy Account ID từ JWT token
+                var accountIdClaim = User?.FindFirst("UserId")?.Value 
+                    ?? User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? User?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+                
+                if (string.IsNullOrEmpty(accountIdClaim) || !Guid.TryParse(accountIdClaim, out var accountId))
+                {
+                    return Unauthorized(new ApiResponse<CreateOneVsOneRoomResponseDto>
+                    {
+                        Success = false,
+                        Message = "Invalid user authentication. Account ID not found in token."
+                    });
+                }
+
+                // Map Account ID → User ID
+                var user = await _userService.GetByAccountIdAsync(accountId);
+                if (user == null)
+                {
+                    return BadRequest(new ApiResponse<CreateOneVsOneRoomResponseDto>
+                    {
+                        Success = false,
+                        Message = "User not found for this account."
+                    });
+                }
+
                 var response = await _gameService.CreateRoomAsync(dto);
                 
-                _logger.LogInformation($"1v1 Room created with PIN: {response.RoomPin} by Player: {dto.Player1Name}");
+                _logger.LogInformation($"1v1 Room created with PIN: {response.RoomPin} by Player: {dto.Player1Name} (AccountId: {accountId}, UserId: {user.Id})");
 
                 return Ok(new ApiResponse<CreateOneVsOneRoomResponseDto>
                 {

@@ -197,12 +197,11 @@ namespace BusinessLogic.Services
                 Status = OneVsOneRoomStatus.Waiting,
                 Player1 = new OneVsOnePlayerDto
                 {
-                    UserId = dto.Player1UserId,
                     PlayerName = dto.Player1Name,
                     Score = 0,
                     CorrectAnswers = 0,
                     JoinedAt = DateTime.UtcNow,
-                    IsReady = true // Người tạo phòng tự động ready
+                    IsReady = true
                 },
                 Questions = questionsList,
                 CurrentQuestionIndex = 0,
@@ -223,23 +222,27 @@ namespace BusinessLogic.Services
         }
 
         // ==================== CONNECT & JOIN ====================
-        public async Task<bool> PlayerConnectAsync(string roomPin, string connectionId)
+        public async Task<bool> PlayerConnectAsync(string roomPin, Guid userId, string connectionId)
         {
             var room = await GetRoomFromRedisAsync(roomPin);
             if (room == null)
                 return false;
 
-            // Update connectionId cho Player1 (người tạo phòng)
-            if (room.Player1 != null)
+            // Validate: Chỉ Player1 (người tạo phòng) mới được connect
+            if (room.Player1 == null || room.Player1.UserId != userId)
             {
-                room.Player1.ConnectionId = connectionId;
+                _logger.LogWarning($"❌ User {userId} tried to connect as Player1 but is not the room creator");
+                return false;
             }
+
+            // Update connectionId cho Player1
+            room.Player1.ConnectionId = connectionId;
 
             // Lưu mapping connection -> room
             await SaveConnectionMappingAsync(connectionId, roomPin);
             await SaveRoomToRedisAsync(roomPin, room);
 
-            _logger.LogInformation($"✅ Player1 connected to room {roomPin}");
+            _logger.LogInformation($"✅ Player1 (UserId: {userId}) connected to room {roomPin}");
             return true;
         }
 
@@ -253,13 +256,11 @@ namespace BusinessLogic.Services
             if (room.Status != OneVsOneRoomStatus.Waiting)
                 return null; // Room đã bắt đầu hoặc đã kết thúc
 
-            // Check nếu là Player1 connect lại
+            // Validate: Player1 không được join bằng method này (phải dùng Player1Connect)
             if (room.Player1?.UserId == userId)
             {
-                room.Player1.ConnectionId = connectionId;
-                await SaveConnectionMappingAsync(connectionId, roomPin);
-                await SaveRoomToRedisAsync(roomPin, room);
-                return room.Player1;
+                _logger.LogWarning($"❌ Player1 (UserId: {userId}) tried to join using Player2Join. Use Player1Connect instead.");
+                return null;
             }
 
             // Check nếu đã có Player2
@@ -327,8 +328,15 @@ namespace BusinessLogic.Services
             if (room.Status != OneVsOneRoomStatus.Ready)
                 return false; // Chưa đủ 2 người
 
+            // Validate: Cả 2 players phải có connectionId (đã connect)
             if (room.Player1 == null || room.Player2 == null)
                 return false;
+
+            if (string.IsNullOrEmpty(room.Player1.ConnectionId) || string.IsNullOrEmpty(room.Player2.ConnectionId))
+            {
+                _logger.LogWarning($"❌ Cannot start game: One or both players not connected. P1: {!string.IsNullOrEmpty(room.Player1.ConnectionId)}, P2: {!string.IsNullOrEmpty(room.Player2.ConnectionId)}");
+                return false;
+            }
 
             room.Status = OneVsOneRoomStatus.InProgress;
             room.CurrentQuestionIndex = 0;
