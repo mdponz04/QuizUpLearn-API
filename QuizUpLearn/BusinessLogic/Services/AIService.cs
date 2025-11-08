@@ -329,7 +329,8 @@ Check the criteria and explain shortly at Feedback field if the question is inva
 2. There is ONE or more correct answer.
 3. The correct answer makes sense in context.
 4. Not duplicating or very similar options.
-5. No need suggestion improvement, only validate correctness.
+5. If it is TOEIC part 2, question text and option text will be null because of that all you need to check the audio script, inside that audio script it will have the question and the answer options.
+6. No need suggestion improvement, only validate correctness.
 
 Return only these 2 fields as JSON structure:
 {{ 
@@ -994,6 +995,7 @@ Return JSON:
   ]
 }}";
                     var response = await GeminiGenerateContentAsync(quizPrompt);
+                    
                     var quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
 
                     if (quiz == null || string.IsNullOrEmpty(quiz.QuestionText))
