@@ -11,7 +11,7 @@ namespace BusinessLogic.Interfaces
         Task<CreateOneVsOneRoomResponseDto> CreateRoomAsync(CreateOneVsOneRoomDto dto);
         
         // ==================== JOIN ROOM ====================
-        Task<bool> PlayerConnectAsync(string roomPin, string connectionId);
+        Task<bool> PlayerConnectAsync(string roomPin, Guid userId, string connectionId);
         Task<OneVsOnePlayerDto?> PlayerJoinAsync(string roomPin, Guid userId, string playerName, string connectionId);
         Task<bool> PlayerLeaveAsync(string roomPin, string connectionId);
         

@@ -5,12 +5,10 @@ namespace BusinessLogic.DTOs
     // ==================== CREATE 1VS1 ROOM ====================
     /// <summary>
     /// DTO để tạo phòng 1vs1 (người tạo cũng là player)
+    /// Player1UserId sẽ được tự động lấy từ JWT token trong Controller
     /// </summary>
     public class CreateOneVsOneRoomDto
-    {
-        [Required]
-        public Guid Player1UserId { get; set; }
-        
+    {        
         [Required]
         public string Player1Name { get; set; } = string.Empty;
         
@@ -28,10 +26,6 @@ namespace BusinessLogic.DTOs
         public DateTime CreatedAt { get; set; }
     }
 
-    // ==================== ROOM STATE ====================
-    /// <summary>
-    /// Thông tin player trong phòng 1vs1
-    /// </summary>
     public class OneVsOnePlayerDto
     {
         public string ConnectionId { get; set; } = string.Empty;
