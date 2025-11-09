@@ -14,6 +14,11 @@ namespace BusinessLogic.DTOs
         
         [Required]
         public Guid QuizSetId { get; set; }
+        
+        /// <summary>
+        /// UserId của Player1 (sẽ được set tự động từ JWT token trong Controller)
+        /// </summary>
+        public Guid Player1UserId { get; set; }
     }
 
     /// <summary>

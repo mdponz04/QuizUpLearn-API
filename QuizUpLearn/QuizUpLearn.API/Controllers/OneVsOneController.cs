@@ -60,6 +60,9 @@ namespace QuizUpLearn.API.Controllers
                     });
                 }
 
+                // Set Player1UserId từ JWT token
+                dto.Player1UserId = user.Id;
+
                 var response = await _gameService.CreateRoomAsync(dto);
                 
                 _logger.LogInformation($"1v1 Room created with PIN: {response.RoomPin} by Player: {dto.Player1Name} (AccountId: {accountId}, UserId: {user.Id})");

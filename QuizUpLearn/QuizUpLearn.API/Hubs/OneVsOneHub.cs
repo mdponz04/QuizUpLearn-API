@@ -1,8 +1,9 @@
-using Microsoft.AspNetCore.SignalR;
-using BusinessLogic.Interfaces;
 using BusinessLogic.DTOs;
-using System.Security.Claims;
+using BusinessLogic.Interfaces;
+using Microsoft.AspNetCore.SignalR;
+using Repository.Entities;
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace QuizUpLearn.API.Hubs
 {
@@ -65,33 +66,13 @@ namespace QuizUpLearn.API.Hubs
         }
 
         // ==================== PLAYER1 CREATES ROOM ====================
-        /// <summary>
-        /// Player1 kết nối vào phòng sau khi tạo (qua API)
-        /// </summary>
         public async Task Player1Connect(string roomPin)
         {
             try
             {
-                // Lấy Account ID từ JWT token (Sub claim = Account ID)
-                var accountIdClaim = Context.User?.FindFirst("UserId")?.Value 
-                    ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                    ?? Context.User?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-                
-                if (string.IsNullOrEmpty(accountIdClaim) || !Guid.TryParse(accountIdClaim, out var accountId))
-                {
-                    _logger.LogWarning($"❌ Failed to get Account ID from JWT token. Claims: {string.Join(", ", Context.User?.Claims.Select(c => $"{c.Type}={c.Value}") ?? Array.Empty<string>())}");
-                    await Clients.Caller.SendAsync("Error", "Invalid user authentication. Account ID not found in token.");
-                    return;
-                }
-
-                // Map Account ID → User ID
-                var user = await _userService.GetByAccountIdAsync(accountId);
-                if (user == null)
-                {
-                    _logger.LogWarning($"❌ User not found for Account ID: {accountId}");
-                    await Clients.Caller.SendAsync("Error", "User not found for this account.");
-                    return;
-                }
+                // Lấy user đã xác thực
+                var user = await GetAuthenticatedUserAsync();
+                if (user == null) return; // Lỗi đã được gửi trong hàm GetAuthenticatedUserAsync
 
                 var success = await _gameService.PlayerConnectAsync(roomPin, user.Id, Context.ConnectionId);
                 if (!success)
@@ -102,7 +83,6 @@ namespace QuizUpLearn.API.Hubs
 
                 // Add vào SignalR Group
                 await Groups.AddToGroupAsync(Context.ConnectionId, $"Room_{roomPin}");
-
                 _logger.LogInformation($"Player1 connected to room {roomPin}");
 
                 await Clients.Caller.SendAsync("Player1Connected", new
@@ -112,47 +92,7 @@ namespace QuizUpLearn.API.Hubs
                 });
 
                 // Gửi trạng thái phòng hiện tại
-                var room = await _gameService.GetRoomAsync(roomPin);
-                if (room != null)
-                {
-                    await Clients.Caller.SendAsync("RoomUpdated", new
-                    {
-                        Status = room.Status.ToString(),
-                        Player1 = room.Player1 != null ? new
-                        {
-                            PlayerName = room.Player1.PlayerName,
-                            Score = room.Player1.Score,
-                            IsReady = room.Player1.IsReady
-                        } : null,
-                        Player2 = room.Player2 != null ? new
-                        {
-                            PlayerName = room.Player2.PlayerName,
-                            Score = room.Player2.Score,
-                            IsReady = room.Player2.IsReady
-                        } : null
-                    });
-
-                    // Nếu cả 2 đã join (status = Ready), gửi event RoomReady cho Player1
-                    if (room.Status == OneVsOneRoomStatus.Ready && room.Player1 != null && room.Player2 != null)
-                    {
-                        await Clients.Caller.SendAsync("RoomReady", new
-                        {
-                            RoomPin = roomPin,
-                            Player1 = new
-                            {
-                                PlayerName = room.Player1.PlayerName,
-                                Score = room.Player1.Score
-                            },
-                            Player2 = new
-                            {
-                                PlayerName = room.Player2.PlayerName,
-                                Score = room.Player2.Score
-                            },
-                            Message = "Both players are ready. You can start the game now.",
-                            Timestamp = DateTime.UtcNow
-                        });
-                    }
-                }
+                await NotifyRoomStateChangedAsync(roomPin);
             }
             catch (Exception ex)
             {
@@ -162,33 +102,13 @@ namespace QuizUpLearn.API.Hubs
         }
 
         // ==================== PLAYER2 JOINS ROOM ====================
-        /// <summary>
-        /// Player2 join vào phòng bằng Room PIN
-        /// </summary>
         public async Task Player2Join(string roomPin, string playerName)
         {
             try
             {
-                // Lấy Account ID từ JWT token (Sub claim = Account ID)
-                var accountIdClaim = Context.User?.FindFirst("UserId")?.Value 
-                    ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                    ?? Context.User?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-                
-                if (string.IsNullOrEmpty(accountIdClaim) || !Guid.TryParse(accountIdClaim, out var accountId))
-                {
-                    _logger.LogWarning($"❌ Failed to get Account ID from JWT token. Claims: {string.Join(", ", Context.User?.Claims.Select(c => $"{c.Type}={c.Value}") ?? Array.Empty<string>())}");
-                    await Clients.Caller.SendAsync("Error", "Invalid user authentication. Account ID not found in token.");
-                    return;
-                }
-
-                // Map Account ID → User ID
-                var user = await _userService.GetByAccountIdAsync(accountId);
-                if (user == null)
-                {
-                    _logger.LogWarning($"❌ User not found for Account ID: {accountId}");
-                    await Clients.Caller.SendAsync("Error", "User not found for this account.");
-                    return;
-                }
+                // Lấy user đã xác thực
+                var user = await GetAuthenticatedUserAsync();
+                if (user == null) return; // Lỗi đã được gửi trong hàm GetAuthenticatedUserAsync
 
                 if (string.IsNullOrWhiteSpace(playerName))
                 {
@@ -205,7 +125,6 @@ namespace QuizUpLearn.API.Hubs
 
                 // Add vào SignalR Group
                 await Groups.AddToGroupAsync(Context.ConnectionId, $"Room_{roomPin}");
-
                 _logger.LogInformation($"Player2 '{playerName}' joined room {roomPin}");
 
                 // Gửi xác nhận cho Player2
@@ -220,47 +139,7 @@ namespace QuizUpLearn.API.Hubs
                 await Clients.Group($"Room_{roomPin}").SendAsync("PlayerJoined", player);
 
                 // Gửi room info cập nhật
-                var room = await _gameService.GetRoomAsync(roomPin);
-                if (room != null)
-                {
-                    await Clients.Group($"Room_{roomPin}").SendAsync("RoomUpdated", new
-                    {
-                        Status = room.Status.ToString(),
-                        Player1 = room.Player1 != null ? new
-                        {
-                            PlayerName = room.Player1.PlayerName,
-                            Score = room.Player1.Score,
-                            IsReady = room.Player1.IsReady
-                        } : null,
-                        Player2 = room.Player2 != null ? new
-                        {
-                            PlayerName = room.Player2.PlayerName,
-                            Score = room.Player2.Score,
-                            IsReady = room.Player2.IsReady
-                        } : null
-                    });
-
-                    // Nếu cả 2 đã join (status = Ready), gửi event RoomReady
-                    if (room.Status == OneVsOneRoomStatus.Ready && room.Player1 != null && room.Player2 != null)
-                    {
-                        await Clients.Group($"Room_{roomPin}").SendAsync("RoomReady", new
-                        {
-                            RoomPin = roomPin,
-                            Player1 = new
-                            {
-                                PlayerName = room.Player1.PlayerName,
-                                Score = room.Player1.Score
-                            },
-                            Player2 = new
-                            {
-                                PlayerName = room.Player2.PlayerName,
-                                Score = room.Player2.Score
-                            },
-                            Message = "Both players are ready. You can start the game now.",
-                            Timestamp = DateTime.UtcNow
-                        });
-                    }
-                }
+                await NotifyRoomStateChangedAsync(roomPin);
             }
             catch (Exception ex)
             {
@@ -270,9 +149,6 @@ namespace QuizUpLearn.API.Hubs
         }
 
         // ==================== START GAME ====================
-        /// <summary>
-        /// Bắt đầu game (có thể gọi từ Player1 hoặc cả 2)
-        /// </summary>
         public async Task StartGame(string roomPin)
         {
             try
@@ -301,11 +177,15 @@ namespace QuizUpLearn.API.Hubs
                     Timestamp = DateTime.UtcNow
                 });
 
-                // Đợi 2 giây rồi gửi câu hỏi đầu tiên
-                await Task.Delay(2000);
-
+                // **THAY ĐỔI:** Không delay ở Hub.
+                // Gửi event chuẩn bị câu hỏi đầu tiên KÈM THEO dữ liệu câu hỏi.
+                // Client sẽ nhận event này, đếm ngược 3 giây, sau đó hiển thị câu hỏi.
                 var firstQuestion = room.Questions[0];
-                await Clients.Group($"Room_{roomPin}").SendAsync("ShowQuestion", firstQuestion);
+                await Clients.Group($"Room_{roomPin}").SendAsync("PrepareForFirstQuestion", new
+                {
+                    Question = firstQuestion,
+                    CountdownSeconds = 3 // Client tự đếm ngược
+                });
             }
             catch (Exception ex)
             {
@@ -456,6 +336,81 @@ namespace QuizUpLearn.API.Hubs
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error in CancelRoom for room {roomPin}");
+            }
+        }
+        private async Task<ResponseUserDto?> GetAuthenticatedUserAsync()
+        {
+            var accountIdClaim = Context.User?.FindFirst("UserId")?.Value
+                ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? Context.User?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+
+            if (string.IsNullOrEmpty(accountIdClaim) || !Guid.TryParse(accountIdClaim, out var accountId))
+            {
+                _logger.LogWarning($"❌ Failed to get Account ID from JWT token. Claims: {string.Join(", ", Context.User?.Claims.Select(c => $"{c.Type}={c.Value}") ?? Array.Empty<string>())}");
+                await Clients.Caller.SendAsync("Error", "Invalid user authentication. Account ID not found in token.");
+                return null;
+            }
+
+            var user = await _userService.GetByAccountIdAsync(accountId);
+            if (user == null)
+            {
+                _logger.LogWarning($"❌ User not found for Account ID: {accountId}");
+                await Clients.Caller.SendAsync("Error", "User not found for this account.");
+                return null;
+            }
+
+            return user;
+        }
+
+        /// <summary>
+        /// **HÀM MỚI:** Gửi thông báo cập nhật trạng thái phòng cho cả group.
+        /// </summary>
+        private async Task NotifyRoomStateChangedAsync(string roomPin)
+        {
+            var room = await _gameService.GetRoomAsync(roomPin);
+            if (room == null)
+            {
+                _logger.LogWarning($"NotifyRoomStateChanged: Room {roomPin} not found.");
+                return;
+            }
+
+            // 1. Gửi RoomUpdated
+            await Clients.Group($"Room_{roomPin}").SendAsync("RoomUpdated", new
+            {
+                Status = room.Status.ToString(),
+                Player1 = room.Player1 != null ? new
+                {
+                    PlayerName = room.Player1.PlayerName,
+                    Score = room.Player1.Score,
+                    IsReady = room.Player1.IsReady
+                } : null,
+                Player2 = room.Player2 != null ? new
+                {
+                    PlayerName = room.Player2.PlayerName,
+                    Score = room.Player2.Score,
+                    IsReady = room.Player2.IsReady
+                } : null
+            });
+
+            // 2. Nếu đã sẵn sàng, gửi RoomReady
+            if (room.Status == OneVsOneRoomStatus.Ready && room.Player1 != null && room.Player2 != null)
+            {
+                await Clients.Group($"Room_{roomPin}").SendAsync("RoomReady", new
+                {
+                    RoomPin = roomPin,
+                    Player1 = new
+                    {
+                        PlayerName = room.Player1.PlayerName,
+                        Score = room.Player1.Score
+                    },
+                    Player2 = new
+                    {
+                        PlayerName = room.Player2.PlayerName,
+                        Score = room.Player2.Score
+                    },
+                    Message = "Both players are ready. You can start the game now.",
+                    Timestamp = DateTime.UtcNow
+                });
             }
         }
     }

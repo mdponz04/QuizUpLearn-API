@@ -197,6 +197,7 @@ namespace BusinessLogic.Services
                 Status = OneVsOneRoomStatus.Waiting,
                 Player1 = new OneVsOnePlayerDto
                 {
+                    UserId = dto.Player1UserId, // Set UserId từ DTO
                     PlayerName = dto.Player1Name,
                     Score = 0,
                     CorrectAnswers = 0,
@@ -226,12 +227,27 @@ namespace BusinessLogic.Services
         {
             var room = await GetRoomFromRedisAsync(roomPin);
             if (room == null)
+            {
+                _logger.LogWarning($"❌ Room {roomPin} not found in Redis");
                 return false;
+            }
 
             // Validate: Chỉ Player1 (người tạo phòng) mới được connect
-            if (room.Player1 == null || room.Player1.UserId != userId)
+            if (room.Player1 == null)
             {
-                _logger.LogWarning($"❌ User {userId} tried to connect as Player1 but is not the room creator");
+                _logger.LogWarning($"❌ Room {roomPin} has no Player1");
+                return false;
+            }
+
+            if (room.Player1.UserId == Guid.Empty)
+            {
+                _logger.LogWarning($"❌ Room {roomPin} Player1.UserId is empty (not set during room creation)");
+                return false;
+            }
+
+            if (room.Player1.UserId != userId)
+            {
+                _logger.LogWarning($"❌ User {userId} tried to connect as Player1 but room creator is {room.Player1.UserId}. Room PIN: {roomPin}");
                 return false;
             }
 
@@ -242,7 +258,7 @@ namespace BusinessLogic.Services
             await SaveConnectionMappingAsync(connectionId, roomPin);
             await SaveRoomToRedisAsync(roomPin, room);
 
-            _logger.LogInformation($"✅ Player1 (UserId: {userId}) connected to room {roomPin}");
+            _logger.LogInformation($"✅ Player1 (UserId: {userId}, Name: {room.Player1.PlayerName}) connected to room {roomPin}");
             return true;
         }
 
