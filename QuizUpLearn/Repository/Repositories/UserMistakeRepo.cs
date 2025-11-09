@@ -24,6 +24,12 @@ namespace Repository.Repositories
             return await _context.UserMistakes.FindAsync(id);
         }
 
+        public async Task<UserMistake?> GetByUserIdAndQuizIdAsync(Guid userId, Guid quizId)
+        {
+            return await _context.UserMistakes
+                .FirstOrDefaultAsync(um => um.UserId == userId && um.QuizId == quizId);
+        }
+
         public async Task AddAsync(UserMistake userMistake)
         {
             await _context.UserMistakes.AddAsync(userMistake);

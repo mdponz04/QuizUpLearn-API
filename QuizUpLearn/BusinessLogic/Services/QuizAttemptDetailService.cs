@@ -1,5 +1,6 @@
 using AutoMapper;
 using BusinessLogic.DTOs;
+using BusinessLogic.DTOs.UserMistakeDtos;
 using BusinessLogic.Interfaces;
 using Repository.Entities;
 using Repository.Interfaces;
@@ -11,13 +12,17 @@ namespace BusinessLogic.Services
         private readonly IQuizAttemptDetailRepo _repo;
         private readonly IQuizAttemptRepo _attemptRepo;
         private readonly IAnswerOptionRepo _answerOptionRepo;
+        private readonly IUserMistakeService _userMistakeService;
+        private readonly IUserMistakeRepo _userMistakeRepo;
         private readonly IMapper _mapper;
 
-        public QuizAttemptDetailService(IQuizAttemptDetailRepo repo, IQuizAttemptRepo attemptRepo, IAnswerOptionRepo answerOptionRepo, IMapper mapper)
+        public QuizAttemptDetailService(IQuizAttemptDetailRepo repo, IQuizAttemptRepo attemptRepo, IAnswerOptionRepo answerOptionRepo, IUserMistakeService userMistakeService, IUserMistakeRepo userMistakeRepo, IMapper mapper)
         {
             _repo = repo;
             _attemptRepo = attemptRepo;
             _answerOptionRepo = answerOptionRepo;
+            _userMistakeService = userMistakeService;
+            _userMistakeRepo = userMistakeRepo;
             _mapper = mapper;
         }
 
@@ -157,7 +162,7 @@ namespace BusinessLogic.Services
 
             await _attemptRepo.UpdateAsync(dto.AttemptId, attempt);
 
-            return new ResponseSubmitAnswersDto
+            var response = new ResponseSubmitAnswersDto
             {
                 AttemptId = dto.AttemptId,
                 TotalQuestions = attempt.TotalQuestions,
@@ -168,6 +173,63 @@ namespace BusinessLogic.Services
                 Status = attempt.Status,
                 AnswerResults = answerResults
             };
+
+            // Chạy ngầm: Tạo/update UserMistake cho các câu trả lời sai
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    // Lấy danh sách QuizId (QuestionId) từ các câu trả lời sai
+                    var wrongQuestionIds = answerResults
+                        .Where(ar => !ar.IsCorrect)
+                        .Select(ar => ar.QuestionId)
+                        .Distinct()
+                        .ToList();
+
+                    if (wrongQuestionIds.Any() && attempt.UserId != Guid.Empty)
+                    {
+                        // Tạo/update UserMistake cho mỗi câu hỏi sai
+                        foreach (var quizId in wrongQuestionIds)
+                        {
+                            var existingMistake = await _userMistakeRepo.GetByUserIdAndQuizIdAsync(attempt.UserId, quizId);
+                            
+                            if (existingMistake == null)
+                            {
+                                // Tạo mới bằng AddAsync
+                                await _userMistakeService.AddAsync(new RequestUserMistakeDto
+                                {
+                                    UserId = attempt.UserId,
+                                    QuizId = quizId,
+                                    TimesAttempted = 1,
+                                    TimesWrong = 1,
+                                    LastAttemptedAt = DateTime.UtcNow,
+                                    IsAnalyzed = false
+                                });
+                            }
+                            else
+                            {
+                                // Update bằng UpdateAsync
+                                await _userMistakeService.UpdateAsync(existingMistake.Id, new RequestUserMistakeDto
+                                {
+                                    UserId = attempt.UserId,
+                                    QuizId = quizId,
+                                    TimesAttempted = existingMistake.TimesAttempted + 1,
+                                    TimesWrong = existingMistake.TimesWrong + 1,
+                                    LastAttemptedAt = DateTime.UtcNow,
+                                    IsAnalyzed = existingMistake.IsAnalyzed
+                                });
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log lỗi nhưng không ảnh hưởng đến response
+                    // Có thể thêm logger ở đây nếu cần
+                }
+            });
+
+            return response;
         }
     }
 }
