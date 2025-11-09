@@ -8,9 +8,10 @@ namespace Repository.Entities
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public long MaxParticipants { get; set; }
-        public string status { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
         public Guid CreatedBy { get; set; }
         // Navigation property
         public virtual User? Creator { get; set; }
+        public virtual ICollection<TournamentQuizSet> TournamentQuizSets { get; set; } = new List<TournamentQuizSet>();
     }
 }

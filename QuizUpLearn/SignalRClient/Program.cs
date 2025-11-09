@@ -10,7 +10,7 @@ class Program
         string jobId = Console.ReadLine();
         Console.WriteLine($"Monitoring Job ID: {jobId}");
 
-        var hubUrl = "https://localhost:7247/background-jobs";
+        var hubUrl = "https://qul-api.onrender.com/background-jobs";
 
         var connection = new HubConnectionBuilder()
             .WithUrl(hubUrl)
