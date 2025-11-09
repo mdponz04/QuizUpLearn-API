@@ -23,7 +23,6 @@ namespace Repository.DBContext
         public DbSet<TournamentParticipant> TournamentParticipants { get; set; }
         public DbSet<UserMistake> UserMistakes { get; set; }
         public DbSet<QuizGroupItem> QuizGroupItems { get; set; }
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Account>()

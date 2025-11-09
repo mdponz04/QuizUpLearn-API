@@ -17,7 +17,8 @@ namespace QuizUpLearn.API.Middlewares
 		public async Task InvokeAsync(HttpContext context)
 		{
 			if (context.Request.Path.StartsWithSegments("/game-hub") || 
-			    context.Request.Path.StartsWithSegments("/one-vs-one-hub"))
+			    context.Request.Path.StartsWithSegments("/one-vs-one-hub") ||
+				context.Request.Path.StartsWithSegments("/background-jobs"))
 			{
 				await _next(context);
 				return;

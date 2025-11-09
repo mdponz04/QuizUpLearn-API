@@ -7,15 +7,13 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
 builder.Services.AddInfrastructure(builder.Configuration);
 
-// Add CORS policy
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.SetIsOriginAllowed(origin => true) 
+        policy.SetIsOriginAllowed(origin => true)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -132,5 +130,6 @@ app.MapControllers();
 
 app.MapHub<GameHub>("/game-hub").RequireCors("AllowFrontend");
 app.MapHub<OneVsOneHub>("/one-vs-one-hub").RequireCors("AllowFrontend");
+app.MapHub<BackgroundJobHub>("/background-jobs").RequireCors("AllowFrontend");
 
 app.Run();

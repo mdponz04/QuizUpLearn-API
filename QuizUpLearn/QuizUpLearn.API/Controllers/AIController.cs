@@ -1,6 +1,10 @@
 ﻿using BusinessLogic.DTOs.AiDtos;
+using BusinessLogic.DTOs.QuizSetDtos;
+using BusinessLogic.Helpers;
 using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using QuizUpLearn.API.Hubs;
 
 namespace QuizUpLearn.API.Controllers
 {
@@ -9,10 +13,12 @@ namespace QuizUpLearn.API.Controllers
     public class AIController : ControllerBase
     {
         private readonly IAIService _aiService;
+        private readonly IWorkerService _workerService;
 
-        public AIController(IAIService aiService)
+        public AIController(IAIService aiService, IWorkerService workerService)
         {
             _aiService = aiService;
+            _workerService = workerService;
         }
         /// <summary>
         /// This endpoint validates an existing quiz set by its ID.
@@ -37,60 +43,105 @@ namespace QuizUpLearn.API.Controllers
             }
         }
         /// <summary>
-        /// 
+        /// This is background job endpoint. It will return data to JobCompleted & JobFailed events in SignalR hub.
+        /// Choose quiz part to generate quiz set for this part.
         /// </summary>
         /// <param name="inputData"></param>
         /// <returns></returns>
-        [HttpPost("generate-quiz-set-part-1")]
-        public async Task<IActionResult> GenerateQuizSetPart1([FromBody] AiGenerateQuizSetRequestDto inputData)
+        [HttpPost("generate-quiz-set")]
+        public async Task<IActionResult> GenerateQuizSetPart([FromBody] AiGenerateQuizSetRequestDto inputData, QuizPartEnums quizPart)
         {
             if (inputData == null)
             {
                 return BadRequest("Prompt cannot be empty.");
             }
-            try
+
+            var jobId = Guid.NewGuid();
+
+            _ = _workerService.EnqueueJob(async (sp, token) =>
             {
-                var result = await _aiService.GeneratePracticeQuizSetPart1Async(inputData);
-                var validateResult = await _aiService.ValidateQuizSetAsync(result.Id);
-                if (!validateResult.Item1)
-                    return StatusCode(201, "Invalid quiz set: " + validateResult.Item2);
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
+                var aiService = sp.GetRequiredService<IAIService>();
+                var hubContext = sp.GetRequiredService<IHubContext<BackgroundJobHub>>();
+                
+                try
+                {
+                    QuizSetResponseDto result = new();
+                    switch (quizPart)
+                    {
+                        case QuizPartEnums.PART1:
+                            result = await aiService.GeneratePracticeQuizSetPart1Async(inputData);
+                            break;
+                        case QuizPartEnums.PART2:
+                            result = await aiService.GeneratePracticeQuizSetPart2Async(inputData);
+                            break;
+                        case QuizPartEnums.PART3:
+                            result = await aiService.GeneratePracticeQuizSetPart3Async(inputData);
+                            break;
+                        case QuizPartEnums.PART4:
+                            result = await aiService.GeneratePracticeQuizSetPart4Async(inputData);
+                            break;
+                        case QuizPartEnums.PART5:
+                            result = await aiService.GeneratePracticeQuizSetPart5Async(inputData);
+                            break;
+                        case QuizPartEnums.PART6:
+                            result = await aiService.GeneratePracticeQuizSetPart6Async(inputData);
+                            break;
+                        case QuizPartEnums.PART7:
+                            result = await aiService.GeneratePracticeQuizSetPart7Async(inputData);
+                            break;
+                    }
+
+                    var validateResult = await aiService.ValidateQuizSetAsync(result.Id);
+
+                    if (!validateResult.Item1)
+                    {
+                        await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobFailed", new
+                        {
+                            JobId = jobId,
+                            Error = "Invalid quiz set: " + validateResult.Item2
+                        });
+                    }
+                    else
+                    {
+                        await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
+                        {
+                            JobId = jobId,
+                            Result = result
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobFailed", new
+                    {
+                        JobId = jobId,
+                        Error = ex.Message
+                    });
+                }
+            });
+
+            return Ok(new { JobId = jobId, Message = "Quiz set generation started in background." });
         }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="inputData"></param>
-        /// <returns></returns>
-        [HttpPost("generate-quiz-set-part-2")]
+
+        /*[HttpPost("generate-quiz-set-part-2")]
         public async Task<IActionResult> GenerateQuizSetPart2([FromBody] AiGenerateQuizSetRequestDto inputData)
         {
             if (inputData == null)
             {
                 return BadRequest("Prompt cannot be empty.");
             }
-            try
+            var result = await _aiService.GeneratePracticeQuizSetPart2Async(inputData);
+            var validateResult = await _aiService.ValidateQuizSetAsync(result.Id);
+
+            if (!validateResult.Item1)
             {
-                var result = await _aiService.GeneratePracticeQuizSetPart2Async(inputData);
-                var validateResult = await _aiService.ValidateQuizSetAsync(result.Id);
-                if (!validateResult.Item1)
-                    return StatusCode(201, "Invalid quiz set: " + validateResult.Item2);
+                return BadRequest("Invalid quiz set: " + validateResult.Item2);
+            }
+            else
+            {
                 return Ok(result);
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
         }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="inputData"></param>
-        /// <returns></returns>
         [HttpPost("generate-quiz-set-part-3")]
         public async Task<IActionResult> GenerateQuizSetPart3([FromBody] AiGenerateQuizSetRequestDto inputData)
         {
@@ -98,24 +149,18 @@ namespace QuizUpLearn.API.Controllers
             {
                 return BadRequest("Prompt cannot be empty.");
             }
-            try
+            var result = await _aiService.GeneratePracticeQuizSetPart3Async(inputData);
+            var validateResult = await _aiService.ValidateQuizSetAsync(result.Id);
+
+            if (!validateResult.Item1)
             {
-                var result = await _aiService.GeneratePracticeQuizSetPart3Async(inputData);
-                var validateResult = await _aiService.ValidateQuizSetAsync(result.Id);
-                if (!validateResult.Item1)
-                    return StatusCode(201, "Invalid quiz set: " + validateResult.Item2);
+                return BadRequest("Invalid quiz set: " + validateResult.Item2);
+            }
+            else
+            {
                 return Ok(result);
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
         }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="inputData"></param>
-        /// <returns></returns>
         [HttpPost("generate-quiz-set-part-4")]
         public async Task<IActionResult> GenerateQuizSetPart4([FromBody] AiGenerateQuizSetRequestDto inputData)
         {
@@ -123,24 +168,18 @@ namespace QuizUpLearn.API.Controllers
             {
                 return BadRequest("Prompt cannot be empty.");
             }
-            try
+            var result = await _aiService.GeneratePracticeQuizSetPart4Async(inputData);
+            var validateResult = await _aiService.ValidateQuizSetAsync(result.Id);
+
+            if (!validateResult.Item1)
             {
-                var result = await _aiService.GeneratePracticeQuizSetPart4Async(inputData);
-                var validateResult = await _aiService.ValidateQuizSetAsync(result.Id);
-                if (!validateResult.Item1)
-                    return StatusCode(201, "Invalid quiz set: " + validateResult.Item2);
+                return BadRequest("Invalid quiz set: " + validateResult.Item2);
+            }
+            else
+            {
                 return Ok(result);
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
         }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="inputData"></param>
-        /// <returns></returns>
         [HttpPost("generate-quiz-set-part-5")]
         public async Task<IActionResult> GenerateQuizSetPart5([FromBody] AiGenerateQuizSetRequestDto inputData)
         {
@@ -148,24 +187,18 @@ namespace QuizUpLearn.API.Controllers
             {
                 return BadRequest("Prompt cannot be empty.");
             }
-            try
+            var result = await _aiService.GeneratePracticeQuizSetPart5Async(inputData);
+            var validateResult = await _aiService.ValidateQuizSetAsync(result.Id);
+
+            if (!validateResult.Item1)
             {
-                var result = await _aiService.GeneratePracticeQuizSetPart5Async(inputData);
-                var validateResult = await _aiService.ValidateQuizSetAsync(result.Id);
-                if (!validateResult.Item1)
-                    return StatusCode(201, "Invalid quiz set: " + validateResult.Item2);
+                return BadRequest("Invalid quiz set: " + validateResult.Item2);
+            }
+            else
+            {
                 return Ok(result);
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
         }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="inputData"></param>
-        /// <returns></returns>
         [HttpPost("generate-quiz-set-part-6")]
         public async Task<IActionResult> GenerateQuizSetPart6([FromBody] AiGenerateQuizSetRequestDto inputData)
         {
@@ -173,24 +206,18 @@ namespace QuizUpLearn.API.Controllers
             {
                 return BadRequest("Prompt cannot be empty.");
             }
-            try
+            var result = await _aiService.GeneratePracticeQuizSetPart6Async(inputData);
+            var validateResult = await _aiService.ValidateQuizSetAsync(result.Id);
+
+            if (!validateResult.Item1)
             {
-                var result = await _aiService.GeneratePracticeQuizSetPart6Async(inputData);
-                var validateResult = await _aiService.ValidateQuizSetAsync(result.Id);
-                if (!validateResult.Item1)
-                    return StatusCode(201, "Invalid quiz set: " + validateResult.Item2);
+                return BadRequest("Invalid quiz set: " + validateResult.Item2);
+            }
+            else
+            {
                 return Ok(result);
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
         }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="inputData"></param>
-        /// <returns></returns>
         [HttpPost("generate-quiz-set-part-7")]
         public async Task<IActionResult> GenerateQuizSetPart7([FromBody] AiGenerateQuizSetRequestDto inputData)
         {
@@ -198,18 +225,17 @@ namespace QuizUpLearn.API.Controllers
             {
                 return BadRequest("Prompt cannot be empty.");
             }
-            try
+            var result = await _aiService.GeneratePracticeQuizSetPart7Async(inputData);
+            var validateResult = await _aiService.ValidateQuizSetAsync(result.Id);
+
+            if (!validateResult.Item1)
             {
-                var result = await _aiService.GeneratePracticeQuizSetPart7Async(inputData);
-                var validateResult = await _aiService.ValidateQuizSetAsync(result.Id);
-                if (!validateResult.Item1)
-                    return StatusCode(201, "Invalid quiz set: " + validateResult.Item2);
+                return BadRequest("Invalid quiz set: " + validateResult.Item2);
+            }
+            else
+            {
                 return Ok(result);
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
-        }
+        }*/
     }
 }

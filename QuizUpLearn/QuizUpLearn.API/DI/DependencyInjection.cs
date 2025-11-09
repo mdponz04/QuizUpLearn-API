@@ -15,7 +15,6 @@ namespace QuizUpLearn.API.DI
         {
             services.ConfigSwagger(configuration);
             services.AddDatabase(configuration);
-            services.ConfigCors();
             services.ConfigRoute();
             services.AddRepository();
             services.AddAutoMapper();
@@ -23,23 +22,6 @@ namespace QuizUpLearn.API.DI
             services.AddHttpClient();
             services.AddHttpClient<IMailerSendService, MailerSendService>();
 
-        }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="services"></param>
-        public static void ConfigCors(this IServiceCollection services)
-        {
-            services.AddCors(options =>
-            {
-                options.AddPolicy("AllowAllOrigins",
-                    builder =>
-                    {
-                        builder.AllowAnyOrigin()
-                               .AllowAnyHeader()
-                               .AllowAnyMethod();
-                    });
-            });
         }
 
         public static void ConfigRoute(this IServiceCollection services)
@@ -68,9 +50,14 @@ namespace QuizUpLearn.API.DI
         {
             services.AddDbContext<MyDbContext>(options =>
             {
-                //options.UseSqlServer(configuration.GetConnectionString("DefaultConnection"));
                 options.UseNpgsql(configuration.GetConnectionString("PostgreSqlConnection"));
             });
+        }
+
+        public static void AddAutoMapper(this IServiceCollection services)
+        {
+            // Register AutoMapper with assemblies
+            services.AddAutoMapper(cfg => { }, typeof(MappingProfile).Assembly);
         }
 
         public static void AddRepository(this IServiceCollection services)
@@ -86,12 +73,6 @@ namespace QuizUpLearn.API.DI
             services.AddScoped<IAnswerOptionRepo, AnswerOptionRepo>();
             services.AddScoped<IUserMistakeRepo, UserMistakeRepo>();
             services.AddScoped<IQuizGroupItemRepo, QuizGroupItemRepo>();
-        }
-
-        public static void AddAutoMapper(this IServiceCollection services)
-        {
-            // Register AutoMapper with assemblies
-            services.AddAutoMapper(cfg => { }, typeof(MappingProfile).Assembly);
         }
 
         public static void AddServices(this IServiceCollection services)
@@ -115,12 +96,14 @@ namespace QuizUpLearn.API.DI
             services.AddScoped<IPlacementQuizSetService, PlacementQuizSetService>();
             services.AddScoped<IUserMistakeService, UserMistakeService>();
             services.AddScoped<IQuizGroupItemService, QuizGroupItemService>();
-
             // RealtimeGameService phải là Singleton vì dùng static state
             services.AddSingleton<BusinessLogic.Services.RealtimeGameService>();
             
             // OneVsOneGameService - Singleton để dùng Redis state
             services.AddSingleton<BusinessLogic.Interfaces.IOneVsOneGameService, BusinessLogic.Services.OneVsOneGameService>();
+            //Singleton worker service
+            services.AddSingleton<IWorkerService, WorkerService>();
+            services.AddHostedService(sp => (WorkerService)sp.GetRequiredService<IWorkerService>());
         }
     }
 }
