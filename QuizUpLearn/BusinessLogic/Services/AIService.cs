@@ -1027,7 +1027,7 @@ Return JSON:
             return createdQuizSet;
         }
 
-        public async Task AnalyzeUserMistakesAndAdviseAsync(Guid userId)
+        public async Task<IEnumerable<ResponseUserWeakPointDto>> AnalyzeUserMistakesAndAdviseAsync(Guid userId)
         {
             var userMistakes = await _userMistakeService.GetAllByUserIdAsync(userId);
 
@@ -1097,7 +1097,11 @@ Return in JSON:
                     Advice = analysisResult.Advice,
                     IsDone = false
                 });
+                
+                
             }
+
+            return await _userWeakPointService.GetByUserIdAsync(userId);
         }
 
         public Task<QuizSetResponseDto> GenerateFixWeakPointQuizSetAsync()

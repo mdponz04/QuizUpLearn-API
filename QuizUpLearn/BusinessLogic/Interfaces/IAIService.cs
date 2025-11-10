@@ -1,11 +1,12 @@
 ﻿using BusinessLogic.DTOs.AiDtos;
 using BusinessLogic.DTOs.QuizSetDtos;
+using BusinessLogic.DTOs.UserWeakPointDtos;
 
 namespace BusinessLogic.Interfaces
 {
     public interface IAIService
     {
-        Task AnalyzeUserMistakesAndAdviseAsync(Guid userId);
+        Task<IEnumerable<ResponseUserWeakPointDto>> AnalyzeUserMistakesAndAdviseAsync(Guid userId);
         Task<(bool, string)> ValidateQuizSetAsync(Guid quizSetId);
         Task<QuizSetResponseDto> GeneratePracticeQuizSetPart1Async(AiGenerateQuizSetRequestDto inputData);
         Task<QuizSetResponseDto> GeneratePracticeQuizSetPart2Async(AiGenerateQuizSetRequestDto inputData);
