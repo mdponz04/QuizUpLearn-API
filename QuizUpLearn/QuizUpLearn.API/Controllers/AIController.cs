@@ -5,6 +5,7 @@ using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using QuizUpLearn.API.Hubs;
+using Repository.Enums;
 
 namespace QuizUpLearn.API.Controllers
 {
@@ -14,11 +15,13 @@ namespace QuizUpLearn.API.Controllers
     {
         private readonly IAIService _aiService;
         private readonly IWorkerService _workerService;
+        private readonly IQuizSetService _quizSetService;
 
-        public AIController(IAIService aiService, IWorkerService workerService)
+        public AIController(IAIService aiService, IWorkerService workerService, IQuizSetService quizSetService)
         {
             _aiService = aiService;
             _workerService = workerService;
+            _quizSetService = quizSetService;
         }
         /// <summary>
         /// This endpoint validates an existing quiz set by its ID.
@@ -57,6 +60,16 @@ namespace QuizUpLearn.API.Controllers
             }
 
             var jobId = Guid.NewGuid();
+            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
+            {
+                Title = inputData.Topic,
+                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC {quizPart.ToString()}",
+                QuizType = QuizSetTypeEnum.Practice,
+                SkillType = "Listening",
+                DifficultyLevel = inputData.Difficulty,
+                CreatedBy = inputData.CreatorId
+            });
+            var quizSetId = createdQuizSet.Id;
 
             _ = _workerService.EnqueueJob(async (sp, token) =>
             {
@@ -65,33 +78,50 @@ namespace QuizUpLearn.API.Controllers
                 
                 try
                 {
-                    QuizSetResponseDto result = new();
+                    var result = false;
+                    
+                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobFailed", new
+                    {
+                        JobId = jobId,
+                        Result = "",
+                        Status = "Processing",
+                        QuizSetId = quizSetId
+                    });
+
                     switch (quizPart)
                     {
                         case QuizPartEnums.PART1:
-                            result = await aiService.GeneratePracticeQuizSetPart1Async(inputData);
+                            result = await aiService.GeneratePracticeQuizSetPart1Async(inputData, quizSetId);
                             break;
                         case QuizPartEnums.PART2:
-                            result = await aiService.GeneratePracticeQuizSetPart2Async(inputData);
+                            result = await aiService.GeneratePracticeQuizSetPart2Async(inputData, quizSetId);
                             break;
                         case QuizPartEnums.PART3:
-                            result = await aiService.GeneratePracticeQuizSetPart3Async(inputData);
+                            result = await aiService.GeneratePracticeQuizSetPart3Async(inputData, quizSetId);
                             break;
                         case QuizPartEnums.PART4:
-                            result = await aiService.GeneratePracticeQuizSetPart4Async(inputData);
+                            result = await aiService.GeneratePracticeQuizSetPart4Async(inputData, quizSetId);
                             break;
                         case QuizPartEnums.PART5:
-                            result = await aiService.GeneratePracticeQuizSetPart5Async(inputData);
+                            result = await aiService.GeneratePracticeQuizSetPart5Async(inputData, quizSetId);
                             break;
                         case QuizPartEnums.PART6:
-                            result = await aiService.GeneratePracticeQuizSetPart6Async(inputData);
+                            result = await aiService.GeneratePracticeQuizSetPart6Async(inputData, quizSetId);
                             break;
                         case QuizPartEnums.PART7:
-                            result = await aiService.GeneratePracticeQuizSetPart7Async(inputData);
+                            result = await aiService.GeneratePracticeQuizSetPart7Async(inputData, quizSetId);
                             break;
                     }
 
-                    var validateResult = await aiService.ValidateQuizSetAsync(result.Id);
+                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobFailed", new
+                    {
+                        JobId = jobId,
+                        Result = "",
+                        Status = "Validating",
+                        QuizSetId = quizSetId
+                    });
+
+                    var validateResult = await aiService.ValidateQuizSetAsync(quizSetId);
 
                     if (!validateResult.Item1)
                     {
@@ -99,7 +129,8 @@ namespace QuizUpLearn.API.Controllers
                         {
                             JobId = jobId,
                             Result = "Invalid quiz set: " + validateResult.Item2,
-                            Status = "Failed"
+                            Status = "Failed",
+                            QuizSetId = Guid.Empty
                         });
                     }
                     else
@@ -108,7 +139,8 @@ namespace QuizUpLearn.API.Controllers
                         {
                             JobId = jobId,
                             Result = result,
-                            Status = "Completed"
+                            Status = "Completed",
+                            QuizSetId = quizSetId
                         });
                     }
                 }
@@ -118,12 +150,13 @@ namespace QuizUpLearn.API.Controllers
                     {
                         JobId = jobId,
                         Result = ex.Message,
-                        Status = "Failed"
+                        Status = "Failed",
+                        QuizSetId = Guid.Empty
                     });
                 }
             });
 
-            return Ok(new { JobId = jobId, Message = "Quiz set generation started in background.", Status = "Processing..." });
+            return Ok(new { JobId = jobId, Message = "Quiz set generation started in background.", Status = "Processing", QuizSetId = quizSetId });
         }
         /// <summary>
         /// This endpoint analyzes a user's mistakes and provides personalized advices & weak points.
