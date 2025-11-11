@@ -14,15 +14,17 @@ namespace BusinessLogic.Services
         private readonly IAnswerOptionRepo _answerOptionRepo;
         private readonly IUserMistakeService _userMistakeService;
         private readonly IUserMistakeRepo _userMistakeRepo;
+        private readonly IAIService _aiService;
         private readonly IMapper _mapper;
 
-        public QuizAttemptDetailService(IQuizAttemptDetailRepo repo, IQuizAttemptRepo attemptRepo, IAnswerOptionRepo answerOptionRepo, IUserMistakeService userMistakeService, IUserMistakeRepo userMistakeRepo, IMapper mapper)
+        public QuizAttemptDetailService(IQuizAttemptDetailRepo repo, IQuizAttemptRepo attemptRepo, IAnswerOptionRepo answerOptionRepo, IUserMistakeService userMistakeService, IUserMistakeRepo userMistakeRepo, IAIService aiService, IMapper mapper)
         {
             _repo = repo;
             _attemptRepo = attemptRepo;
             _answerOptionRepo = answerOptionRepo;
             _userMistakeService = userMistakeService;
             _userMistakeRepo = userMistakeRepo;
+            _aiService = aiService;
             _mapper = mapper;
         }
 
@@ -80,7 +82,8 @@ namespace BusinessLogic.Services
             int wrongCount = 0;
             int totalTimeSpent = 0;
             var answerResults = new List<AnswerResultDto>();
-            var wrongUserAnswers = new Dictionary<Guid, string>(); //quizId, userAnswer
+            var wrongQuestionIdsSet = new HashSet<Guid>();
+
             // Lưu và chấm điểm từng câu trả lời
             foreach (var answer in dto.Answers)
             {
@@ -140,7 +143,7 @@ namespace BusinessLogic.Services
                 }
                 else
                 {
-                    wrongUserAnswers.Add(answer.QuestionId, answer.UserAnswer);
+                    wrongQuestionIdsSet.Add(answer.QuestionId);
                     wrongCount++;
                 }
 
@@ -159,7 +162,7 @@ namespace BusinessLogic.Services
             attempt.Score = correctCount;
             attempt.Accuracy = attempt.TotalQuestions > 0 ? (decimal)correctCount / attempt.TotalQuestions : 0;
             attempt.Status = "completed";
-            attempt.TimeSpent = totalTimeSpent > 0 ? totalTimeSpent : null;
+            attempt.TimeSpent = totalTimeSpent > 0 ? totalTimeSpent : (int?)null;
 
             await _attemptRepo.UpdateAsync(dto.AttemptId, attempt);
 
@@ -175,29 +178,21 @@ namespace BusinessLogic.Services
                 AnswerResults = answerResults
             };
 
-            // Chạy ngầm: Tạo/update UserMistake cho các câu trả lời sai
-            _ = Task.Run(async () =>
+            // Nền 1: Tạo/update UserMistake cho các câu trả lời sai
+            var userMistakeTask = Task.Run(async () =>
             {
                 try
                 {
-                    // Lấy danh sách QuizId (QuestionId) từ các câu trả lời sai
-                    var wrongQuestionIds = answerResults
-                        .Where(ar => !ar.IsCorrect)
-                        .Select(ar => ar.QuestionId)
-                        .Distinct()
-                        .ToList();
-                    
+                    var wrongQuestionIds = wrongQuestionIdsSet.ToList();
 
                     if (wrongQuestionIds.Any() && attempt.UserId != Guid.Empty)
                     {
-                        // Tạo/update UserMistake cho mỗi câu hỏi sai
                         foreach (var quizId in wrongQuestionIds)
                         {
                             var existingMistake = await _userMistakeRepo.GetByUserIdAndQuizIdAsync(attempt.UserId, quizId);
                             
                             if (existingMistake == null)
                             {
-                                // Tạo mới bằng AddAsync
                                 await _userMistakeService.AddAsync(new RequestUserMistakeDto
                                 {
                                     UserId = attempt.UserId,
@@ -205,13 +200,11 @@ namespace BusinessLogic.Services
                                     TimesAttempted = 1,
                                     TimesWrong = 1,
                                     LastAttemptedAt = DateTime.UtcNow,
-                                    IsAnalyzed = false,
-                                    UserAnswer = wrongUserAnswers[quizId]
+                                    IsAnalyzed = false
                                 });
                             }
                             else
                             {
-                                // Update bằng UpdateAsync
                                 await _userMistakeService.UpdateAsync(existingMistake.Id, new RequestUserMistakeDto
                                 {
                                     UserId = attempt.UserId,
@@ -225,13 +218,27 @@ namespace BusinessLogic.Services
                         }
                     }
                 }
-                catch (Exception ex)
+                catch
                 {
-                    // Log lỗi nhưng không ảnh hưởng đến response
-                    // Có thể thêm logger ở đây nếu cần
+                    // ignore background errors
                 }
             });
 
+            // Nền 2: Sau khi cập nhật UserMistake xong thì chạy phân tích AI (không ảnh hưởng response)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await userMistakeTask; // đảm bảo dữ liệu sai đã được lưu
+                    if (attempt.UserId != Guid.Empty)
+                    {
+                        await _aiService.AnalyzeUserMistakesAndAdviseAsync(attempt.UserId);
+                    }
+                }
+                catch { }
+            });
+
+            // Trả về ngay, không chờ AI phân tích
             return response;
         }
     }

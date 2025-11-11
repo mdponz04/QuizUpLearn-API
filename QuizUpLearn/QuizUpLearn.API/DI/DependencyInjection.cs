@@ -73,6 +73,9 @@ namespace QuizUpLearn.API.DI
             services.AddScoped<IAnswerOptionRepo, AnswerOptionRepo>();
             services.AddScoped<IUserMistakeRepo, UserMistakeRepo>();
             services.AddScoped<IQuizGroupItemRepo, QuizGroupItemRepo>();
+            services.AddScoped<ITournamentRepo, TournamentRepo>();
+            services.AddScoped<ITournamentQuizSetRepo, TournamentQuizSetRepo>();
+            services.AddScoped<ITournamentParticipantRepo, TournamentParticipantRepo>();
             services.AddScoped<IUserWeakPointRepo, UserWeakPointRepo>();
 
         }
@@ -98,6 +101,7 @@ namespace QuizUpLearn.API.DI
             services.AddScoped<IPlacementQuizSetService, PlacementQuizSetService>();
             services.AddScoped<IUserMistakeService, UserMistakeService>();
             services.AddScoped<IQuizGroupItemService, QuizGroupItemService>();
+            services.AddScoped<ITournamentService, TournamentService>();
             services.AddScoped<IUserWeakPointService, UserWeakPointService>();
 
             // RealtimeGameService phải là Singleton vì dùng static state
@@ -108,6 +112,7 @@ namespace QuizUpLearn.API.DI
             //Singleton worker service
             services.AddSingleton<IWorkerService, WorkerService>();
             services.AddHostedService(sp => (WorkerService)sp.GetRequiredService<IWorkerService>());
+            services.AddHostedService<TournamentSchedulerService>();
         }
     }
 }
