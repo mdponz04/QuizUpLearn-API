@@ -8,7 +8,6 @@ using BusinessLogic.Helpers;
 using BusinessLogic.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Repository.Enums;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -355,20 +354,14 @@ Return only these 2 fields as JSON structure:
                     allValid = false;
             }
 
+            if (!allValid)
+                await _quizSetService.HardDeleteQuizSetAsync(quizSetId);
+
             return (allValid, feedbackBuilder.ToString());
         }
         
-        public async Task<QuizSetResponseDto> GeneratePracticeQuizSetPart1Async(AiGenerateQuizSetRequestDto inputData)
+        public async Task<bool> GeneratePracticeQuizSetPart1Async(AiGenerateQuizSetRequestDto inputData, Guid quizSetId)
         {
-            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
-            {
-                Title = inputData.Topic,
-                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC part 1",
-                QuizType = QuizSetTypeEnum.Practice,
-                SkillType = "Listening",
-                DifficultyLevel = inputData.Difficulty,
-                CreatedBy = inputData.CreatorId
-            });
             string previousImageDescription = string.Empty;
             string previousQuestionText = string.Empty;
 
@@ -425,7 +418,7 @@ Only return in this structure no need any extended field/infor:
 
                 var createdQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
                 {
-                    QuizSetId = createdQuizSet.Id,
+                    QuizSetId = quizSetId,
                     QuestionText = quiz.QuestionText,
                     TOEICPart = QuizPartEnums.PART1.ToString(),
                     AudioURL = audioResult.Url,
@@ -446,20 +439,11 @@ Only return in this structure no need any extended field/infor:
                 previousQuestionText += quiz.QuestionText + ", ";
             }
 
-            return createdQuizSet;
+            return true;
         }
         
-        public async Task<QuizSetResponseDto> GeneratePracticeQuizSetPart2Async(AiGenerateQuizSetRequestDto inputData)
+        public async Task<bool> GeneratePracticeQuizSetPart2Async(AiGenerateQuizSetRequestDto inputData, Guid quizSetId)
         {
-            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
-            {
-                Title = inputData.Topic,
-                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC part 2",
-                QuizType = QuizSetTypeEnum.Practice,
-                SkillType = "Listening",
-                DifficultyLevel = inputData.Difficulty,
-                CreatedBy = inputData.CreatorId
-            });
             string previousQuestionText = string.Empty;
             for (int i = 0; i < inputData.QuestionQuantity; i++)
             {
@@ -504,7 +488,7 @@ Only return in this structure no need any extended field/infor:
                 
                 var createdQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
                 {
-                    QuizSetId = createdQuizSet.Id,
+                    QuizSetId = quizSetId,
                     QuestionText = "",
                     TOEICPart = QuizPartEnums.PART2.ToString(),
                     AudioURL = audioResult.Url
@@ -523,21 +507,11 @@ Only return in this structure no need any extended field/infor:
 
                 previousQuestionText += quiz.QuestionText + ", ";
             }
-            return createdQuizSet;
+            return true;
         }
         
-        public async Task<QuizSetResponseDto> GeneratePracticeQuizSetPart3Async(AiGenerateQuizSetRequestDto inputData)
+        public async Task<bool> GeneratePracticeQuizSetPart3Async(AiGenerateQuizSetRequestDto inputData, Guid quizSetId)
         {
-            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
-            {
-                Title = inputData.Topic,
-                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC part 3",
-                QuizType = QuizSetTypeEnum.Practice,
-                SkillType = "Listening",
-                DifficultyLevel = inputData.Difficulty,
-                CreatedBy = inputData.CreatorId
-            });
-            Guid quizSetId = createdQuizSet.Id;
             var previousAudioScript = string.Empty;
 
             for (int i = 0; i < inputData.QuestionQuantity; i += 3)
@@ -612,7 +586,7 @@ Only return in this structure no need any extended field/infor:
 
                     var createdQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
                     {
-                        QuizSetId = createdQuizSet.Id,
+                        QuizSetId = quizSetId,
                         QuestionText = quiz.QuestionText,
                         TOEICPart = QuizPartEnums.PART3.ToString(),
                         QuizGroupItemId = groupItem.Id
@@ -630,22 +604,11 @@ Only return in this structure no need any extended field/infor:
                     }
                 }
             }
-            return createdQuizSet;
+            return true;
         }
         
-        public async Task<QuizSetResponseDto> GeneratePracticeQuizSetPart4Async(AiGenerateQuizSetRequestDto inputData)
+        public async Task<bool> GeneratePracticeQuizSetPart4Async(AiGenerateQuizSetRequestDto inputData, Guid quizSetId)
         {
-            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
-            {
-                Title = inputData.Topic,
-                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC part 4",
-                QuizType = QuizSetTypeEnum.Practice,
-                SkillType = "Listening",
-                DifficultyLevel = inputData.Difficulty,
-                CreatedBy = inputData.CreatorId
-            });
-
-            Guid quizSetId = createdQuizSet.Id;
             string previousAudioScript = string.Empty;
             
             for (int i = 0; i < inputData.QuestionQuantity; i += 3)
@@ -719,7 +682,7 @@ Only return in this structure no need any extended field/infor:
 
                     var createdQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
                     {
-                        QuizSetId = createdQuizSet.Id,
+                        QuizSetId = quizSetId,
                         QuestionText = quiz.QuestionText,
                         TOEICPart = QuizPartEnums.PART4.ToString(),
                         QuizGroupItemId = groupItem.Id
@@ -737,21 +700,11 @@ Only return in this structure no need any extended field/infor:
                     }
                 }
             }
-            return createdQuizSet;
+            return true;
         }
         
-        public async Task<QuizSetResponseDto> GeneratePracticeQuizSetPart5Async(AiGenerateQuizSetRequestDto inputData)
+        public async Task<bool> GeneratePracticeQuizSetPart5Async(AiGenerateQuizSetRequestDto inputData, Guid quizSetId)
         {
-            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
-            {
-                Title = inputData.Topic,
-                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC part 5",
-                QuizType = QuizSetTypeEnum.Practice,
-                SkillType = "Reading",
-                DifficultyLevel = inputData.Difficulty,
-                CreatedBy = inputData.CreatorId
-            });
-
             string previousQuestionText = string.Empty;
 
             for (int i = 0; i < inputData.QuestionQuantity; i++)
@@ -789,7 +742,7 @@ Only return in this structure no need any extended field/infor:
 
                 var createdQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
                 {
-                    QuizSetId = createdQuizSet.Id,
+                    QuizSetId = quizSetId,
                     QuestionText = quiz.QuestionText,
                     TOEICPart = QuizPartEnums.PART5.ToString(),
                     CorrectAnswer = quiz.AnswerOptions.FirstOrDefault(o => o.IsCorrect)!.OptionLabel,
@@ -808,22 +761,11 @@ Only return in this structure no need any extended field/infor:
 
                 previousQuestionText += quiz.QuestionText + ", ";
             }
-            return createdQuizSet;
+            return true;
         }
 
-        public async Task<QuizSetResponseDto> GeneratePracticeQuizSetPart6Async(AiGenerateQuizSetRequestDto inputData)
+        public async Task<bool> GeneratePracticeQuizSetPart6Async(AiGenerateQuizSetRequestDto inputData, Guid quizSetId)
         {
-            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
-            {
-                Title = inputData.Topic,
-                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC part 6",
-                QuizType = QuizSetTypeEnum.Practice,
-                SkillType = "Reading",
-                DifficultyLevel = inputData.Difficulty,
-                CreatedBy = inputData.CreatorId
-            });
-
-            Guid quizSetId = createdQuizSet.Id;
             string previousPassages = string.Empty;
 
             for (int i = 0; i < inputData.QuestionQuantity; i += 4)
@@ -892,7 +834,7 @@ Only return in this structure no need any extended field/infor:
                     //create quiz
                     var createdQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
                     {
-                        QuizSetId = createdQuizSet.Id,
+                        QuizSetId = quizSetId,
                         QuestionText = j.ToString(),
                         TOEICPart = QuizPartEnums.PART6.ToString(),
                         QuizGroupItemId = groupItem.Id
@@ -925,22 +867,11 @@ Only return in this structure no need any extended field/infor:
             }
 
 
-            return createdQuizSet;
+            return true;
         }
 
-        public async Task<QuizSetResponseDto> GeneratePracticeQuizSetPart7Async(AiGenerateQuizSetRequestDto inputData)
+        public async Task<bool> GeneratePracticeQuizSetPart7Async(AiGenerateQuizSetRequestDto inputData, Guid quizSetId)
         {
-            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
-            {
-                Title = inputData.Topic,
-                Description = $"AI-generated TOEIC Part 7 Reading practice on {inputData.Topic}",
-                QuizType = QuizSetTypeEnum.Practice,
-                SkillType = "Reading",
-                DifficultyLevel = inputData.Difficulty,
-                CreatedBy = inputData.CreatorId
-            });
-
-            Guid quizSetId = createdQuizSet.Id;
             string previousPassages = string.Empty;
 
             for (int i = 0; i < inputData.QuestionQuantity; i += 3)
@@ -1005,7 +936,7 @@ Return JSON:
 
                     var createdQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
                     {
-                        QuizSetId = createdQuizSet.Id,
+                        QuizSetId = quizSetId,
                         QuestionText = quiz.QuestionText,
                         TOEICPart = QuizPartEnums.PART7.ToString(),
                         QuizGroupItemId = groupItem.Id
@@ -1024,7 +955,7 @@ Return JSON:
                 }
             }
 
-            return createdQuizSet;
+            return true;
         }
 
         public async Task<IEnumerable<ResponseUserWeakPointDto>> AnalyzeUserMistakesAndAdviseAsync(Guid userId)
