@@ -113,7 +113,7 @@ namespace BusinessLogic.Services
             }
         }
 
-        private async Task<string> GenerateContentAsync(string prompt)
+        private async Task<string?> GenerateContentAsync(string prompt)
         {
             _logger.LogInformation($"OpenRouter api key: {_openRouterApiKey}");
             var url = "https://openrouter.ai/api/v1/chat/completions";
@@ -277,7 +277,7 @@ namespace BusinessLogic.Services
             var quizSet = await _quizSetService.GetQuizSetByIdAsync(quizSetId);
             if (quizSet == null) return (false, "Quiz set not found.");
 
-            var quizzes = await _quizService.GetQuizzesByQuizSetIdAsync(quizSetId);
+            var quizzes = await _quizService.GetQuizzesByQuizSetIdAsync(quizSetId, null!);
             if (quizzes == null)
                 return (false, "No quizzes found in this set.");
 
@@ -287,7 +287,7 @@ namespace BusinessLogic.Services
             var groupAudioScript = string.Empty;
             var groupImageDescription = string.Empty;
 
-            foreach (var quiz in quizzes)
+            foreach (var quiz in quizzes.Data)
             {
                 //Take group items
                 if (quiz.QuizGroupItemId != null)
@@ -398,12 +398,23 @@ Only return in this structure no need any extended field/infor:
 }}";
                 var response = await GeminiGenerateContentAsync(prompt);
                 previousImageDescription += response + "\n";
-
-                var quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
-                if (quiz == null
-                    || string.IsNullOrEmpty(quiz.QuestionText)
-                    || quiz.AnswerOptions.Count == 0)
-                    throw new Exception("Failed to generate valid quiz data from AI.");
+                AiGenerateQuizResponseDto? quiz;
+                try
+                {
+                    quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
+                    if (quiz == null
+                        || string.IsNullOrEmpty(quiz.QuestionText)
+                        || quiz.AnswerOptions == null
+                        || quiz.ImageDescription == null
+                        || quiz.AnswerOptions.Count == 0)
+                        throw new JsonException("Failed to generate valid quiz data from AI.");
+                }
+                catch(Exception ex)
+                {
+                    Console.WriteLine($"Invalid AI JSON: {ex.Message}");
+                    i--;
+                    continue;
+                }
 
                 var audioScript = string.Join(Environment.NewLine,quiz.AnswerOptions.Select(o => $"{o.OptionLabel}. {o.OptionText}"));
 
@@ -471,12 +482,22 @@ Only return in this structure no need any extended field/infor:
   ]
 }}";
                 var response = await GeminiGenerateContentAsync(prompt);
-                
-                var quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
-                if (quiz == null
+                AiGenerateQuizResponseDto? quiz;
+                try
+                {
+                    quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
+                    if (quiz == null
                     || string.IsNullOrEmpty(quiz.QuestionText)
+                    || quiz.AnswerOptions == null
                     || quiz.AnswerOptions.Count == 0)
-                    throw new Exception("Failed to generate valid quiz data from AI.");
+                        throw new JsonException("Failed to generate valid quiz data from AI.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Invalid AI JSON: {ex.Message}");
+                    i--;
+                    continue;
+                }
 
                 var audioScript = "Question: " + quiz.QuestionText + ".\n" + string.Join(Environment.NewLine, quiz.AnswerOptions.Select(o => $"{o.OptionLabel}. {o.OptionText}"));
 
@@ -537,9 +558,23 @@ Only return in this structure:
 ]
 }}";
                 var audioResponse = await GeminiGenerateContentAsync(audioPrompt);
+                AiConversationAudioScriptResponseDto? conversationScripts;
+                try
+                {
+                    conversationScripts = JsonSerializer.Deserialize<AiConversationAudioScriptResponseDto>(audioResponse);
+                    if(conversationScripts == null
+                        || conversationScripts.AudioScripts.Count == 0)
+                        throw new JsonException("Failed to generate valid audio script from AI.");
+                }
+                catch(Exception ex)
+                {
+                    Console.WriteLine($"Invalid AI JSON: {ex.Message}");
+                    i--;
+                    continue;
+                }
                 previousAudioScript = string.Join("\n", audioResponse);
-                var conversationScripts = JsonSerializer.Deserialize<AiConversationAudioScriptResponseDto>(audioResponse);
-                var audioBytes = await GenerateConversationAudioAsync(conversationScripts!);
+
+                var audioBytes = await GenerateConversationAudioAsync(conversationScripts);
                 var audioFile = await _uploadService.ConvertByteArrayToIFormFile(audioBytes, $"audio-G3_{i / 3 + 1}-{inputData.CreatorId}-{DateTime.UtcNow}.mp3", "audio/mpeg");
                 var audioResult = await _uploadService.UploadAsync(audioFile);
 
@@ -550,6 +585,13 @@ Only return in this structure:
                     AudioUrl = audioResult.Url,
                     AudioScript = audioResponse
                 });
+
+                if(groupItem == null)
+                {
+                    Console.WriteLine("Failed to create quiz group item.");
+                    i -= 3;
+                    continue;
+                }
 
                 string previousQuizText = string.Empty;
                 for (int j = 0; j < 3 && i + j < inputData.QuestionQuantity; j++)
@@ -575,12 +617,22 @@ Only return in this structure no need any extended field/infor:
   ]
 }}";
                     var response = await GeminiGenerateContentAsync(quizPrompt);
-
-                    var quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
-                    if (quiz == null
-                        || string.IsNullOrEmpty(quiz.QuestionText)
-                        || quiz.AnswerOptions.Count == 0)
-                        throw new Exception("Failed to generate valid quiz data from AI.");
+                    AiGenerateQuizResponseDto? quiz;
+                    try
+                    {
+                        quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
+                        if (quiz == null
+                            || string.IsNullOrEmpty(quiz.QuestionText)
+                            || quiz.AnswerOptions == null
+                            || quiz.AnswerOptions.Count == 0)
+                            throw new Exception("Failed to generate valid quiz data from AI.");
+                    }
+                    catch( Exception ex)
+                    {
+                        Console.WriteLine($"Invalid AI JSON: {ex.Message}");
+                        j--;
+                        continue;
+                    }
 
                     previousQuizText += quiz.QuestionText + ", ";
 
@@ -627,11 +679,20 @@ Only return in this structure:
   ""AudioScript"": ""...""
 }}";
                 var audioResponse = await GeminiGenerateContentAsync(audioPrompt);
+                AiGenerateQuizResponseDto? audioScripts = new();
+                try
+                {
+                    audioScripts = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(audioResponse);
+                    if (audioScripts == null || string.IsNullOrEmpty(audioScripts.AudioScript))
+                        throw new Exception("Failed to generate valid audio script from AI.");
+                }
+                catch(Exception ex)
+                {
+                    Console.WriteLine($"Invalid AI JSON: {ex.Message}");
+                    i--;
+                    continue;
+                }
                 
-                var audioScripts = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(audioResponse);
-                if(audioScripts == null 
-                    || string.IsNullOrEmpty(audioScripts.AudioScript))
-                    throw new Exception("Failed to generate valid audio script from AI.");
 
                 previousAudioScript = string.Join("\n", audioScripts.AudioScript);
 
@@ -646,6 +707,13 @@ Only return in this structure:
                     AudioUrl = audioResult.Url,
                     AudioScript = audioScripts.AudioScript
                 });
+
+                if(groupItem == null)
+                {
+                    Console.WriteLine("Failed to create quiz group item.");
+                    i -= 3;
+                    continue;
+                }
 
                 string previousQuizText = string.Empty;
                 for (int j = 0; j < 3 && i + j < inputData.QuestionQuantity; j++)
@@ -671,12 +739,23 @@ Only return in this structure no need any extended field/infor:
   ]
 }}";
                     var response = await GeminiGenerateContentAsync(quizPrompt);
-
-                    var quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
-                    if (quiz == null
-                        || string.IsNullOrEmpty(quiz.QuestionText)
-                        || quiz.AnswerOptions.Count == 0)
-                        throw new Exception("Failed to generate valid quiz data from AI.");
+                    AiGenerateQuizResponseDto? quiz = new();
+                    try
+                    {
+                        quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
+                        if (quiz == null
+                            || string.IsNullOrEmpty(quiz.QuestionText)
+                            || quiz.AnswerOptions == null
+                            || quiz.AnswerOptions.Count == 0)
+                            throw new Exception("Failed to generate valid quiz data from AI.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Invalid AI JSON: {ex.Message}");
+                        j--;
+                        continue;
+                    }
+                    
 
                     previousQuizText += quiz.QuestionText + ", ";
 
@@ -733,12 +812,22 @@ Only return in this structure no need any extended field/infor:
   ]
 }}";
                 var response = await GeminiGenerateContentAsync(prompt);
-
-                var quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
-                if (quiz == null
-                    || string.IsNullOrEmpty(quiz.QuestionText)
-                    || quiz.AnswerOptions.Count == 0)
-                    throw new Exception("Failed to generate valid quiz data from AI.");
+                AiGenerateQuizResponseDto? quiz;
+                try
+                {
+                    quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
+                    if (quiz == null
+                        || string.IsNullOrEmpty(quiz.QuestionText)
+                        || quiz.AnswerOptions == null
+                        || quiz.AnswerOptions.Count == 0)
+                        throw new JsonException("Failed to generate valid quiz data from AI.");
+                }
+                catch(Exception ex)
+                {
+                    Console.WriteLine($"Invalid AI JSON: {ex.Message}");
+                    i--;
+                    continue;
+                }
 
                 var createdQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
                 {
@@ -784,12 +873,20 @@ Only return in this structure:
   ""Passage"": ""..."",
 }}";
                 var passageResponse = await GeminiGenerateContentAsync(passagePrompt);
-
-                var passageResult = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(passageResponse);
-                if (passageResult == null
-                    || string.IsNullOrEmpty(passageResult.Passage))
-                    throw new Exception("Failed to generate valid passage from AI.");
-
+                AiGenerateQuizResponseDto? passageResult;
+                try
+                {
+                    passageResult = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(passageResponse);
+                    if (passageResult == null || string.IsNullOrEmpty(passageResult.Passage))
+                        throw new JsonException("Failed to generate valid passage from AI.");
+                }
+                catch(Exception ex)
+                {
+                    Console.WriteLine($"Invalid AI JSON: {ex.Message}");
+                    i--;
+                    continue;
+                }
+                
                 previousPassages = string.Join("\n", passageResult.Passage);
                 var groupItem = await _quizGroupItemService.CreateAsync(new RequestQuizGroupItemDto
                 {
@@ -797,6 +894,13 @@ Only return in this structure:
                     Name = $"Group6_{i / 4 + 1}",
                     PassageText = passageResult.Passage
                 });
+
+                if(groupItem == null)
+                {
+                    Console.WriteLine("Failed to create quiz group item.");
+                    i -= 4;
+                    continue;
+                }
 
                 var usedBlanks = string.Empty;
 
@@ -825,12 +929,23 @@ Only return in this structure no need any extended field/infor:
   ]
 }}";
                     var response = await GeminiGenerateContentAsync(quizPrompt);
-
-                    var quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
-                    if (quiz == null
-                        || string.IsNullOrEmpty(quiz.QuestionText)
-                        || quiz.AnswerOptions.Count == 0)
-                        throw new Exception("Failed to generate valid quiz data from AI.");
+                    AiGenerateQuizResponseDto? quiz;
+                    try
+                    {
+                        quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
+                        if (quiz == null
+                            || string.IsNullOrEmpty(quiz.QuestionText)
+                            || quiz.AnswerOptions == null
+                            || quiz.AnswerOptions.Count == 0)
+                            throw new JsonException("Failed to generate valid quiz data from AI.");
+                    }
+                    catch(Exception ex)
+                    {
+                        Console.WriteLine($"Invalid AI JSON: {ex.Message}");
+                        j--;
+                        continue;
+                    }
+                    
                     //create quiz
                     var createdQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
                     {
@@ -888,10 +1003,19 @@ Return only JSON:
 }}";
 
                 var passageResponse = await GeminiGenerateContentAsync(passagePrompt);
-                var passageResult = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(passageResponse);
-
-                if (passageResult == null || string.IsNullOrEmpty(passageResult.Passage))
-                    throw new Exception("Failed to generate valid passage.");
+                AiGenerateQuizResponseDto? passageResult;
+                try
+                {
+                    passageResult = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(passageResponse);
+                    if (passageResult == null || string.IsNullOrEmpty(passageResult.Passage))
+                        throw new JsonException("Failed to generate valid passage.");
+                }
+                catch(Exception ex)
+                {
+                    Console.WriteLine($"Invalid AI JSON: {ex.Message}");
+                    i--;
+                    continue;
+                }
 
                 previousPassages = passageResult.Passage;
 
@@ -901,6 +1025,13 @@ Return only JSON:
                     Name = $"Group7_{i / 3 + 1}",
                     PassageText = passageResult.Passage
                 });
+
+                if(groupItem == null)
+                {
+                    Console.WriteLine("Failed to create quiz group item.");
+                    i -= 3;
+                    continue;
+                }
 
                 string previousQuizText = string.Empty;
                 for (int j = 1; j <= 3 && i + j <= inputData.QuestionQuantity; j++)
@@ -926,11 +1057,23 @@ Return JSON:
   ]
 }}";
                     var response = await GeminiGenerateContentAsync(quizPrompt);
-                    
-                    var quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
+                    AiGenerateQuizResponseDto? quiz;
+                    try
+                    {
+                        quiz = JsonSerializer.Deserialize<AiGenerateQuizResponseDto>(response);
+                        if (quiz == null
+                            || string.IsNullOrEmpty(quiz.QuestionText)
+                            || quiz.AnswerOptions == null
+                            || quiz.AnswerOptions.Count == 0)
+                            throw new JsonException("Failed to generate valid quiz data from AI.");
+                    }
+                    catch(Exception e)
+                    {
+                        Console.WriteLine($"Invalid AI JSON: {e.Message}");
+                        j--;
+                        continue;
+                    }
 
-                    if (quiz == null || string.IsNullOrEmpty(quiz.QuestionText))
-                        throw new Exception("Invalid quiz data.");
 
                     previousQuizText += quiz.QuestionText + ", ";
 
@@ -958,11 +1101,11 @@ Return JSON:
             return true;
         }
 
-        public async Task<IEnumerable<ResponseUserWeakPointDto>> AnalyzeUserMistakesAndAdviseAsync(Guid userId)
+        public async Task<PaginationResponseDto<ResponseUserWeakPointDto>> AnalyzeUserMistakesAndAdviseAsync(Guid userId)
         {
-            var userMistakes = await _userMistakeService.GetAllByUserIdAsync(userId);
+            var userMistakes = await _userMistakeService.GetAllByUserIdAsync(userId, null!);
 
-            foreach (var mistake in userMistakes)
+            foreach (var mistake in userMistakes.Data)
             {
                 if (mistake.IsAnalyzed) continue;
                 //Trace back to quiz and quiz set
@@ -975,13 +1118,13 @@ Return JSON:
 
                 var answersText = string.Join("\n", answers.Select(a => $"{a.OptionLabel}. {a.OptionText} (Correct: {a.IsCorrect})"));
 
-                var userWeakPoints = await _userWeakPointService.GetByUserIdAsync(userId);
-                if (userWeakPoints == null || userWeakPoints.Count() == 0) continue;
+                var userWeakPoints = await _userWeakPointService.GetByUserIdAsync(userId, null!);
+                if (userWeakPoints == null || userWeakPoints.Data.Count() == 0) continue;
 
                 var existingWeakPoints = string.Empty;
                 var existingAdvices = string.Empty;
 
-                foreach (var wp in userWeakPoints)
+                foreach (var wp in userWeakPoints.Data)
                 {
                     existingWeakPoints += ", " + wp.WeakPoint;
 
@@ -1032,7 +1175,7 @@ Return in JSON:
                 
             }
 
-            return await _userWeakPointService.GetByUserIdAsync(userId);
+            return await _userWeakPointService.GetByUserIdAsync(userId, null!);
         }
 
         public Task<QuizSetResponseDto> GenerateFixWeakPointQuizSetAsync()

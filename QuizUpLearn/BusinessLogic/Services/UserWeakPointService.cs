@@ -1,8 +1,10 @@
 ﻿using AutoMapper;
 using BusinessLogic.DTOs.UserWeakPointDtos;
 using BusinessLogic.Interfaces;
+using BusinessLogic.Extensions;
 using Repository.Entities;
 using Repository.Interfaces;
+using BusinessLogic.DTOs;
 
 namespace BusinessLogic.Services
 {
@@ -17,10 +19,11 @@ namespace BusinessLogic.Services
             _mapper = mapper;
         }
 
-        public async Task<IEnumerable<ResponseUserWeakPointDto>> GetByUserIdAsync(Guid userId)
+        public async Task<PaginationResponseDto<ResponseUserWeakPointDto>> GetByUserIdAsync(Guid userId, PaginationRequestDto pagination)
         {
             var entities = await _repo.GetByUserIdAsync(userId);
-            return _mapper.Map<IEnumerable<ResponseUserWeakPointDto>>(entities);
+            var dtos = _mapper.Map<IEnumerable<ResponseUserWeakPointDto>>(entities);
+            return dtos.ToPagedResponse(pagination);
         }
 
         public async Task<ResponseUserWeakPointDto?> GetByIdAsync(Guid id)

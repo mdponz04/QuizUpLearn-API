@@ -71,5 +71,12 @@ namespace Repository.Repositories
 
             return false;
         }
+
+        public async Task<IEnumerable<QuizGroupItem>> GetAllByQuizSetIdAsync(Guid quizSetId)
+        {
+            return await _context.QuizGroupItems
+                .Where(qgi => qgi.QuizSetId == quizSetId)
+                .ToListAsync();
+        }
     }
 }

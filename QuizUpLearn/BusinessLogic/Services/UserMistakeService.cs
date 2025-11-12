@@ -3,6 +3,8 @@ using BusinessLogic.DTOs.UserMistakeDtos;
 using BusinessLogic.Interfaces;
 using Repository.Entities;
 using Repository.Interfaces;
+using BusinessLogic.Extensions;
+using BusinessLogic.DTOs;
 
 namespace BusinessLogic.Services
 {
@@ -17,10 +19,12 @@ namespace BusinessLogic.Services
             _mapper = mapper;
         }
 
-        public async Task<IEnumerable<ResponseUserMistakeDto>> GetAllAsync()
+        public async Task<PaginationResponseDto<ResponseUserMistakeDto>> GetAllAsync(PaginationRequestDto pagination = null!)
         {
+            pagination ??= new PaginationRequestDto();
             var userMistakes = await _repo.GetAllAsync();
-            return _mapper.Map<IEnumerable<ResponseUserMistakeDto>>(userMistakes);
+            var dtos = _mapper.Map<IEnumerable<ResponseUserMistakeDto>>(userMistakes);
+            return dtos.ToPagedResponse(pagination);
         }
 
         public async Task<ResponseUserMistakeDto?> GetByIdAsync(Guid id)
@@ -45,10 +49,12 @@ namespace BusinessLogic.Services
             await _repo.DeleteAsync(id);
         }
 
-        public async Task<IEnumerable<ResponseUserMistakeDto>> GetAllByUserIdAsync(Guid userId)
+        public async Task<PaginationResponseDto<ResponseUserMistakeDto>> GetAllByUserIdAsync(Guid userId, PaginationRequestDto pagination = null!)
         {
+            pagination ??= new PaginationRequestDto();
             var userMistakes = await _repo.GetAlByUserIdAsync(userId);
-            return _mapper.Map<IEnumerable<ResponseUserMistakeDto>>(userMistakes);
+            var dtos = _mapper.Map<IEnumerable<ResponseUserMistakeDto>>(userMistakes);
+            return dtos.ToPagedResponse(pagination);
         }
     }
 }

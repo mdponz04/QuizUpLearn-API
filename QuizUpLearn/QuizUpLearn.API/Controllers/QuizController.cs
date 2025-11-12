@@ -1,6 +1,7 @@
 ﻿using BusinessLogic.DTOs.QuizDtos;
 using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using BusinessLogic.DTOs;
 
 namespace QuizUpLearn.API.Controllers
 {
@@ -50,9 +51,10 @@ namespace QuizUpLearn.API.Controllers
         /// </summary>
         /// <returns>List of quizzes</returns>
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<QuizResponseDto>>> GetAllQuizzes()
+        public async Task<ActionResult<PaginationResponseDto<QuizResponseDto>>> GetAllQuizzes(
+            [FromQuery] PaginationRequestDto pagination)
         {
-            var quizzes = await _quizService.GetAllQuizzesAsync();
+            var quizzes = await _quizService.GetAllQuizzesAsync(pagination);
             return Ok(quizzes);
         }
 
@@ -62,9 +64,11 @@ namespace QuizUpLearn.API.Controllers
         /// <param name="quizSetId">Quiz set ID</param>
         /// <returns>List of quizzes in the specified quiz set</returns>
         [HttpGet("set/{quizSetId}")]
-        public async Task<ActionResult<IEnumerable<QuizResponseDto>>> GetQuizzesByQuizSet(Guid quizSetId)
+        public async Task<ActionResult<PaginationResponseDto<QuizResponseDto>>> GetQuizzesByQuizSet(
+            Guid quizSetId,
+            [FromQuery] PaginationRequestDto pagination)
         {
-            var quizzes = await _quizService.GetQuizzesByQuizSetIdAsync(quizSetId);
+            var quizzes = await _quizService.GetQuizzesByQuizSetIdAsync(quizSetId, pagination);
             return Ok(quizzes);
         }
 
@@ -74,9 +78,10 @@ namespace QuizUpLearn.API.Controllers
         /// <returns>List of active quizzes</returns>
         [HttpGet("active")]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<ActionResult<IEnumerable<QuizResponseDto>>> GetActiveQuizzes()
+        public async Task<ActionResult<PaginationResponseDto<QuizResponseDto>>> GetActiveQuizzes(
+            [FromQuery] PaginationRequestDto pagination)
         {
-            var quizzes = await _quizService.GetActiveQuizzesAsync();
+            var quizzes = await _quizService.GetActiveQuizzesAsync(pagination);
             return Ok(quizzes);
         }
 

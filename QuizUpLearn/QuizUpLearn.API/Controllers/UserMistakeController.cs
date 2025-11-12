@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using BusinessLogic.DTOs.UserMistakeDtos;
 using BusinessLogic.Interfaces;
+using BusinessLogic.DTOs;
 
 namespace QuizUpLearn.API.Controllers
 {
@@ -15,15 +16,15 @@ namespace QuizUpLearn.API.Controllers
             _userMistakeService = userMistakeService;
         }
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] PaginationRequestDto pagination)
         {
-            var userMistakes = await _userMistakeService.GetAllAsync();
+            var userMistakes = await _userMistakeService.GetAllAsync(pagination);
             return Ok(userMistakes);
         }
         [HttpGet("user/{userId:guid}")]
-        public async Task<IActionResult> GetAllByUserId(Guid userId)
+        public async Task<IActionResult> GetAllByUserId(Guid userId, [FromQuery] PaginationRequestDto pagination)
         {
-            var userMistakes = await _userMistakeService.GetAllByUserIdAsync(userId);
+            var userMistakes = await _userMistakeService.GetAllByUserIdAsync(userId, pagination);
             return Ok(userMistakes);
         }
         [HttpGet("{id:guid}")]

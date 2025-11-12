@@ -90,19 +90,15 @@ namespace BusinessLogic.Services
                 {
                     Part = Convert.ToInt32(worksheet.Cells[startRow, 1].Value),
                     GlobalIndex = Convert.ToInt32(worksheet.Cells[startRow, 2].Value),
-                    IndexInPart = Convert.ToInt32(worksheet.Cells[startRow, 3].Value),
-                    GroupId = worksheet.Cells[startRow, 4].GetValue<string>(),
-                    Passage = worksheet.Cells[startRow, 5].GetValue<string>(),
-                    Prompt = worksheet.Cells[startRow, 6].GetValue<string>(),
+                    Prompt = worksheet.Cells[startRow, 3].GetValue<string>(),
                     Choices = new List<Choice>
                     {
-                        new Choice { Label = "A", Text = worksheet.Cells[startRow, 7].Text },
-                        new Choice { Label = "B", Text = worksheet.Cells[startRow, 8].Text },
-                        new Choice { Label = "C", Text = worksheet.Cells[startRow, 9].Text },
-                        new Choice { Label = "D", Text = worksheet.Cells[startRow, 10].Text }
+                        new Choice { Label = "A", Text = worksheet.Cells[startRow, 4].Text },
+                        new Choice { Label = "B", Text = worksheet.Cells[startRow, 5].Text },
+                        new Choice { Label = "C", Text = worksheet.Cells[startRow, 6].Text },
+                        new Choice { Label = "D", Text = worksheet.Cells[startRow, 7].Text }
                     },
-                    CorrectAnswer = worksheet.Cells[startRow, 11].GetValue<string>(),
-                    Explanation = worksheet.Cells[startRow, 12].GetValue<string>()
+                    CorrectAnswer = worksheet.Cells[startRow, 8].GetValue<string>()
                 };
 
                 result.Add(dto);

@@ -1,5 +1,7 @@
 ﻿using AutoMapper;
+using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.QuizDtos;
+using BusinessLogic.Extensions;
 using BusinessLogic.Interfaces;
 using Repository.Entities;
 using Repository.Interfaces;
@@ -33,22 +35,26 @@ namespace BusinessLogic.Services
             return _mapper.Map<QuizResponseDto>(quiz);
         }
 
-        public async Task<IEnumerable<QuizResponseDto>> GetAllQuizzesAsync()
+        public async Task<PaginationResponseDto<QuizResponseDto>> GetAllQuizzesAsync(PaginationRequestDto pagination)
         {
             var quizzes = await _quizRepo.GetAllQuizzesAsync();
-            return _mapper.Map<IEnumerable<QuizResponseDto>>(quizzes);
+            var dtos = _mapper.Map<IEnumerable<QuizResponseDto>>(quizzes);
+            return dtos.ToPagedResponse(pagination);
         }
 
-        public async Task<IEnumerable<QuizResponseDto>> GetQuizzesByQuizSetIdAsync(Guid quizSetId)
+        public async Task<PaginationResponseDto<QuizResponseDto>> GetQuizzesByQuizSetIdAsync(Guid quizSetId, PaginationRequestDto pagination = null!)
         {
+            pagination ??= new PaginationRequestDto();
             var quizzes = await _quizRepo.GetQuizzesByQuizSetIdAsync(quizSetId);
-            return _mapper.Map<IEnumerable<QuizResponseDto>>(quizzes);
+            var dtos = _mapper.Map<IEnumerable<QuizResponseDto>>(quizzes);
+            return dtos.ToPagedResponse(pagination);
         }
 
-        public async Task<IEnumerable<QuizResponseDto>> GetActiveQuizzesAsync()
+        public async Task<PaginationResponseDto<QuizResponseDto>> GetActiveQuizzesAsync(PaginationRequestDto pagination)
         {
             var quizzes = await _quizRepo.GetActiveQuizzesAsync();
-            return _mapper.Map<IEnumerable<QuizResponseDto>>(quizzes);
+            var dtos = _mapper.Map<IEnumerable<QuizResponseDto>>(quizzes);
+            return dtos.ToPagedResponse(pagination);
         }
 
         public async Task<QuizResponseDto> UpdateQuizAsync(Guid id, QuizRequestDto quizDto)
