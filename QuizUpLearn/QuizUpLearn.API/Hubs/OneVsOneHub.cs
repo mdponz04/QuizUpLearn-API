@@ -16,15 +16,18 @@ namespace QuizUpLearn.API.Hubs
         private readonly IOneVsOneGameService _gameService;
         private readonly IUserService _userService;
         private readonly ILogger<OneVsOneHub> _logger;
+        private readonly IHubContext<OneVsOneHub> _hubContext;
 
         public OneVsOneHub(
             IOneVsOneGameService gameService, 
             IUserService userService,
-            ILogger<OneVsOneHub> logger)
+            ILogger<OneVsOneHub> logger,
+            IHubContext<OneVsOneHub> hubContext)
         {
             _gameService = gameService;
             _userService = userService;
             _logger = logger;
+            _hubContext = hubContext;
         }
 
         // ==================== CONNECTION LIFECYCLE ====================
@@ -177,15 +180,14 @@ namespace QuizUpLearn.API.Hubs
                     Timestamp = DateTime.UtcNow
                 });
 
-                // **THAY ĐỔI:** Không delay ở Hub.
-                // Gửi event chuẩn bị câu hỏi đầu tiên KÈM THEO dữ liệu câu hỏi.
-                // Client sẽ nhận event này, đếm ngược 3 giây, sau đó hiển thị câu hỏi.
+                // ✨ Đợi 3 giây rồi tự động show câu hỏi đầu tiên
+                await Task.Delay(3000);
+
                 var firstQuestion = room.Questions[0];
-                await Clients.Group($"Room_{roomPin}").SendAsync("PrepareForFirstQuestion", new
-                {
-                    Question = firstQuestion,
-                    CountdownSeconds = 3 // Client tự đếm ngược
-                });
+                await Clients.Group($"Room_{roomPin}").SendAsync("ShowQuestion", firstQuestion);
+
+                // ✨ Tự động start timer 30s và xử lý auto-next
+                _ = StartQuestionTimerAsync(roomPin, firstQuestion.QuestionId);
             }
             catch (Exception ex)
             {
@@ -223,10 +225,11 @@ namespace QuizUpLearn.API.Hubs
                     return;
                 }
 
-                // Cả 2 đã trả lời → Gửi kết quả ngay
-                _logger.LogInformation($"Both players answered in room {roomPin}, showing result");
+                // ✨ Cả 2 đã trả lời → Gửi kết quả ngay và tự động chuyển câu hỏi sau 5s
+                _logger.LogInformation($"✅ Both players answered in room {roomPin}, showing result");
 
                 await Clients.Group($"Room_{roomPin}").SendAsync("ShowRoundResult", result);
+                _logger.LogInformation($"✅ ShowRoundResult sent to all players in room {roomPin}");
 
                 // Gửi xác nhận cho cả 2
                 await Clients.Group($"Room_{roomPin}").SendAsync("AnswerSubmitted", new
@@ -237,6 +240,15 @@ namespace QuizUpLearn.API.Hubs
                     Result = result,
                     Timestamp = DateTime.UtcNow
                 });
+
+                // ✨ Status đã được set thành ShowingResult trong SubmitAnswerAsync
+                // Không cần gọi MarkResultShownAsync nữa
+
+                // ✨ Tự động chuyển câu hỏi sau 5 giây
+                _logger.LogInformation($"🔄 Starting AutoNextQuestionAsync for room {roomPin} (will execute in 5 seconds)");
+                
+                // ✨ Chạy trong background task với HubContext
+                _ = AutoNextQuestionAsync(roomPin);
             }
             catch (Exception ex)
             {
@@ -247,15 +259,23 @@ namespace QuizUpLearn.API.Hubs
 
         // ==================== NEXT QUESTION ====================
         /// <summary>
-        /// Chuyển sang câu tiếp theo (có thể auto hoặc manual)
+        /// Chuyển sang câu tiếp theo (tự động hoặc manual)
         /// </summary>
-        public async Task NextQuestion(string roomPin)
+        private async Task AutoNextQuestionAsync(string roomPin)
         {
             try
             {
+                _logger.LogInformation($"🔄 AutoNextQuestionAsync started for room {roomPin} - Waiting 5 seconds...");
+                
+                // Đợi 5 giây trước khi chuyển câu hỏi
+                await Task.Delay(5000);
+
+                _logger.LogInformation($"🔄 AutoNextQuestionAsync: 5s delay completed, calling NextQuestionAsync for room {roomPin}");
+
                 var success = await _gameService.NextQuestionAsync(roomPin);
                 if (!success)
                 {
+                    _logger.LogInformation($"🔄 AutoNextQuestionAsync: No more questions, ending game for room {roomPin}");
                     // Hết câu hỏi → Kết thúc game
                     await EndGame(roomPin);
                     return;
@@ -264,20 +284,70 @@ namespace QuizUpLearn.API.Hubs
                 var room = await _gameService.GetRoomAsync(roomPin);
                 if (room == null)
                 {
-                    await Clients.Caller.SendAsync("Error", "Room not found");
+                    _logger.LogWarning($"❌ Room {roomPin} not found in AutoNextQuestion");
                     return;
                 }
 
-                _logger.LogInformation($"Room {roomPin} moved to next question");
+                _logger.LogInformation($"✅ Room {roomPin} auto-moving to next question (Index: {room.CurrentQuestionIndex + 1}/{room.Questions.Count})");
 
-                // Gửi câu hỏi tiếp theo
+                // Gửi câu hỏi tiếp theo - sử dụng HubContext vì đang chạy trong background task
                 var nextQuestion = room.Questions[room.CurrentQuestionIndex];
-                await Clients.Group($"Room_{roomPin}").SendAsync("ShowQuestion", nextQuestion);
+                await _hubContext.Clients.Group($"Room_{roomPin}").SendAsync("ShowQuestion", nextQuestion);
+                
+                _logger.LogInformation($"✅ ShowQuestion sent for room {roomPin}, question {room.CurrentQuestionIndex + 1}");
+
+                // ✨ Tự động start timer 30s cho câu hỏi mới
+                _ = StartQuestionTimerAsync(roomPin, nextQuestion.QuestionId);
+                _logger.LogInformation($"✅ Timer 30s started for room {roomPin}, question {nextQuestion.QuestionId}");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error in NextQuestion for room {roomPin}");
-                await Clients.Caller.SendAsync("Error", "An error occurred while moving to next question");
+                _logger.LogError(ex, $"❌ Error in AutoNextQuestion for room {roomPin}: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// Timer 30 giây cho mỗi câu hỏi - tự động show result nếu chưa có
+        /// </summary>
+        private async Task StartQuestionTimerAsync(string roomPin, Guid questionId)
+        {
+            try
+            {
+                await Task.Delay(30000); // 30 giây
+
+                // Kiểm tra xem đã show result chưa
+                var room = await _gameService.GetRoomAsync(roomPin);
+                if (room == null)
+                    return;
+
+                // ✨ Chỉ show result nếu:
+                // 1. Status vẫn là InProgress (chưa show result)
+                // 2. Vẫn đang ở câu hỏi này (chưa chuyển câu)
+                if (room.Status == OneVsOneRoomStatus.InProgress && 
+                    room.CurrentQuestionIndex < room.Questions.Count &&
+                    room.Questions[room.CurrentQuestionIndex].QuestionId == questionId)
+                {
+                    _logger.LogInformation($"30s timer expired for room {roomPin}, auto-showing result");
+
+                    // Lấy result hiện tại (có thể chưa đủ 2 người trả lời)
+                    var result = await _gameService.GetCurrentRoundResultAsync(roomPin);
+                    if (result != null)
+                    {
+                        await _hubContext.Clients.Group($"Room_{roomPin}").SendAsync("ShowRoundResult", result);
+                        await _gameService.MarkResultShownAsync(roomPin);
+
+                        // ✨ Tự động chuyển câu hỏi sau 5 giây
+                        _ = AutoNextQuestionAsync(roomPin);
+                    }
+                }
+                else
+                {
+                    _logger.LogInformation($"Timer expired for room {roomPin} but result already shown or question changed. Status: {room.Status}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error in StartQuestionTimer for room {roomPin}");
             }
         }
 
@@ -298,8 +368,9 @@ namespace QuizUpLearn.API.Hubs
 
                 _logger.LogInformation($"1v1 Game ended in room {roomPin}");
 
-                // Gửi kết quả cuối cùng
-                await Clients.Group($"Room_{roomPin}").SendAsync("GameEnded", finalResult);
+                // Gửi kết quả cuối cùng - sử dụng HubContext vì có thể được gọi từ background task
+                await _hubContext.Clients.Group($"Room_{roomPin}").SendAsync("GameEnded", finalResult);
+                _logger.LogInformation($"✅ GameEnded sent for room {roomPin}");
 
                 // Cleanup sau 1 phút
                 _ = Task.Run(async () =>

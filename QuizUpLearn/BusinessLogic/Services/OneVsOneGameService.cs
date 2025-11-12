@@ -492,16 +492,25 @@ namespace BusinessLogic.Services
         {
             var room = await GetRoomFromRedisAsync(roomPin);
             if (room == null)
+            {
+                _logger.LogWarning($"❌ NextQuestionAsync: Room {roomPin} not found");
                 return false;
+            }
+
+            _logger.LogInformation($"🔄 NextQuestionAsync: Room {roomPin}, CurrentStatus: {room.Status}, CurrentIndex: {room.CurrentQuestionIndex}, TotalQuestions: {room.Questions.Count}");
 
             if (room.Status != OneVsOneRoomStatus.ShowingResult)
+            {
+                _logger.LogWarning($"❌ NextQuestionAsync: Room {roomPin} status is {room.Status}, expected ShowingResult");
                 return false;
+            }
 
             room.CurrentQuestionIndex++;
 
             // Check nếu hết câu hỏi
             if (room.CurrentQuestionIndex >= room.Questions.Count)
             {
+                _logger.LogInformation($"✅ NextQuestionAsync: Room {roomPin} - No more questions, ending game");
                 room.Status = OneVsOneRoomStatus.Completed;
                 await SaveRoomToRedisAsync(roomPin, room);
                 return false; // Hết câu hỏi
@@ -535,6 +544,75 @@ namespace BusinessLogic.Services
             {
                 _logger.LogError(ex, $"Error getting room PIN for connection {connectionId}");
                 return null;
+            }
+        }
+
+        // ==================== RESULT MANAGEMENT ====================
+        /// <summary>
+        /// Lấy kết quả round hiện tại (kể cả khi chưa đủ 2 người trả lời)
+        /// </summary>
+        public async Task<OneVsOneRoundResultDto?> GetCurrentRoundResultAsync(string roomPin)
+        {
+            var room = await GetRoomFromRedisAsync(roomPin);
+            if (room == null)
+                return null;
+
+            if (room.CurrentRoundResult == null)
+            {
+                // Nếu chưa có result, tạo một result rỗng với thông tin câu hỏi
+                if (room.CurrentQuestionIndex >= room.Questions.Count)
+                    return null;
+
+                var currentQuestion = room.Questions[room.CurrentQuestionIndex];
+                var correctMap = await GetCorrectAnswersFromRedisAsync(roomPin);
+
+                var result = new OneVsOneRoundResultDto
+                {
+                    QuestionId = currentQuestion.QuestionId,
+                    QuestionNumber = room.CurrentQuestionIndex + 1,
+                    TotalQuestions = room.Questions.Count
+                };
+
+                // Tìm đáp án đúng
+                foreach (var option in currentQuestion.AnswerOptions)
+                {
+                    if (correctMap?.GetValueOrDefault(option.AnswerId, false) == true)
+                    {
+                        result.CorrectAnswerId = option.AnswerId;
+                        result.CorrectAnswerText = option.OptionText;
+                        break;
+                    }
+                }
+
+                return result;
+            }
+
+            return room.CurrentRoundResult;
+        }
+
+        /// <summary>
+        /// Đánh dấu đã show result (chuyển status sang ShowingResult)
+        /// </summary>
+        public async Task MarkResultShownAsync(string roomPin)
+        {
+            var room = await GetRoomFromRedisAsync(roomPin);
+            if (room == null)
+            {
+                _logger.LogWarning($"❌ MarkResultShownAsync: Room {roomPin} not found");
+                return;
+            }
+
+            _logger.LogInformation($"🔄 MarkResultShownAsync: Room {roomPin}, CurrentStatus: {room.Status}");
+
+            if (room.Status == OneVsOneRoomStatus.InProgress)
+            {
+                room.Status = OneVsOneRoomStatus.ShowingResult;
+                await SaveRoomToRedisAsync(roomPin, room);
+                _logger.LogInformation($"✅ Room {roomPin} result marked as shown (Status: InProgress → ShowingResult)");
+            }
+            else
+            {
+                _logger.LogWarning($"⚠️ MarkResultShownAsync: Room {roomPin} status is {room.Status}, not InProgress. Skipping status change.");
             }
         }
 

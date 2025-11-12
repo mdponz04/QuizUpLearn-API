@@ -24,6 +24,10 @@ namespace BusinessLogic.Interfaces
         Task<OneVsOneRoomDto?> GetRoomAsync(string roomPin);
         Task<string?> GetRoomPinByConnectionAsync(string connectionId);
         
+        // ==================== RESULT MANAGEMENT ====================
+        Task<OneVsOneRoundResultDto?> GetCurrentRoundResultAsync(string roomPin);
+        Task MarkResultShownAsync(string roomPin);
+        
         // ==================== GAME END ====================
         Task<OneVsOneFinalResultDto?> GetFinalResultAsync(string roomPin);
         Task CleanupRoomAsync(string roomPin);
