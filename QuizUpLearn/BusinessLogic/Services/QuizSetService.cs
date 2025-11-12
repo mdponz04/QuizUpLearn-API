@@ -3,6 +3,8 @@ using BusinessLogic.DTOs.QuizSetDtos;
 using BusinessLogic.Interfaces;
 using Repository.Entities;
 using Repository.Interfaces;
+using BusinessLogic.Extensions;
+using BusinessLogic.DTOs;
 
 namespace BusinessLogic.Services
 {
@@ -34,22 +36,26 @@ namespace BusinessLogic.Services
             return _mapper.Map<QuizSetResponseDto>(quizSet);
         }
 
-        public async Task<IEnumerable<QuizSetResponseDto>> GetAllQuizSetsAsync(bool includeDeleted)
+        public async Task<PaginationResponseDto<QuizSetResponseDto>> GetAllQuizSetsAsync(bool includeDeleted, PaginationRequestDto pagination)
         {
             var quizSets = await _quizSetRepo.GetAllQuizSetsAsync(includeDeleted);
-            return _mapper.Map<IEnumerable<QuizSetResponseDto>>(quizSets);
+
+            var dtos = _mapper.Map<IEnumerable<QuizSetResponseDto>>(quizSets);
+            return dtos.ToPagedResponse(pagination);
         }
 
-        public async Task<IEnumerable<QuizSetResponseDto>> GetQuizSetsByCreatorAsync(Guid creatorId)
+        public async Task<PaginationResponseDto<QuizSetResponseDto>> GetQuizSetsByCreatorAsync(Guid creatorId, PaginationRequestDto pagination)
         {
             var quizSets = await _quizSetRepo.GetQuizSetsByCreatorAsync(creatorId);
-            return _mapper.Map<IEnumerable<QuizSetResponseDto>>(quizSets);
+            var dtos = _mapper.Map<IEnumerable<QuizSetResponseDto>>(quizSets);
+            return dtos.ToPagedResponse(pagination);
         }
 
-        public async Task<IEnumerable<QuizSetResponseDto>> GetPublishedQuizSetsAsync()
+        public async Task<PaginationResponseDto<QuizSetResponseDto>> GetPublishedQuizSetsAsync(PaginationRequestDto pagination)
         {
             var quizSets = await _quizSetRepo.GetPublishedQuizSetsAsync();
-            return _mapper.Map<IEnumerable<QuizSetResponseDto>>(quizSets);
+            var dtos = _mapper.Map<IEnumerable<QuizSetResponseDto>>(quizSets);
+            return dtos.ToPagedResponse(pagination);
         }
 
         public async Task<QuizSetResponseDto> UpdateQuizSetAsync(Guid id, QuizSetRequestDto quizSetDto)

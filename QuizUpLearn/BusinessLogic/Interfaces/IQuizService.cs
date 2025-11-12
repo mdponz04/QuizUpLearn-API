@@ -1,4 +1,5 @@
 ﻿using BusinessLogic.DTOs.QuizDtos;
+using BusinessLogic.DTOs;
 
 namespace BusinessLogic.Interfaces
 {
@@ -6,9 +7,9 @@ namespace BusinessLogic.Interfaces
     {
         Task<QuizResponseDto> CreateQuizAsync(QuizRequestDto quizDto);
         Task<QuizResponseDto> GetQuizByIdAsync(Guid id);
-        Task<IEnumerable<QuizResponseDto>> GetAllQuizzesAsync();
-        Task<IEnumerable<QuizResponseDto>> GetQuizzesByQuizSetIdAsync(Guid quizSetId);
-        Task<IEnumerable<QuizResponseDto>> GetActiveQuizzesAsync();
+        Task<PaginationResponseDto<QuizResponseDto>> GetAllQuizzesAsync(PaginationRequestDto pagination);
+        Task<PaginationResponseDto<QuizResponseDto>> GetQuizzesByQuizSetIdAsync(Guid quizSetId, PaginationRequestDto pagination);
+        Task<PaginationResponseDto<QuizResponseDto>> GetActiveQuizzesAsync(PaginationRequestDto pagination);
         Task<QuizResponseDto> UpdateQuizAsync(Guid id, QuizRequestDto quizDto);
         Task<bool> SoftDeleteQuizAsync(Guid id);
         Task<bool> HardDeleteQuizAsync(Guid id);

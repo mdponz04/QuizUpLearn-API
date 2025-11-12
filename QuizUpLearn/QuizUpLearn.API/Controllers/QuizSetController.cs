@@ -1,6 +1,7 @@
 ﻿using BusinessLogic.DTOs.QuizSetDtos;
 using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using BusinessLogic.DTOs; // For PaginationRequestDto
 
 namespace QuizUpLearn.API.Controllers
 {
@@ -50,9 +51,11 @@ namespace QuizUpLearn.API.Controllers
         /// </summary>
         /// <returns>List of quiz sets</returns>
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<QuizSetResponseDto>>> GetAllQuizSets(bool includeDeleted = false)
+        public async Task<ActionResult<PaginationResponseDto<QuizSetResponseDto>>> GetAllQuizSets(
+            [FromQuery] PaginationRequestDto pagination,
+            [FromQuery] bool includeDeleted = false)
         {
-            var quizSets = await _quizSetService.GetAllQuizSetsAsync(includeDeleted);
+            var quizSets = await _quizSetService.GetAllQuizSetsAsync(includeDeleted, pagination);
             return Ok(quizSets);
         }
 
@@ -62,9 +65,11 @@ namespace QuizUpLearn.API.Controllers
         /// <param name="creatorId">Creator ID</param>
         /// <returns>List of quiz sets by creator</returns>
         [HttpGet("creator/{creatorId}")]
-        public async Task<ActionResult<IEnumerable<QuizSetResponseDto>>> GetQuizSetsByCreator(Guid creatorId)
+        public async Task<ActionResult<PaginationResponseDto<QuizSetResponseDto>>> GetQuizSetsByCreator(
+            Guid creatorId,
+            [FromQuery] PaginationRequestDto pagination)
         {
-            var quizSets = await _quizSetService.GetQuizSetsByCreatorAsync(creatorId);
+            var quizSets = await _quizSetService.GetQuizSetsByCreatorAsync(creatorId, pagination);
             return Ok(quizSets);
         }
 
@@ -73,9 +78,10 @@ namespace QuizUpLearn.API.Controllers
         /// </summary>
         /// <returns>List of published quiz sets</returns>
         [HttpGet("published")]
-        public async Task<ActionResult<IEnumerable<QuizSetResponseDto>>> GetPublishedQuizSets()
+        public async Task<ActionResult<PaginationResponseDto<QuizSetResponseDto>>> GetPublishedQuizSets(
+            [FromQuery] PaginationRequestDto pagination)
         {
-            var quizSets = await _quizSetService.GetPublishedQuizSetsAsync();
+            var quizSets = await _quizSetService.GetPublishedQuizSetsAsync(pagination);
             return Ok(quizSets);
         }
 

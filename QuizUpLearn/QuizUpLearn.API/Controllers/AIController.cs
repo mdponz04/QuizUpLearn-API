@@ -58,14 +58,13 @@ namespace QuizUpLearn.API.Controllers
             {
                 return BadRequest("Prompt cannot be empty.");
             }
-
+            // Create a new quiz set first to hold the generated quizzes
             var jobId = Guid.NewGuid();
             var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
             {
                 Title = inputData.Topic,
                 Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC {quizPart.ToString()}",
                 QuizType = QuizSetTypeEnum.Practice,
-                SkillType = "Listening",
                 DifficultyLevel = inputData.Difficulty,
                 CreatedBy = inputData.CreatorId
             });
@@ -91,6 +90,7 @@ namespace QuizUpLearn.API.Controllers
                     switch (quizPart)
                     {
                         case QuizPartEnums.PART1:
+
                             result = await aiService.GeneratePracticeQuizSetPart1Async(inputData, quizSetId);
                             break;
                         case QuizPartEnums.PART2:

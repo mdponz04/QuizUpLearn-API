@@ -3,6 +3,8 @@ using BusinessLogic.DTOs.QuizGroupItemDtos;
 using BusinessLogic.Interfaces;
 using Repository.Entities;
 using Repository.Interfaces;
+using BusinessLogic.Extensions;
+using BusinessLogic.DTOs;
 
 namespace BusinessLogic.Services
 {
@@ -17,10 +19,11 @@ namespace BusinessLogic.Services
             _mapper = mapper;
         }
 
-        public async Task<IEnumerable<ResponseQuizGroupItemDto>> GetAllAsync()
+        public async Task<PaginationResponseDto<ResponseQuizGroupItemDto>> GetAllAsync(PaginationRequestDto pagination)
         {
             var quizGroupItems = await _repo.GetAllAsync();
-            return _mapper.Map<IEnumerable<ResponseQuizGroupItemDto>>(quizGroupItems);
+            var dtos = _mapper.Map<IEnumerable<ResponseQuizGroupItemDto>>(quizGroupItems);
+            return dtos.ToPagedResponse(pagination);
         }
 
         public async Task<ResponseQuizGroupItemDto?> GetByIdAsync(Guid id)
@@ -45,6 +48,13 @@ namespace BusinessLogic.Services
         public async Task<bool> DeleteAsync(Guid id)
         {
             return await _repo.DeleteAsync(id);
+        }
+
+        public async Task<PaginationResponseDto<ResponseQuizGroupItemDto>> GetAllByQuizSetIdAsync(Guid quizGroupId, PaginationRequestDto pagination)
+        {
+            var quizGroupItems = await _repo.GetAllByQuizSetIdAsync(quizGroupId);
+            var dtos = _mapper.Map<IEnumerable<ResponseQuizGroupItemDto>>(quizGroupItems);
+            return dtos.ToPagedResponse(pagination);
         }
     }
 }
