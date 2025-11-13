@@ -1,6 +1,8 @@
 using BusinessLogic.DTOs;
 using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using QuizUpLearn.API.Models;
+using System.Net;
 
 namespace QuizUpLearn.API.Controllers
 {
@@ -26,7 +28,7 @@ namespace QuizUpLearn.API.Controllers
         public async Task<IActionResult> GetById([FromRoute] Guid id)
         {
             var quizAttemptDetail = await _service.GetByIdAsync(id);
-            if (quizAttemptDetail == null) return NotFound();
+            if (quizAttemptDetail == null) throw new HttpException(HttpStatusCode.NotFound, "Quiz attempt detail not found");
             return Ok(quizAttemptDetail);
         }
 
@@ -48,7 +50,7 @@ namespace QuizUpLearn.API.Controllers
         public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] RequestQuizAttemptDetailDto dto)
         {
             var updated = await _service.UpdateAsync(id, dto);
-            if (updated == null) return NotFound();
+            if (updated == null) throw new HttpException(HttpStatusCode.NotFound, "Quiz attempt detail not found");
             return Ok(updated);
         }
 
@@ -56,7 +58,7 @@ namespace QuizUpLearn.API.Controllers
         public async Task<IActionResult> SoftDelete([FromRoute] Guid id)
         {
             var ok = await _service.SoftDeleteAsync(id);
-            if (!ok) return NotFound();
+            if (!ok) throw new HttpException(HttpStatusCode.NotFound, "Quiz attempt detail not found");
             return NoContent();
         }
 
@@ -64,7 +66,7 @@ namespace QuizUpLearn.API.Controllers
         public async Task<IActionResult> Restore([FromRoute] Guid id)
         {
             var ok = await _service.RestoreAsync(id);
-            if (!ok) return NotFound();
+            if (!ok) throw new HttpException(HttpStatusCode.NotFound, "Quiz attempt detail not found");
             return Ok();
         }
 

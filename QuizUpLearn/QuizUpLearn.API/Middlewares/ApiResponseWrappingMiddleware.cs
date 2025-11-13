@@ -16,7 +16,6 @@ namespace QuizUpLearn.API.Middlewares
 
         public async Task InvokeAsync(HttpContext context)
         {
-            // Bỏ qua swagger
             if (context.Request.Path.StartsWithSegments("/swagger"))
             {
                 await _next(context);
@@ -43,7 +42,6 @@ namespace QuizUpLearn.API.Middlewares
                 var body = await new StreamReader(buffer).ReadToEndAsync();
                 buffer.Seek(0, SeekOrigin.Begin);
 
-                // Chỉ bọc khi là 2xx và content-type là application/json
                 var status = context.Response.StatusCode;
                 var contentType = context.Response.ContentType ?? string.Empty;
                 var isSuccess = status >= 200 && status < 300;
@@ -56,7 +54,6 @@ namespace QuizUpLearn.API.Middlewares
                     return;
                 }
 
-                // Kiểm tra xem response đã có cấu trúc ApiResponse chưa (có property "success")
                 bool isAlreadyWrapped = false;
                 bool isPaginationResponse = false;
                 object? paginationData = null;
@@ -74,35 +71,96 @@ namespace QuizUpLearn.API.Middlewares
                             {
                                 isAlreadyWrapped = true;
                             }
-                            // Kiểm tra xem có phải PaginationResponseDto không (có cả "data" và "pagination")
                             else if (root.TryGetProperty("data", out var dataProp) && 
                                      root.TryGetProperty("pagination", out var paginationProp))
                             {
                                 isPaginationResponse = true;
-                                // Deserialize ngay trong block using để tránh dispose
                                 responseData = JsonSerializer.Deserialize<object>(dataProp.GetRawText());
                                 paginationData = JsonSerializer.Deserialize<object>(paginationProp.GetRawText());
+                            }
+
+                            // Kiểm tra response có pagination info (TotalCount/totalCount, Page/page, PageSize/pageSize) nhưng không có cấu trúc PaginationResponseDto
+                            // Ví dụ: PlayerHistoryResponseDto có Attempts/attempts thay vì data
+                            else if ((root.TryGetProperty("TotalCount", out _) || root.TryGetProperty("totalCount", out _)) &&
+                                     (root.TryGetProperty("Page", out _) || root.TryGetProperty("page", out _)) &&
+                                     (root.TryGetProperty("PageSize", out _) || root.TryGetProperty("pageSize", out _)))
+                            {
+                                // Tìm property chứa data array (Attempts, attempts hoặc data)
+                                JsonElement dataPropElement;
+                                bool hasDataProperty = false;
+                                
+                                // Kiểm tra Attempts (chữ hoa) - từ C# property
+                                if (root.TryGetProperty("Attempts", out dataPropElement))
+                                {
+                                    isPaginationResponse = true;
+                                    hasDataProperty = true;
+                                    responseData = JsonSerializer.Deserialize<object>(dataPropElement.GetRawText());
+                                }
+                                // Kiểm tra attempts (chữ thường) - từ JSON serialization
+                                else if (root.TryGetProperty("attempts", out dataPropElement))
+                                {
+                                    isPaginationResponse = true;
+                                    hasDataProperty = true;
+                                    responseData = JsonSerializer.Deserialize<object>(dataPropElement.GetRawText());
+                                }
+                                // Kiểm tra data property
+                                else if (root.TryGetProperty("data", out dataPropElement))
+                                {
+                                    isPaginationResponse = true;
+                                    hasDataProperty = true;
+                                    responseData = JsonSerializer.Deserialize<object>(dataPropElement.GetRawText());
+                                }
+                                
+                                if (isPaginationResponse && hasDataProperty)
+                                {
+                                    // Tạo pagination object từ các property (kiểm tra cả chữ hoa và chữ thường)
+                                    var totalCount = root.TryGetProperty("TotalCount", out var tc) ? tc.GetInt32() : 
+                                                    (root.TryGetProperty("totalCount", out var tc2) ? tc2.GetInt32() : 0);
+                                    var page = root.TryGetProperty("Page", out var p) ? p.GetInt32() : 
+                                              (root.TryGetProperty("page", out var p2) ? p2.GetInt32() : 1);
+                                    var pageSize = root.TryGetProperty("PageSize", out var ps) ? ps.GetInt32() : 
+                                                  (root.TryGetProperty("pageSize", out var ps2) ? ps2.GetInt32() : 10);
+                                    var totalPages = root.TryGetProperty("TotalPages", out var tp) ? tp.GetInt32() : 
+                                                    (root.TryGetProperty("totalPages", out var tp2) ? tp2.GetInt32() : (int)Math.Ceiling((double)totalCount / pageSize));
+                                    var hasNextPage = root.TryGetProperty("HasNextPage", out var hnp) ? hnp.GetBoolean() : 
+                                                     (root.TryGetProperty("hasNextPage", out var hnp2) ? hnp2.GetBoolean() : page < totalPages);
+                                    var hasPreviousPage = root.TryGetProperty("HasPreviousPage", out var hpp) ? hpp.GetBoolean() : 
+                                                         (root.TryGetProperty("hasPreviousPage", out var hpp2) ? hpp2.GetBoolean() : page > 1);
+                                    
+                                    paginationData = new
+                                    {
+                                        currentPage = page,
+                                        pageSize = pageSize,
+                                        totalCount = totalCount,
+                                        totalPages = totalPages,
+                                        hasNextPage = hasNextPage,
+                                        hasPreviousPage = hasPreviousPage,
+                                        searchTerm = (string?)null,
+                                        sortBy = (string?)null,
+                                        sortDirection = (string?)null
+                                    };
+                                }
                             }
                         }
                     }
                 }
                 catch
                 {
-                    // Ignore parse errors, treat as not wrapped
                 }
 
                 string json;
                 if (isAlreadyWrapped)
                 {
-                    json = body; // Đã được bọc rồi, không bọc lại
+                    json = body; 
                 }
                 else if (isPaginationResponse)
                 {
-                    // Xử lý đặc biệt cho PaginationResponseDto: tách data và pagination ra ngoài
+                    // Response có pagination: tách data và pagination ra ngoài cùng cấp
+                    // data là array trực tiếp (từ Attempts hoặc data property), không phải nested object
                     var wrapped = new
                     {
                         success = true,
-                        data = responseData,
+                        data = responseData,  // Array trực tiếp, không phải data.Attempts
                         pagination = paginationData,
                         message = (string?)null
                     };

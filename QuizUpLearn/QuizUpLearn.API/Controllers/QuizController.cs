@@ -2,6 +2,8 @@
 using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using BusinessLogic.DTOs;
+using QuizUpLearn.API.Models;
+using System.Net;
 
 namespace QuizUpLearn.API.Controllers
 {
@@ -25,7 +27,7 @@ namespace QuizUpLearn.API.Controllers
         public async Task<ActionResult<QuizResponseDto>> CreateQuiz([FromBody] QuizRequestDto quizDto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+                throw new HttpException(HttpStatusCode.BadRequest, "Invalid model state");
 
             var createdQuiz = await _quizService.CreateQuizAsync(quizDto);
             return CreatedAtAction(nameof(GetQuizById), new { id = createdQuiz.Id }, createdQuiz);
@@ -41,7 +43,7 @@ namespace QuizUpLearn.API.Controllers
         {
             var quiz = await _quizService.GetQuizByIdAsync(id);
             if (quiz == null)
-                return NotFound();
+                throw new HttpException(HttpStatusCode.NotFound, "Quiz not found");
 
             return Ok(quiz);
         }
@@ -95,11 +97,11 @@ namespace QuizUpLearn.API.Controllers
         public async Task<ActionResult<QuizResponseDto>> UpdateQuiz(Guid id, [FromBody] QuizRequestDto quizDto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+                throw new HttpException(HttpStatusCode.BadRequest, "Invalid model state");
 
             var updatedQuiz = await _quizService.UpdateQuizAsync(id, quizDto);
             if (updatedQuiz == null)
-                return NotFound();
+                throw new HttpException(HttpStatusCode.NotFound, "Quiz not found");
 
             return Ok(updatedQuiz);
         }
@@ -114,7 +116,7 @@ namespace QuizUpLearn.API.Controllers
         {
             var result = await _quizService.SoftDeleteQuizAsync(id);
             if (!result)
-                return NotFound();
+                throw new HttpException(HttpStatusCode.NotFound, "Quiz not found");
 
             return NoContent();
         }
@@ -129,7 +131,7 @@ namespace QuizUpLearn.API.Controllers
         {
             var result = await _quizService.HardDeleteQuizAsync(id);
             if (!result)
-                return NotFound();
+                throw new HttpException(HttpStatusCode.NotFound, "Quiz not found");
 
             return NoContent();
         }

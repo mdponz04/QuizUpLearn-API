@@ -2,6 +2,8 @@
 using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using BusinessLogic.DTOs;
+using QuizUpLearn.API.Models;
+using System.Net;
 
 namespace QuizUpLearn.API.Controllers
 {
@@ -25,7 +27,7 @@ namespace QuizUpLearn.API.Controllers
         public async Task<ActionResult<QuizSetResponseDto>> CreateQuizSet([FromBody] QuizSetRequestDto quizSetDto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+                throw new HttpException(HttpStatusCode.BadRequest, "Invalid model state");
 
             var createdQuizSet = await _quizSetService.CreateQuizSetAsync(quizSetDto);
             return CreatedAtAction(nameof(GetQuizSetById), new { id = createdQuizSet.Id }, createdQuizSet);
@@ -41,7 +43,7 @@ namespace QuizUpLearn.API.Controllers
         {
             var quizSet = await _quizSetService.GetQuizSetByIdAsync(id);
             if (quizSet == null)
-                return NotFound();
+                throw new HttpException(HttpStatusCode.NotFound, "Quiz set not found");
 
             return Ok(quizSet);
         }
@@ -96,11 +98,11 @@ namespace QuizUpLearn.API.Controllers
         public async Task<ActionResult<QuizSetResponseDto>> UpdateQuizSet(Guid id, [FromBody] QuizSetRequestDto quizSetDto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+                throw new HttpException(HttpStatusCode.BadRequest, "Invalid model state");
 
             var updatedQuizSet = await _quizSetService.UpdateQuizSetAsync(id, quizSetDto);
             if (updatedQuizSet == null)
-                return NotFound();
+                throw new HttpException(HttpStatusCode.NotFound, "Quiz set not found");
 
             return Ok(updatedQuizSet);
         }
@@ -115,7 +117,7 @@ namespace QuizUpLearn.API.Controllers
         {
             var result = await _quizSetService.SoftDeleteQuizSetAsync(id);
             if (!result)
-                return NotFound();
+                throw new HttpException(HttpStatusCode.NotFound, "Quiz set not found");
 
             return NoContent();
         }
@@ -130,7 +132,7 @@ namespace QuizUpLearn.API.Controllers
         {
             var result = await _quizSetService.HardDeleteQuizSetAsync(id);
             if (!result)
-                return NotFound();
+                throw new HttpException(HttpStatusCode.NotFound, "Quiz set not found");
 
             return NoContent();
         }
@@ -140,7 +142,7 @@ namespace QuizUpLearn.API.Controllers
         {
             var restoredQuizSet = await _quizSetService.RestoreQuizSetAsync(id);
             if (restoredQuizSet == null)
-                return NotFound();
+                throw new HttpException(HttpStatusCode.NotFound, "Quiz set not found");
             return Ok(restoredQuizSet);
         }
     }
