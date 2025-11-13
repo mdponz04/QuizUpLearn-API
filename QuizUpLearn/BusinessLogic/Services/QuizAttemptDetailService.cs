@@ -2,6 +2,7 @@ using AutoMapper;
 using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.UserMistakeDtos;
 using BusinessLogic.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 using Repository.Entities;
 using Repository.Interfaces;
 
@@ -17,16 +18,18 @@ namespace BusinessLogic.Services
         private readonly IUserMistakeRepo _userMistakeRepo;
         private readonly IAIService _aiService;
         private readonly IMapper _mapper;
+        private readonly IServiceScopeFactory _scopeFactory;
 
         public QuizAttemptDetailService(
             IQuizAttemptDetailRepo repo,
             IQuizAttemptRepo attemptRepo,
             IAnswerOptionRepo answerOptionRepo,
             IQuizRepo quizRepo,
+            IUserMistakeService userMistakeService,
+            IUserMistakeRepo userMistakeRepo,
+            IAIService aiService,
             IMapper mapper,
-            ILogger<QuizAttemptDetailService> logger,
             IServiceScopeFactory scopeFactory)
-        public QuizAttemptDetailService(IQuizAttemptDetailRepo repo, IQuizAttemptRepo attemptRepo, IAnswerOptionRepo answerOptionRepo, IUserMistakeService userMistakeService, IUserMistakeRepo userMistakeRepo, IAIService aiService, IMapper mapper)
         {
             _repo = repo;
             _attemptRepo = attemptRepo;
@@ -36,6 +39,7 @@ namespace BusinessLogic.Services
             _userMistakeRepo = userMistakeRepo;
             _aiService = aiService;
             _mapper = mapper;
+            _scopeFactory = scopeFactory;
         }
 
         public async Task<ResponseQuizAttemptDetailDto> CreateAsync(RequestQuizAttemptDetailDto dto)
@@ -189,23 +193,34 @@ namespace BusinessLogic.Services
             };
 
             // Nền 1: Tạo/update UserMistake cho các câu trả lời sai
+            var wrongQuestionIds = wrongQuestionIdsSet.ToList();
+            var userId = attempt.UserId;
+            var attemptId = dto.AttemptId;
+
             var userMistakeTask = Task.Run(async () =>
             {
+                if (!wrongQuestionIds.Any() || userId == Guid.Empty)
+                {
+                    return;
+                }
+
                 try
                 {
-                    var wrongQuestionIds = wrongQuestionIdsSet.ToList();
+                    using var scope = _scopeFactory.CreateScope();
+                    var userMistakeRepo = scope.ServiceProvider.GetRequiredService<IUserMistakeRepo>();
+                    var userMistakeService = scope.ServiceProvider.GetRequiredService<IUserMistakeService>();
 
-                    if (wrongQuestionIds.Any() && attempt.UserId != Guid.Empty)
+                    foreach (var quizId in wrongQuestionIds)
                     {
-                        foreach (var quizId in wrongQuestionIds)
+                        try
                         {
-                            var existingMistake = await _userMistakeRepo.GetByUserIdAndQuizIdAsync(attempt.UserId, quizId);
+                            var existingMistake = await userMistakeRepo.GetByUserIdAndQuizIdAsync(userId, quizId);
                             
                             if (existingMistake == null)
                             {
-                                await _userMistakeService.AddAsync(new RequestUserMistakeDto
+                                await userMistakeService.AddAsync(new RequestUserMistakeDto
                                 {
-                                    UserId = attempt.UserId,
+                                    UserId = userId,
                                     QuizId = quizId,
                                     TimesAttempted = 1,
                                     TimesWrong = 1,
@@ -215,9 +230,9 @@ namespace BusinessLogic.Services
                             }
                             else
                             {
-                                await _userMistakeService.UpdateAsync(existingMistake.Id, new RequestUserMistakeDto
+                                await userMistakeService.UpdateAsync(existingMistake.Id, new RequestUserMistakeDto
                                 {
-                                    UserId = attempt.UserId,
+                                    UserId = userId,
                                     QuizId = quizId,
                                     TimesAttempted = existingMistake.TimesAttempted + 1,
                                     TimesWrong = existingMistake.TimesWrong + 1,
@@ -226,11 +241,17 @@ namespace BusinessLogic.Services
                                 });
                             }
                         }
+                        catch (Exception ex)
+                        {
+                            // Log error for individual quiz
+                            // Could add logging here if needed
+                        }
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // ignore background errors
+                    // Log error for background UserMistake processing
+                    // Could add logging here if needed
                 }
             });
 
@@ -240,12 +261,18 @@ namespace BusinessLogic.Services
                 try
                 {
                     await userMistakeTask; // đảm bảo dữ liệu sai đã được lưu
-                    if (attempt.UserId != Guid.Empty)
+                    if (userId != Guid.Empty)
                     {
-                        await _aiService.AnalyzeUserMistakesAndAdviseAsync(attempt.UserId);
+                        using var scope = _scopeFactory.CreateScope();
+                        var aiService = scope.ServiceProvider.GetRequiredService<IAIService>();
+                        await aiService.AnalyzeUserMistakesAndAdviseAsync(userId);
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    // Log error for background AI analysis
+                    // Could add logging here if needed
+                }
             });
 
             // Trả về ngay, không chờ AI phân tích
@@ -273,7 +300,6 @@ namespace BusinessLogic.Services
                 var quiz = await _quizRepo.GetQuizByIdAsync(answer.QuestionId);
                 if (quiz == null)
                 {
-                    _logger.LogWarning($"Quiz {answer.QuestionId} not found");
                     continue;
                 }
 
@@ -350,7 +376,7 @@ namespace BusinessLogic.Services
                 Status = attempt.Status
             };
 
-            // Chạy ngầm: Tạo/update UserMistake cho các câu trả lời sai
+            // Nền 1: Tạo/update UserMistake cho các câu trả lời sai
             var wrongQuestionIds = wrongQuestionIdsSet.ToList();
             var wrongAnswersSnapshot = wrongAnswersByQuestion.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
             var userId = attempt.UserId;
@@ -405,18 +431,19 @@ namespace BusinessLogic.Services
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "Error creating/updating UserMistake for UserId: {UserId}, QuizId: {QuizId}, AttemptId: {AttemptId}",
-                                userId, quizId, attemptId);
+                            // Log error for individual quiz
+                            // Could add logging here if needed
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error in background UserMistake processing for AttemptId: {AttemptId}, UserId: {UserId}",
-                        attemptId, userId);
+                    // Log error for background UserMistake processing
+                    // Could add logging here if needed
                 }
             });
 
+            // Nền 2: Sau khi cập nhật UserMistake xong thì chạy phân tích AI (không ảnh hưởng response)
             _ = Task.Run(async () =>
             {
                 try
@@ -431,8 +458,8 @@ namespace BusinessLogic.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error in background AI analysis for UserId: {UserId}, AttemptId: {AttemptId}",
-                        userId, attemptId);
+                    // Log error for background AI analysis
+                    // Could add logging here if needed
                 }
             });
 
@@ -489,3 +516,6 @@ namespace BusinessLogic.Services
         }
     }
 }
+
+
+
