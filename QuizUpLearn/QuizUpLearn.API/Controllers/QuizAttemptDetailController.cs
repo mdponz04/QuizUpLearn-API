@@ -74,5 +74,12 @@ namespace QuizUpLearn.API.Controllers
             var result = await _service.SubmitAnswersAsync(dto);
             return Ok(result);
         }
+
+        [HttpPost("submit-placement-test")]
+        public async Task<IActionResult> SubmitPlacementTest([FromBody] RequestSubmitAnswersDto dto)
+        {
+            var result = await _service.SubmitPlacementTestAsync(dto);
+            return Ok(result);
+        }
     }
 }
