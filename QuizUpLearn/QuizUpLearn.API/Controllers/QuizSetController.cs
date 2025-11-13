@@ -1,7 +1,7 @@
 ﻿using BusinessLogic.DTOs.QuizSetDtos;
 using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using BusinessLogic.DTOs; // For PaginationRequestDto
+using BusinessLogic.DTOs;
 
 namespace QuizUpLearn.API.Controllers
 {
@@ -56,6 +56,7 @@ namespace QuizUpLearn.API.Controllers
             [FromQuery] bool includeDeleted = false)
         {
             var quizSets = await _quizSetService.GetAllQuizSetsAsync(includeDeleted, pagination);
+
             return Ok(quizSets);
         }
 

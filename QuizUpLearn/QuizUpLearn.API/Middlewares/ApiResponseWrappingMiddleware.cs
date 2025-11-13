@@ -5,80 +5,108 @@ using QuizUpLearn.API.Models;
 
 namespace QuizUpLearn.API.Middlewares
 {
-	public class ApiResponseWrappingMiddleware
-	{
-		private readonly RequestDelegate _next;
+    public class ApiResponseWrappingMiddleware
+    {
+        private readonly RequestDelegate _next;
 
-		public ApiResponseWrappingMiddleware(RequestDelegate next)
-		{
-			_next = next;
-		}
+        public ApiResponseWrappingMiddleware(RequestDelegate next)
+        {
+            _next = next;
+        }
 
-		public async Task InvokeAsync(HttpContext context)
-		{
-			// Bỏ qua swagger
-			if (context.Request.Path.StartsWithSegments("/swagger"))
-			{
-				await _next(context);
-				return;
-			}
+        public async Task InvokeAsync(HttpContext context)
+        {
+            // Bỏ qua swagger
+            if (context.Request.Path.StartsWithSegments("/swagger"))
+            {
+                await _next(context);
+                return;
+            }
 
-			if (context.Request.Path.StartsWithSegments("/game-hub") || 
-			    context.Request.Path.StartsWithSegments("/one-vs-one-hub") ||
-				context.Request.Path.StartsWithSegments("/background-jobs"))
-			{
-				await _next(context);
-				return;
-			}
+            if (context.Request.Path.StartsWithSegments("/game-hub") || 
+                context.Request.Path.StartsWithSegments("/one-vs-one-hub") ||
+                context.Request.Path.StartsWithSegments("/background-jobs"))
+            {
+                await _next(context);
+                return;
+            }
 
-			var originalBody = context.Response.Body;
-			await using var buffer = new MemoryStream();
-			context.Response.Body = buffer;
+            var originalBody = context.Response.Body;
+            await using var buffer = new MemoryStream();
+            context.Response.Body = buffer;
 
-			try
-			{
-				await _next(context);
+            try
+            {
+                await _next(context);
 
-				buffer.Seek(0, SeekOrigin.Begin);
-				var body = await new StreamReader(buffer).ReadToEndAsync();
-				buffer.Seek(0, SeekOrigin.Begin);
+                buffer.Seek(0, SeekOrigin.Begin);
+                var body = await new StreamReader(buffer).ReadToEndAsync();
+                buffer.Seek(0, SeekOrigin.Begin);
 
-				// Chỉ bọc khi là 2xx và content-type là application/json
-				var status = context.Response.StatusCode;
-				var contentType = context.Response.ContentType ?? string.Empty;
-				var isSuccess = status >= 200 && status < 300;
-				var isJson = contentType.Contains("application/json", StringComparison.OrdinalIgnoreCase);
+                // Chỉ bọc khi là 2xx và content-type là application/json
+                var status = context.Response.StatusCode;
+                var contentType = context.Response.ContentType ?? string.Empty;
+                var isSuccess = status >= 200 && status < 300;
+                var isJson = contentType.Contains("application/json", StringComparison.OrdinalIgnoreCase);
 
-				if (!isSuccess || !isJson)
-				{
-					context.Response.Body = originalBody;
-					await buffer.CopyToAsync(originalBody);
-					return;
-				}
+                if (!isSuccess || !isJson)
+                {
+                    context.Response.Body = originalBody;
+                    await buffer.CopyToAsync(originalBody);
+                    return;
+                }
 
-				object? data;
-				try
-				{
-					data = string.IsNullOrWhiteSpace(body) ? null : JsonSerializer.Deserialize<object>(body);
-				}
-				catch
-				{
-					data = body;
-				}
+                bool hasDataProperty = false;
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(body))
+                    {
+                        using var doc = JsonDocument.Parse(body);
+                        var root = doc.RootElement;
+                        if (root.ValueKind == JsonValueKind.Object &&
+                            root.TryGetProperty("data", out _))
+                        {
+                            hasDataProperty = true;
+                        }
+                    }
+                }
+                catch
+                {
+                    // Ignore parse errors, treat as not having data property
+                }
 
-				var wrapped = ApiResponse<object>.Ok(data, null);
-				var json = JsonSerializer.Serialize(wrapped);
-				context.Response.Body = originalBody;
-				context.Response.ContentType = "application/json";
-				await context.Response.WriteAsync(json, Encoding.UTF8);
-			}
-			catch
-			{
-				// Trả body về stream gốc để middleware xử lý exception có thể ghi ra
-				context.Response.Body = originalBody;
-				throw;
-			}
-		}
-	}
+                string json;
+                if (hasDataProperty)
+                {
+                    json = body; // Do not wrap
+                }
+                else
+                {
+                    object? data;
+                    try
+                    {
+                        data = string.IsNullOrWhiteSpace(body) ? null : JsonSerializer.Deserialize<object>(body);
+                    }
+                    catch
+                    {
+                        data = body;
+                    }
+
+                    var wrapped = ApiResponse<object>.Ok(data, null);
+                    json = JsonSerializer.Serialize(wrapped);
+                }
+
+                context.Response.Body = originalBody;
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsync(json, Encoding.UTF8);
+            }
+            catch
+            {
+                // Trả body về stream gốc để middleware xử lý exception có thể ghi ra
+                context.Response.Body = originalBody;
+                throw;
+            }
+        }
+    }
 }
 
