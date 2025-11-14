@@ -29,6 +29,13 @@ namespace BusinessLogic.Services
 			if (dto.StartDate.Kind != DateTimeKind.Utc) dto.StartDate = DateTime.SpecifyKind(dto.StartDate, DateTimeKind.Utc);
 			if (dto.EndDate.Kind != DateTimeKind.Utc) dto.EndDate = DateTime.SpecifyKind(dto.EndDate, DateTimeKind.Utc);
 
+			// Kiểm tra mỗi tháng chỉ được tạo 1 tournament
+			var startDate = dto.StartDate.Date;
+			if (await _tournamentRepo.ExistsInMonthAsync(startDate.Year, startDate.Month))
+			{
+				throw new ArgumentException($"Đã tồn tại tournament trong tháng {startDate.Month}/{startDate.Year}. Mỗi tháng chỉ được tạo 1 tournament.");
+			}
+
 			var entity = new Tournament
 			{
 				Name = dto.Name,
@@ -36,7 +43,7 @@ namespace BusinessLogic.Services
 				StartDate = dto.StartDate,
 				EndDate = dto.EndDate,
 				MaxParticipants = dto.MaxParticipants,
-				Status = "Draft",
+				Status = "Created",
 				CreatedBy = dto.CreatedBy
 			};
 			entity = await _tournamentRepo.CreateAsync(entity);
@@ -60,7 +67,11 @@ namespace BusinessLogic.Services
 		public async Task<TournamentResponseDto> StartAsync(Guid tournamentId)
 		{
 			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId) ?? throw new ArgumentException("Tournament not found");
-			tournament.Status = "Active";
+			if (tournament.Status != "Created")
+			{
+				throw new ArgumentException($"Tournament phải ở trạng thái 'Created' mới có thể start. Trạng thái hiện tại: {tournament.Status}");
+			}
+			tournament.Status = "Started";
 			await _tournamentRepo.UpdateAsync(tournament);
 			var all = await _tournamentQuizSetRepo.GetByTournamentAsync(tournamentId);
 			return MapResponse(tournament, all.Count());
@@ -68,7 +79,29 @@ namespace BusinessLogic.Services
 
 		public async Task<bool> JoinAsync(Guid tournamentId, Guid userId)
 		{
+			// Kiểm tra tournament tồn tại
+			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId);
+			if (tournament == null)
+			{
+				throw new ArgumentException("Tournament not found");
+			}
+
+			// Chỉ cho phép join khi tournament đã Started
+			if (tournament.Status != "Started")
+			{
+				throw new ArgumentException($"Chỉ có thể join tournament khi status là 'Started'. Trạng thái hiện tại: {tournament.Status}");
+			}
+
+			// Kiểm tra đã join chưa
 			if (await _participantRepo.ExistsAsync(tournamentId, userId)) return true;
+
+			// Kiểm tra số lượng participants
+			var currentParticipants = await _participantRepo.GetByTournamentAsync(tournamentId);
+			if (currentParticipants.Count() >= tournament.MaxParticipants)
+			{
+				throw new ArgumentException($"Tournament đã đạt số lượng participants tối đa ({tournament.MaxParticipants})");
+			}
+
 			var entity = new TournamentParticipant
 			{
 				TournamentId = tournamentId,
@@ -95,6 +128,18 @@ namespace BusinessLogic.Services
 			};
 		}
 
+		public async Task<bool> DeleteAsync(Guid tournamentId)
+		{
+			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId) ?? throw new ArgumentException("Tournament not found");
+			
+			if (tournament.Status != "Created")
+			{
+				throw new ArgumentException($"Chỉ có thể xóa tournament khi status là 'Created'. Trạng thái hiện tại: {tournament.Status}");
+			}
+
+			return await _tournamentRepo.DeleteAsync(tournamentId);
+		}
+
 		private async Task AddQuizSetsInternal(Tournament tournament, IEnumerable<Guid> quizSetIds)
 		{
 			var ids = quizSetIds.Distinct().ToList();
@@ -102,26 +147,57 @@ namespace BusinessLogic.Services
 
 			// chỉ cho phép quiz set có type Tournament
 			var validIds = new List<Guid>();
+			var invalidIds = new List<Guid>();
 			foreach (var id in ids)
 			{
 				var quizSet = await _quizSetRepo.GetQuizSetByIdAsync(id);
-				if (quizSet == null) continue;
-				if (quizSet.QuizType != Repository.Enums.QuizSetTypeEnum.Tournament) continue;
+				if (quizSet == null)
+				{
+					invalidIds.Add(id);
+					continue;
+				}
+				if (quizSet.QuizType != Repository.Enums.QuizSetTypeEnum.Tournament)
+				{
+					invalidIds.Add(id);
+					continue;
+				}
 				validIds.Add(id);
 			}
-			if (!validIds.Any()) return;
+			
+			if (invalidIds.Any())
+			{
+				throw new ArgumentException($"Các quiz set sau không phải loại Tournament hoặc không tồn tại: {string.Join(", ", invalidIds)}");
+			}
+			
+			if (!validIds.Any()) 
+			{
+				throw new ArgumentException("Không có quiz set hợp lệ để thêm vào tournament");
+			}
 
 			// số ngày còn lại trong tháng kể từ sau StartDate
 			var startDate = tournament.StartDate.Date;
 			var daysInMonth = DateTime.DaysInMonth(startDate.Year, startDate.Month);
 			var days = daysInMonth - startDate.Day;
-			if (days <= 0) return;
+			
+			if (days <= 0)
+			{
+				throw new ArgumentException("Không còn ngày nào trong tháng để thêm quiz set");
+			}
+
+			// Kiểm tra số quiz sets muốn add không được vượt quá số ngày còn lại
+			if (validIds.Count > days)
+			{
+				throw new ArgumentException($"Chỉ có thể thêm được tối đa {days} quiz set(s) (số ngày còn lại trong tháng từ ngày tạo tournament đến cuối tháng). Bạn đang cố thêm {validIds.Count} quiz set(s).");
+			}
+
+			// Xóa các quiz sets cũ nếu có (để add lại từ đầu)
+			await _tournamentQuizSetRepo.RemoveAllByTournamentAsync(tournament.Id);
 
 			// shuffle ngẫu nhiên danh sách quiz set
 			var rnd = new Random();
 			var shuffled = validIds.OrderBy(_ => rnd.Next()).ToList();
 
-			// nếu thiếu so với số ngày, lặp lại để đủ; nếu dư, cắt bớt
+			// Nếu thiếu so với số ngày, lặp lại để đủ; nếu đủ thì dùng hết
 			var expanded = new List<Guid>();
 			while (expanded.Count < days)
 			{
@@ -131,7 +207,6 @@ namespace BusinessLogic.Services
 					expanded.Add(q);
 				}
 			}
-			if (expanded.Count > days) expanded = expanded.Take(days).ToList();
 
 			var items = new List<TournamentQuizSet>();
 			for (int i = 0; i < days; i++)

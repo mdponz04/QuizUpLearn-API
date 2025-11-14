@@ -56,6 +56,39 @@ namespace Repository.Repositories
 			_context.TournamentQuizSets.UpdateRange(items);
 			await _context.SaveChangesAsync();
 		}
+
+		public async Task RemoveAllByTournamentAsync(Guid tournamentId)
+		{
+			var items = await _context.TournamentQuizSets
+				.Where(x => x.TournamentId == tournamentId && x.DeletedAt == null)
+				.ToListAsync();
+			if (!items.Any()) return;
+			foreach (var item in items)
+			{
+				item.DeletedAt = DateTime.UtcNow;
+				item.IsActive = false;
+			}
+			_context.TournamentQuizSets.UpdateRange(items);
+			await _context.SaveChangesAsync();
+		}
+
+		public async Task<IEnumerable<TournamentQuizSet>> GetAvailableAsync(Guid tournamentId)
+		{
+			return await _context.TournamentQuizSets
+				.Where(x => x.TournamentId == tournamentId && x.DeletedAt == null && !x.IsActive)
+				.ToListAsync();
+		}
+
+		public async Task DeleteAsync(Guid tournamentQuizSetId)
+		{
+			var item = await _context.TournamentQuizSets
+				.FirstOrDefaultAsync(x => x.Id == tournamentQuizSetId && x.DeletedAt == null);
+			if (item == null) return;
+			
+			item.DeletedAt = DateTime.UtcNow;
+			item.IsActive = false;
+			await _context.SaveChangesAsync();
+		}
 	}
 }
 

@@ -14,11 +14,16 @@ namespace QuizUpLearn.API.Controllers
 	public class TournamentController : ControllerBase
 	{
 		private readonly ITournamentService _tournamentService;
+		private readonly IUserService _userService;
 		private readonly ILogger<TournamentController> _logger;
 
-		public TournamentController(ITournamentService tournamentService, ILogger<TournamentController> logger)
+		public TournamentController(
+			ITournamentService tournamentService, 
+			IUserService userService,
+			ILogger<TournamentController> logger)
 		{
 			_tournamentService = tournamentService;
+			_userService = userService;
 			_logger = logger;
 		}
 
@@ -42,7 +47,7 @@ namespace QuizUpLearn.API.Controllers
 			public IEnumerable<Guid> QuizSetIds { get; set; } = new List<Guid>();
 		}
 
-		[HttpPost("{id:guid}/quizsets")]
+		[HttpPut("{id:guid}/quizsets")]
 		public async Task<ActionResult<ApiResponse<TournamentResponseDto>>> AddQuizSets([FromRoute] Guid id, [FromBody] AddQuizSetsRequest body)
 		{
 			try
@@ -80,12 +85,19 @@ namespace QuizUpLearn.API.Controllers
 				var accountIdClaim = User?.FindFirst("UserId")?.Value
 					?? User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
 					?? User?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-				if (string.IsNullOrEmpty(accountIdClaim) || !Guid.TryParse(accountIdClaim, out var userId))
+				if (string.IsNullOrEmpty(accountIdClaim) || !Guid.TryParse(accountIdClaim, out var accountId))
 				{
 					return Unauthorized(new ApiResponse<object> { Success = false, Message = "Invalid user authentication." });
 				}
 
-				var ok = await _tournamentService.JoinAsync(id, userId);
+				// Lấy UserId từ AccountId
+				var user = await _userService.GetByAccountIdAsync(accountId);
+				if (user == null)
+				{
+					return Unauthorized(new ApiResponse<object> { Success = false, Message = "User not found for this account." });
+				}
+
+				var ok = await _tournamentService.JoinAsync(id, user.Id);
 				if (!ok) return BadRequest(new ApiResponse<object> { Success = false, Message = "Join failed" });
 				return Ok(new ApiResponse<object> { Success = true, Message = "Joined tournament" });
 			}
@@ -109,6 +121,25 @@ namespace QuizUpLearn.API.Controllers
 			{
 				_logger.LogError(ex, "Get today set failed");
 				return BadRequest(new ApiResponse<TournamentTodaySetDto> { Success = false, Message = ex.Message });
+			}
+		}
+
+		[HttpDelete("{id:guid}")]
+		public async Task<ActionResult<ApiResponse<object>>> Delete([FromRoute] Guid id)
+		{
+			try
+			{
+				var res = await _tournamentService.DeleteAsync(id);
+				if (!res)
+				{
+					return BadRequest(new ApiResponse<object> { Success = false, Message = "Delete failed" });
+				}
+				return Ok(new ApiResponse<object> { Success = true, Message = "Tournament deleted successfully" });
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "Delete tournament failed");
+				return BadRequest(new ApiResponse<object> { Success = false, Message = ex.Message });
 			}
 		}
 	}
