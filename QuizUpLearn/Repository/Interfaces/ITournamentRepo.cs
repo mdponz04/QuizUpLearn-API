@@ -8,6 +8,9 @@ namespace Repository.Interfaces
 		Task<Tournament?> GetByIdAsync(Guid id);
 		Task<IEnumerable<Tournament>> GetActiveAsync();
 		Task<Tournament> UpdateAsync(Tournament entity);
+		Task<bool> ExistsInMonthAsync(int year, int month);
+		Task<IEnumerable<Tournament>> GetStartedAsync();
+		Task<bool> DeleteAsync(Guid id);
 	}
 }
 

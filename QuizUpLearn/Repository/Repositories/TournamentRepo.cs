@@ -30,7 +30,7 @@ namespace Repository.Repositories
 		public async Task<IEnumerable<Tournament>> GetActiveAsync()
 		{
 			return await _context.Tournaments
-				.Where(t => t.DeletedAt == null && t.Status == "Active" && t.StartDate <= DateTime.UtcNow && t.EndDate >= DateTime.UtcNow)
+				.Where(t => t.DeletedAt == null && t.Status == "Started" && t.StartDate <= DateTime.UtcNow && t.EndDate >= DateTime.UtcNow)
 				.ToListAsync();
 		}
 
@@ -39,6 +39,32 @@ namespace Repository.Repositories
 			_context.Tournaments.Update(entity);
 			await _context.SaveChangesAsync();
 			return entity;
+		}
+
+		public async Task<bool> ExistsInMonthAsync(int year, int month)
+		{
+			return await _context.Tournaments
+				.AnyAsync(t => t.DeletedAt == null 
+					&& t.StartDate.Year == year 
+					&& t.StartDate.Month == month);
+		}
+
+		public async Task<IEnumerable<Tournament>> GetStartedAsync()
+		{
+			return await _context.Tournaments
+				.Where(t => t.DeletedAt == null && t.Status == "Started")
+				.ToListAsync();
+		}
+
+		public async Task<bool> DeleteAsync(Guid id)
+		{
+			var tournament = await _context.Tournaments
+				.FirstOrDefaultAsync(t => t.Id == id && t.DeletedAt == null);
+			if (tournament == null) return false;
+			
+			tournament.DeletedAt = DateTime.UtcNow;
+			await _context.SaveChangesAsync();
+			return true;
 		}
 	}
 }
