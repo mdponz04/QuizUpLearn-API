@@ -156,7 +156,7 @@ namespace BusinessLogic.Services
 					invalidIds.Add(id);
 					continue;
 				}
-				if (quizSet.QuizType != Repository.Enums.QuizSetTypeEnum.Tournament)
+				if (quizSet.QuizSetType != Repository.Enums.QuizSetTypeEnum.Tournament)
 				{
 					invalidIds.Add(id);
 					continue;
