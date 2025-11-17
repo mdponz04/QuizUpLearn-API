@@ -77,7 +77,9 @@ namespace QuizUpLearn.API.DI
             services.AddScoped<ITournamentQuizSetRepo, TournamentQuizSetRepo>();
             services.AddScoped<ITournamentParticipantRepo, TournamentParticipantRepo>();
             services.AddScoped<IUserWeakPointRepo, UserWeakPointRepo>();
-
+            services.AddScoped<IPaymentTransactionRepo,PaymentTransactionRepo>();
+            services.AddScoped<ISubscriptionRepo,SubscriptionRepo>();
+            services.AddScoped<ISubscriptionPlanRepo,SubscriptionPlanRepo>();
         }
 
         public static void AddServices(this IServiceCollection services)
@@ -103,6 +105,9 @@ namespace QuizUpLearn.API.DI
             services.AddScoped<IQuizGroupItemService, QuizGroupItemService>();
             services.AddScoped<ITournamentService, TournamentService>();
             services.AddScoped<IUserWeakPointService, UserWeakPointService>();
+            services.AddScoped<IPaymentTransactionService, PaymentTransactionService>();
+            services.AddScoped<ISubscriptionService, SubscriptionService>();
+            services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
 
             // RealtimeGameService phải là Singleton vì dùng static state
             services.AddSingleton<BusinessLogic.Services.RealtimeGameService>();
