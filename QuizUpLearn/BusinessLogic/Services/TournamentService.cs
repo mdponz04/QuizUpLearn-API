@@ -119,13 +119,37 @@ namespace BusinessLogic.Services
 			var sets = await _tournamentQuizSetRepo.GetForDateAsync(tournamentId, today);
 			var active = sets.FirstOrDefault(x => x.IsActive) ?? sets.FirstOrDefault();
 			if (active == null) return null;
+			var startOfDay = today;
+			var endOfDay = today.AddDays(1).AddTicks(-1);
 			return new TournamentTodaySetDto
 			{
 				TournamentId = tournamentId,
-				Date = today,
+				StartDate = startOfDay,
+				EndDate = endOfDay,
 				QuizSetId = active.QuizSetId,
 				DayNumber = active.DateNumber
 			};
+		}
+
+		public async Task<IEnumerable<TournamentQuizSetItemDto>> GetQuizSetsAsync(Guid tournamentId)
+		{
+			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId) ?? throw new ArgumentException("Tournament not found");
+			if (tournament.Status != "Created")
+			{
+				throw new ArgumentException($"Chỉ có thể xem quiz set khi tournament đang ở trạng thái 'Created'. Trạng thái hiện tại: {tournament.Status}");
+			}
+
+			var items = await _tournamentQuizSetRepo.GetByTournamentAsync(tournamentId);
+			return items.OrderBy(x => x.DateNumber)
+				.Select(x => new TournamentQuizSetItemDto
+				{
+					Id = x.Id,
+					TournamentId = x.TournamentId,
+					QuizSetId = x.QuizSetId,
+					UnlockDate = x.UnlockDate,
+					IsActive = x.IsActive,
+					DayNumber = x.DateNumber
+				});
 		}
 
 		public async Task<bool> DeleteAsync(Guid tournamentId)

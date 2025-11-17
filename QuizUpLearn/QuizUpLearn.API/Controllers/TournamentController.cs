@@ -62,6 +62,21 @@ namespace QuizUpLearn.API.Controllers
 			}
 		}
 
+		[HttpGet("{id:guid}/quizsets")]
+		public async Task<ActionResult<ApiResponse<IEnumerable<TournamentQuizSetItemDto>>>> GetQuizSets([FromRoute] Guid id)
+		{
+			try
+			{
+				var res = await _tournamentService.GetQuizSetsAsync(id);
+				return Ok(new ApiResponse<IEnumerable<TournamentQuizSetItemDto>> { Success = true, Data = res, Message = "OK" });
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "Get quiz sets failed");
+				return BadRequest(new ApiResponse<IEnumerable<TournamentQuizSetItemDto>> { Success = false, Message = ex.Message });
+			}
+		}
+
 		[HttpPost("{id:guid}/start")]
 		public async Task<ActionResult<ApiResponse<TournamentResponseDto>>> Start([FromRoute] Guid id)
 		{
