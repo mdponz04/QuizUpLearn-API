@@ -1,12 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Repository.Enums;
 
 namespace BusinessLogic.DTOs.PaymentTransactionDtos
 {
-    internal class RequestPaymentTransactionDto
+    public class RequestPaymentTransactionDto
     {
+        public Guid UserId { get; set; }
+        public Guid SubscriptionPlanId { get; set; }
+        public long Amount { get; set; }
+        public string? PaymentGatewayTransactionId { get; set; }
+        public DateTime? CompletedDate { get; set; }
+        public TransactionStatusEnum Status { get; set; } = TransactionStatusEnum.Pending;
     }
 }

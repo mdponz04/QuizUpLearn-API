@@ -642,6 +642,9 @@ namespace Repository.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("EndDate")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("SubscriptionPlanId")
                         .HasColumnType("uuid");
 

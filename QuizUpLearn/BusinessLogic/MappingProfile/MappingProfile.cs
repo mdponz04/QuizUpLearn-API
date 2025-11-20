@@ -16,9 +16,7 @@ namespace BusinessLogic.MappingProfile
             CreateMap<Repository.Entities.Role, DTOs.RoleDtos.ResponseRoleDto>().ReverseMap();
             CreateMap<Repository.Entities.Role, DTOs.RoleDtos.RequestRoleDto>().ReverseMap();
             // Account Mappings
-            CreateMap<Repository.Entities.Account, DTOs.ResponseAccountDto>()
-                .ForMember(dest => dest.Username, opt => opt.MapFrom(src => src.User != null ? src.User.Username : string.Empty))
-                .ReverseMap();
+            CreateMap<Repository.Entities.Account, DTOs.ResponseAccountDto>().ReverseMap();
             CreateMap<Repository.Entities.Account, DTOs.RequestAccountDto>().ReverseMap();
             
             // User Mappings
@@ -64,6 +62,18 @@ namespace BusinessLogic.MappingProfile
             // UserWeakPoint Mappings
             CreateMap<Repository.Entities.UserWeakPoint, DTOs.UserWeakPointDtos.ResponseUserWeakPointDto>().ReverseMap();
             CreateMap<Repository.Entities.UserWeakPoint, DTOs.UserWeakPointDtos.RequestUserWeakPointDto>().ReverseMap();
+
+            // PaymentTransaction Mappings
+            CreateMap<Repository.Entities.PaymentTransaction, DTOs.TransactionDtos.ResponsePaymentTransactionDto>().ReverseMap();
+            CreateMap<Repository.Entities.PaymentTransaction, DTOs.PaymentTransactionDtos.RequestPaymentTransactionDto>().ReverseMap();
+
+            // SubscriptionPlan Mappings
+            CreateMap<Repository.Entities.SubscriptionPlan, DTOs.SubscriptionPlanDtos.ResponseSubscriptionPlanDto>().ReverseMap();
+            CreateMap<Repository.Entities.SubscriptionPlan, DTOs.SubscriptionPlanDtos.RequestSubscriptionPlanDto>().ReverseMap();
+
+            // Subscription Mappings
+            CreateMap<Repository.Entities.Subscription, DTOs.SubscriptionDtos.ResponseSubscriptionDto>().ReverseMap();
+            CreateMap<Repository.Entities.Subscription, DTOs.SubscriptionDtos.RequestSubscriptionDto>().ReverseMap();
         }
     }
 }

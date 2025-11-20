@@ -3,8 +3,7 @@ using BusinessLogic.DTOs;
 namespace BusinessLogic.Interfaces
 {
     /// <summary>
-    /// Interface cho service quản lý game 1vs1 và Multiplayer
-    /// Hỗ trợ cả 2 chế độ: OneVsOne (2 players) và Multiplayer (unlimited)
+    /// Interface cho service quản lý game 1vs1
     /// </summary>
     public interface IOneVsOneGameService
     {

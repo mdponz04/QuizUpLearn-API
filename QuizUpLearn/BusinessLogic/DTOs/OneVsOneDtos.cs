@@ -1,11 +1,10 @@
-using Repository.Enums;
 using System.ComponentModel.DataAnnotations;
 
 namespace BusinessLogic.DTOs
-{ 
-    // ==================== CREATE ROOM ====================
+{
+    // ==================== CREATE 1VS1 ROOM ====================
     /// <summary>
-    /// DTO để tạo phòng (1vs1 hoặc Multiplayer)
+    /// DTO để tạo phòng 1vs1 (người tạo cũng là player)
     /// Player1UserId sẽ được tự động lấy từ JWT token trong Controller
     /// </summary>
     public class CreateOneVsOneRoomDto
@@ -20,13 +19,6 @@ namespace BusinessLogic.DTOs
         /// UserId của Player1 (sẽ được set tự động từ JWT token trong Controller)
         /// </summary>
         public Guid Player1UserId { get; set; }
-        
-        /// <summary>
-        /// Chế độ chơi:
-        /// - 0 (OneVsOne): Giới hạn 2 players (backend tự set MaxPlayers = 2)
-        /// - 1 (Multiplayer): Không giới hạn players (backend tự set MaxPlayers = null)
-        /// </summary>
-        public GameModeEnum Mode { get; set; } = GameModeEnum.OneVsOne;
     }
 
     /// <summary>
@@ -51,7 +43,7 @@ namespace BusinessLogic.DTOs
     }
 
     /// <summary>
-    /// Thông tin phòng (1vs1 hoặc Multiplayer)
+    /// Thông tin phòng 1vs1
     /// </summary>
     public class OneVsOneRoomDto
     {
@@ -59,42 +51,12 @@ namespace BusinessLogic.DTOs
         public Guid RoomId { get; set; }
         public Guid QuizSetId { get; set; }
         public OneVsOneRoomStatus Status { get; set; }
-        
-        /// <summary>
-        /// Chế độ chơi
-        /// </summary>
-        public GameModeEnum Mode { get; set; } = GameModeEnum.OneVsOne;
-        
-        /// <summary>
-        /// Số lượng players tối đa (null = unlimited)
-        /// </summary>
-        public int? MaxPlayers { get; set; } = 2;
-        
-        /// <summary>
-        /// Danh sách tất cả players (Players[0] = Host/Player1)
-        /// </summary>
-        public List<OneVsOnePlayerDto> Players { get; set; } = new();
-        
-        /// <summary>
-        /// Player1 (Host) - Backward compatibility, populated từ Players[0]
-        /// </summary>
-        public OneVsOnePlayerDto? Player1 { get; set; }
-        
-        /// <summary>
-        /// Player2 - Backward compatibility cho 1vs1, populated từ Players[1]
-        /// </summary>
-        public OneVsOnePlayerDto? Player2 { get; set; }
-        
+        public OneVsOnePlayerDto? Player1 { get; set; } // Người tạo phòng
+        public OneVsOnePlayerDto? Player2 { get; set; } // Người join vào
         public List<QuestionDto> Questions { get; set; } = new();
         public int CurrentQuestionIndex { get; set; } = 0;
         public DateTime? QuestionStartedAt { get; set; }
-        
-        /// <summary>
-        /// Câu trả lời hiện tại (ConnectionId -> Answer)
-        /// </summary>
-        public Dictionary<string, OneVsOneAnswerDto> CurrentAnswers { get; set; } = new();
-        
-        public OneVsOneRoundResultDto? CurrentRoundResult { get; set; }
+        public OneVsOneRoundResultDto? CurrentRoundResult { get; set; } // Kết quả câu hiện tại
         public DateTime CreatedAt { get; set; }
     }
 
@@ -122,8 +84,8 @@ namespace BusinessLogic.DTOs
 
     // ==================== ROUND RESULT ====================
     /// <summary>
-    /// Kết quả một round (câu hỏi) - hỗ trợ cả 1vs1 và Multiplayer
-    /// Hiển thị ngay sau khi tất cả players đã trả lời hoặc hết giờ
+    /// Kết quả một round (câu hỏi) trong 1vs1
+    /// Hiển thị ngay sau khi cả 2 đã trả lời
     /// </summary>
     public class OneVsOneRoundResultDto
     {
@@ -132,23 +94,9 @@ namespace BusinessLogic.DTOs
         public int TotalQuestions { get; set; }
         public Guid CorrectAnswerId { get; set; }
         public string CorrectAnswerText { get; set; } = string.Empty;
-        
-        /// <summary>
-        /// Danh sách kết quả của tất cả players (sorted by points descending)
-        /// </summary>
-        public List<OneVsOnePlayerResult> PlayerResults { get; set; } = new();
-        
-        /// <summary>
-        /// Player1 result - Backward compatibility, populated từ PlayerResults[0]
-        /// </summary>
         public OneVsOnePlayerResult? Player1Result { get; set; }
-        
-        /// <summary>
-        /// Player2 result - Backward compatibility, populated từ PlayerResults[1]
-        /// </summary>
         public OneVsOnePlayerResult? Player2Result { get; set; }
-        
-        public string? WinnerName { get; set; } // Người thắng round (highest points)
+        public string? WinnerName { get; set; } // Người thắng round này (nếu có)
     }
 
     /// <summary>
@@ -165,34 +113,27 @@ namespace BusinessLogic.DTOs
 
     // ==================== FINAL RESULT ====================
     /// <summary>
-    /// Kết quả cuối cùng của game (1vs1 hoặc Multiplayer)
+    /// Kết quả cuối cùng của game 1vs1
     /// </summary>
     public class OneVsOneFinalResultDto
     {
         public string RoomPin { get; set; } = string.Empty;
-        public GameModeEnum Mode { get; set; }
-        
-        /// <summary>
-        /// Rankings của tất cả players (sorted by score descending)
-        /// </summary>
-        public List<OneVsOnePlayerDto> Rankings { get; set; } = new();
-        
-        /// <summary>
-        /// Player1 - Backward compatibility, populated từ Rankings[0]
-        /// </summary>
-        public OneVsOnePlayerDto? Player1 { get; set; }
-        
-        /// <summary>
-        /// Player2 - Backward compatibility, populated từ Rankings[1]
-        /// </summary>
-        public OneVsOnePlayerDto? Player2 { get; set; }
-        
         public OneVsOnePlayerDto? Winner { get; set; }
+        public OneVsOnePlayerDto? Player1 { get; set; }
+        public OneVsOnePlayerDto? Player2 { get; set; }
         public int TotalQuestions { get; set; }
         public DateTime CompletedAt { get; set; }
     }
 
     // ==================== ENUMS ====================
-
+    public enum OneVsOneRoomStatus
+    {
+        Waiting = 0,        // Đang chờ player 2 join
+        Ready = 1,          // Đủ 2 người, chờ start
+        InProgress = 2,     // Đang chơi
+        ShowingResult = 3,  // Đang hiển thị kết quả round
+        Completed = 4,     // Đã kết thúc
+        Cancelled = 5       // Đã hủy
+    }
 }
 

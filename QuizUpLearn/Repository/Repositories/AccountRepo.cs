@@ -60,31 +60,26 @@ namespace Repository.Repositories
             _context.Users.Update(newUser);
             await _context.SaveChangesAsync();
 
-            account.User = newUser;
             return account;
         }
 
         public async Task<IEnumerable<Account>> GetAllAsync(bool includeDeleted = false)
         {
             return await _context.Accounts
-                .Include(a => a.User)
+                .AsQueryable()
                 .Where(a => includeDeleted || a.DeletedAt == null)
                 .ToListAsync();
         }
 
         public async Task<Account?> GetByIdAsync(Guid id)
         {
-            return await _context.Accounts
-                .Include(a => a.User)
-                .FirstOrDefaultAsync(a => a.Id == id);
+            return await _context.Accounts.FindAsync(id);
         }
 
         public async Task<Account?> GetByEmailAsync(string email)
         {
             var normalized = email.Trim().ToLowerInvariant();
-            return await _context.Accounts
-                .Include(a => a.User)
-                .FirstOrDefaultAsync(a => a.Email == normalized);
+            return await _context.Accounts.FirstOrDefaultAsync(a => a.Email == normalized);
         }
 
         public async Task<bool> RestoreAsync(Guid id)
@@ -111,9 +106,7 @@ namespace Repository.Repositories
 
         public async Task<Account?> UpdateAsync(Guid id, Account account)
         {
-            var existing = await _context.Accounts
-                .Include(a => a.User)
-                .FirstOrDefaultAsync(a => a.Id == id);
+            var existing = await _context.Accounts.FindAsync(id);
             if (existing == null) return null;
 
             existing.Email = account.Email;
