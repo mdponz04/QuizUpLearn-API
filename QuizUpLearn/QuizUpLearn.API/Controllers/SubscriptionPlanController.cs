@@ -34,7 +34,7 @@ namespace QuizUpLearn.API.Controllers
         public async Task<ActionResult<ResponseSubscriptionPlanDto>> Create([FromBody] RequestSubscriptionPlanDto dto)
         {
             var created = await _service.CreateAsync(dto);
-            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+            return StatusCode(201, created);
         }
 
         [HttpPut("{id:guid}")]

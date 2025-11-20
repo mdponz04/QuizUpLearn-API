@@ -109,6 +109,7 @@ namespace QuizUpLearn.API.DI
             services.AddScoped<ISubscriptionService, SubscriptionService>();
             services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
             services.AddScoped<IPaymentService, PaymentService>();
+            services.AddScoped<IBuySubscriptionService, BuySubscriptionService>();
 
             // RealtimeGameService phải là Singleton vì dùng static state
             services.AddSingleton<BusinessLogic.Services.RealtimeGameService>();

@@ -71,7 +71,8 @@ namespace BusinessLogic.Services
                 {
                     UserId = transaction.UserId,
                     SubscriptionPlanId = plan.Id,
-                    AiGenerateQuizSetRemaining = plan.AiGenerateQuizSetMaxTimes
+                    AiGenerateQuizSetRemaining = plan.AiGenerateQuizSetMaxTimes,
+                    EndDate = DateTime.UtcNow.AddDays(plan.DurationDays)
                 });
                 return;
             }
@@ -79,7 +80,8 @@ namespace BusinessLogic.Services
             await _subscriptionService.UpdateAsync(subscription.Id ,new RequestSubscriptionDto
             {
                 SubscriptionPlanId = transaction.SubscriptionPlanId,
-                AiGenerateQuizSetRemaining = plan.AiGenerateQuizSetMaxTimes
+                AiGenerateQuizSetRemaining = plan.AiGenerateQuizSetMaxTimes,
+                EndDate = DateTime.UtcNow.AddDays(plan.DurationDays)
             });
         }
 
@@ -95,7 +97,7 @@ namespace BusinessLogic.Services
                 new ItemData(plan.Name, (int)plan.Price, 1)
             };
 
-            var paymentInfo = await _paymentService.CreatePaymentLinkAsync((int) plan.Price, $"Buying QuizUpLearn Subscription {plan.Name}", items);
+            var paymentInfo = await _paymentService.CreatePaymentLinkAsync((int) plan.Price, $"QUL sub {plan.Name}", items);
 
             if (paymentInfo == null)
                 return (-1, "");
