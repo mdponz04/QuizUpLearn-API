@@ -10,10 +10,9 @@ namespace Repository.Entities
         public DateTime EndDate { get; set; }
         public long MaxParticipants { get; set; }
         public string Status { get; set; } = string.Empty;
-        public Guid QuizSetId { get; set; }
+
         public Guid CreatedBy { get; set; }
         // Navigation property
         public virtual User? Creator { get; set; }
-        public virtual QuizSet? QuizSet { get; set; }
     }
 }

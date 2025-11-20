@@ -159,9 +159,6 @@ namespace Repository.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid>("QuizSetId")
-                        .HasColumnType("uuid");
-
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -175,8 +172,6 @@ namespace Repository.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CreatorId");
-
-                    b.HasIndex("QuizSetId");
 
                     b.ToTable("Events");
                 });
@@ -1003,15 +998,7 @@ namespace Repository.Migrations
                         .WithMany()
                         .HasForeignKey("CreatorId");
 
-                    b.HasOne("Repository.Entities.QuizSet", "QuizSet")
-                        .WithMany("Events")
-                        .HasForeignKey("QuizSetId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.Navigation("Creator");
-
-                    b.Navigation("QuizSet");
                 });
 
             modelBuilder.Entity("Repository.Entities.EventParticipant", b =>
@@ -1269,8 +1256,6 @@ namespace Repository.Migrations
 
             modelBuilder.Entity("Repository.Entities.QuizSet", b =>
                 {
-                    b.Navigation("Events");
-
                     b.Navigation("QuizAttempts");
 
                     b.Navigation("QuizGroupItems");
