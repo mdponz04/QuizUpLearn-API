@@ -59,5 +59,12 @@ namespace Repository.Repositories
             await _context.SaveChangesAsync();
             return true;
         }
+
+        public async Task<Subscription?> GetByUserIdAsync(Guid userId)
+        {
+            return await _context.Subscriptions
+                .Where(s => Guid.Equals(s.UserId, userId))
+                .FirstOrDefaultAsync();
+        }
     }
 }

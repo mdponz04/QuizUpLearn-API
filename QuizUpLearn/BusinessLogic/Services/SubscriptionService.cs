@@ -54,5 +54,11 @@ namespace BusinessLogic.Services
         {
             return await _repo.DeleteAsync(id);
         }
+
+        public async Task<ResponseSubscriptionDto?> GetByUserIdAsync(Guid userId)
+        {
+            var entity = await _repo.GetByUserIdAsync(userId);
+            return entity == null ? null : _mapper.Map<ResponseSubscriptionDto>(entity);
+        }
     }
 }

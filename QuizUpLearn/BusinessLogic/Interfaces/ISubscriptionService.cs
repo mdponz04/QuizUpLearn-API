@@ -6,6 +6,7 @@ namespace BusinessLogic.Interfaces
     public interface ISubscriptionService
     {
         Task<PaginationResponseDto<ResponseSubscriptionDto>> GetAllAsync(PaginationRequestDto pagination);
+        Task<ResponseSubscriptionDto?> GetByUserIdAsync(Guid userId);
         Task<ResponseSubscriptionDto?> GetByIdAsync(Guid id);
         Task<ResponseSubscriptionDto> CreateAsync(RequestSubscriptionDto dto);
         Task<ResponseSubscriptionDto?> UpdateAsync(Guid id, RequestSubscriptionDto dto);

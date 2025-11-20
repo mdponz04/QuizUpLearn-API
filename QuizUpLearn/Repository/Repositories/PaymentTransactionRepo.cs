@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Repository.DBContext;
 using Repository.Entities;
 using Repository.Interfaces;
@@ -45,6 +40,10 @@ namespace Repository.Repositories
                 existing.Amount = paymentTransaction.Amount;
             if(paymentTransaction.PaymentGatewayTransactionId != null)
                 existing.PaymentGatewayTransactionId = paymentTransaction.PaymentGatewayTransactionId;
+            if(paymentTransaction.CompletedDate != null)
+                existing.CompletedDate = paymentTransaction.CompletedDate;
+            if(paymentTransaction.Status != 0)
+                existing.Status = paymentTransaction.Status;
 
             _context.PaymentTransactions.Update(existing);
             await _context.SaveChangesAsync();
@@ -59,6 +58,13 @@ namespace Repository.Repositories
             _context.PaymentTransactions.Remove(entity);
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<PaymentTransaction?> GetByPaymentGatewayTransactionOrderCodeAsync(string orderCode)
+        {
+            return await _context.PaymentTransactions
+                .Where(pt => pt.PaymentGatewayTransactionId == orderCode)
+                .FirstOrDefaultAsync();
         }
     }
 }

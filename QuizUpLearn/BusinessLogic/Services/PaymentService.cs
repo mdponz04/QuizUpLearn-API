@@ -33,8 +33,8 @@ namespace BusinessLogic.Services
                     amount,
                     description,
                     items,
-                    "https://quizuplearn.com/big-success-bro-this-page-will-be-not-found-but-dont-worry-everything-is-fine",
-                    "https://quizuplearn.com/cancel"
+                    "/payment/success",
+                    "/payment/cancel"
                 );
 
                 paymentLink = await _payOS.createPaymentLink(paymentData);

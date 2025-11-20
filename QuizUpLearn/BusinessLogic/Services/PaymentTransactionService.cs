@@ -56,5 +56,10 @@ namespace BusinessLogic.Services
         {
             return await _repo.DeleteAsync(id);
         }
+
+        public async Task<PaymentTransaction?> GetByPaymentGatewayTransactionOrderCodeAsync(string orderCode)
+        {
+            return await _repo.GetByPaymentGatewayTransactionOrderCodeAsync(orderCode);
+        }
     }
 }
