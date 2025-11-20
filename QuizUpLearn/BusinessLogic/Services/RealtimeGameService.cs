@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Caching.Distributed;
 using System.Text.Json;
-using Repository.Enums;
 
 namespace BusinessLogic.Services
 {

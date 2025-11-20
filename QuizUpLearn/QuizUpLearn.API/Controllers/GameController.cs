@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Authorization;
 using BusinessLogic.Services;
 using BusinessLogic.DTOs;
 using QuizUpLearn.API.Models;
-using Repository.Enums;
 
 namespace QuizUpLearn.API.Controllers
 {

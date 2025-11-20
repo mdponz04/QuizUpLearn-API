@@ -22,6 +22,5 @@ namespace Repository.Entities
         public virtual ICollection<QuizAttempt> QuizAttempts { get; set; } = new List<QuizAttempt>();
         public virtual ICollection<QuizGroupItem> QuizGroupItems { get; set; } = new List<QuizGroupItem>();
         public virtual ICollection<TournamentQuizSet> TournamentQuizSets { get; set; } = new List<TournamentQuizSet>();
-        public virtual ICollection<Event> Events { get; set; } = new List<Event>();
     }
 }

@@ -1,16 +1,15 @@
-using BusinessLogic.DTOs;
-using BusinessLogic.Interfaces;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using BusinessLogic.Interfaces;
+using BusinessLogic.DTOs;
 using QuizUpLearn.API.Models;
-using Repository.Enums;
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace QuizUpLearn.API.Controllers
 {
     /// <summary>
-    /// API Controller cho game 1vs1 và Multiplayer
+    /// API Controller cho game 1vs1
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -66,14 +65,13 @@ namespace QuizUpLearn.API.Controllers
 
                 var response = await _gameService.CreateRoomAsync(dto);
                 
-                var modeText = dto.Mode == GameModeEnum.OneVsOne ? "1vs1" : "Multiplayer";
-                _logger.LogInformation($"{modeText} Room created with PIN: {response.RoomPin} by Player: {dto.Player1Name}");
+                _logger.LogInformation($"1v1 Room created with PIN: {response.RoomPin} by Player: {dto.Player1Name} (AccountId: {accountId}, UserId: {user.Id})");
 
                 return Ok(new ApiResponse<CreateOneVsOneRoomResponseDto>
                 {
                     Success = true,
                     Data = response,
-                    Message = $"{modeText} room created successfully. Share PIN: {response.RoomPin}"
+                    Message = $"Room created successfully. Share PIN: {response.RoomPin} to your opponent"
                 });
             }
             catch (ArgumentException ex)
@@ -157,25 +155,23 @@ namespace QuizUpLearn.API.Controllers
                     });
                 }
 
-                // Check status
-                if (room.Status != OneVsOneRoomStatus.Waiting && room.Status != OneVsOneRoomStatus.Ready)
+                if (room.Status != OneVsOneRoomStatus.Waiting)
                 {
                     return Ok(new ApiResponse<bool>
                     {
                         Success = false,
                         Data = false,
-                        Message = "Room is not available to join (already started or cancelled)"
+                        Message = "Room is not available to join (already started or full)"
                     });
                 }
 
-                // Check MaxPlayers
-                if (room.MaxPlayers.HasValue && room.Players.Count >= room.MaxPlayers.Value)
+                if (room.Player2 != null)
                 {
                     return Ok(new ApiResponse<bool>
                     {
                         Success = false,
                         Data = false,
-                        Message = $"Room is full ({room.Players.Count}/{room.MaxPlayers.Value} players)"
+                        Message = "Room is full"
                     });
                 }
 
@@ -183,7 +179,7 @@ namespace QuizUpLearn.API.Controllers
                 {
                     Success = true,
                     Data = true,
-                    Message = $"Room is available to join ({room.Players.Count}/{room.MaxPlayers?.ToString() ?? "∞"} players)"
+                    Message = "Room is available to join"
                 });
             }
             catch (Exception ex)

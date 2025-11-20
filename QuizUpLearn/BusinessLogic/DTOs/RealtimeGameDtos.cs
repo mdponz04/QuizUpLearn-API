@@ -1,4 +1,3 @@
-using Repository.Enums;
 using System.ComponentModel.DataAnnotations;
 
 namespace BusinessLogic.DTOs
@@ -154,5 +153,16 @@ namespace BusinessLogic.DTOs
         public DateTime CompletedAt { get; set; }
         public int TotalPlayers { get; set; }
         public int TotalQuestions { get; set; }
+    }
+
+    // ==================== ENUMS ====================
+    public enum GameStatus
+    {
+        Lobby = 0,          // Đang chờ người chơi
+        InProgress = 1,     // Đang chơi
+        ShowingResult = 2,  // Đang hiển thị kết quả câu hỏi
+        ShowingLeaderboard = 3, // Đang hiển thị bảng xếp hạng
+        Completed = 4,      // Đã kết thúc
+        Cancelled = 5       // Đã hủy
     }
 }

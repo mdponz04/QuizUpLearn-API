@@ -9,9 +9,7 @@ namespace BusinessLogic.Interfaces
 		Task<TournamentResponseDto> StartAsync(Guid tournamentId);
 		Task<bool> JoinAsync(Guid tournamentId, Guid userId);
 		Task<TournamentTodaySetDto?> GetTodaySetAsync(Guid tournamentId);
-		Task<IEnumerable<TournamentQuizSetItemDto>> GetQuizSetsAsync(Guid tournamentId);
 		Task<bool> DeleteAsync(Guid tournamentId);
-		Task<IEnumerable<TournamentResponseDto>> GetAllAsync(bool includeDeleted = false);
 	}
 }
 
