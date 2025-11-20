@@ -4,6 +4,7 @@ namespace Repository.Entities
 {
     public class Event : BaseEntity
     {
+        public Guid QuizSetId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public DateTime StartDate { get; set; }
@@ -14,5 +15,6 @@ namespace Repository.Entities
         public Guid CreatedBy { get; set; }
         // Navigation property
         public virtual User? Creator { get; set; }
+        public virtual QuizSet? QuizSet { get; set; }
     }
 }
