@@ -109,6 +109,7 @@ namespace QuizUpLearn.API.Controllers
             {
                 Id = Guid.Parse(accountId),
                 Email = email,
+                Username = string.Empty,
                 RoleId = Guid.Parse(roleIdStr),
                 UserId = Guid.Empty,
                 IsEmailVerified = false,

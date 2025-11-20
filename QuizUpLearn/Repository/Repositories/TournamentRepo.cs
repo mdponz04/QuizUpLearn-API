@@ -66,6 +66,14 @@ namespace Repository.Repositories
 			await _context.SaveChangesAsync();
 			return true;
 		}
+
+		public async Task<IEnumerable<Tournament>> GetAllAsync(bool includeDeleted = false)
+		{
+			return await _context.Tournaments
+				.Where(t => includeDeleted || t.DeletedAt == null)
+				.OrderByDescending(t => t.CreatedAt)
+				.ToListAsync();
+		}
 	}
 }
 

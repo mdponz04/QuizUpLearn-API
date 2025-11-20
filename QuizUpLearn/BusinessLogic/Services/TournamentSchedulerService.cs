@@ -32,7 +32,7 @@ namespace BusinessLogic.Services
 					_logger.LogError(ex, "TournamentSchedulerService tick failed");
 				}
 
-				await Task.Delay(TimeSpan.FromHours(6), stoppingToken);
+				await Task.Delay(TimeSpan.FromHours(14), stoppingToken);
 			}
 		}
 

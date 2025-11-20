@@ -1,16 +1,18 @@
 using BusinessLogic.DTOs;
 using BusinessLogic.Interfaces;
-using Repository.Interfaces;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Repository.Enums;
+using Repository.Interfaces;
 using System.Text.Json;
 
 namespace BusinessLogic.Services
 {
     /// <summary>
-    /// Service quản lý game 1vs1
+    /// Service quản lý game 1vs1 và Multiplayer
     /// State được lưu trong Redis (Distributed Cache)
+    /// Hỗ trợ cả 2 chế độ: OneVsOne (2 players) và Multiplayer (unlimited)
     /// </summary>
     public class OneVsOneGameService : IOneVsOneGameService
     {
@@ -188,31 +190,49 @@ namespace BusinessLogic.Services
 
             var roomId = Guid.NewGuid();
 
-            // Create room with Player1
+            // Create Player1 (Host)
+            var player1 = new OneVsOnePlayerDto
+            {
+                UserId = dto.Player1UserId,
+                PlayerName = dto.Player1Name,
+                Score = 0,
+                CorrectAnswers = 0,
+                JoinedAt = DateTime.UtcNow,
+                IsReady = true
+            };
+
+            // ✨ Auto-set MaxPlayers dựa trên Mode
+            int? maxPlayers = dto.Mode == GameModeEnum.OneVsOne ? 2 : null;
+
+            // Create room
             var room = new OneVsOneRoomDto
             {
                 RoomPin = roomPin,
                 RoomId = roomId,
                 QuizSetId = dto.QuizSetId,
                 Status = OneVsOneRoomStatus.Waiting,
-                Player1 = new OneVsOnePlayerDto
-                {
-                    UserId = dto.Player1UserId, // Set UserId từ DTO
-                    PlayerName = dto.Player1Name,
-                    Score = 0,
-                    CorrectAnswers = 0,
-                    JoinedAt = DateTime.UtcNow,
-                    IsReady = true
-                },
+                
+                // ✨ Mode & Auto MaxPlayers
+                Mode = dto.Mode,
+                MaxPlayers = maxPlayers,
+                
+                // ✨ Universal Players list
+                Players = new List<OneVsOnePlayerDto> { player1 },
+                
+                // Backward compatibility
+                Player1 = player1,
+                
                 Questions = questionsList,
                 CurrentQuestionIndex = 0,
+                CurrentAnswers = new Dictionary<string, OneVsOneAnswerDto>(),
                 CreatedAt = DateTime.UtcNow
             };
 
             await SaveRoomToRedisAsync(roomPin, room);
             await SaveCorrectAnswersToRedisAsync(roomPin, correctAnswersMap);
 
-            _logger.LogInformation($"✅ 1v1 Room created with PIN: {roomPin} by Player: {dto.Player1Name}");
+            var maxPlayersText = maxPlayers.HasValue ? $"{maxPlayers} players max" : "unlimited players";
+            _logger.LogInformation($"✅ {dto.Mode} Room created with PIN: {roomPin} by Player: {dto.Player1Name} ({maxPlayersText})");
 
             return new CreateOneVsOneRoomResponseDto
             {
@@ -253,6 +273,13 @@ namespace BusinessLogic.Services
 
             // Update connectionId cho Player1
             room.Player1.ConnectionId = connectionId;
+            
+            // ✨ NEW: Update trong Players list
+            var player1InList = room.Players.FirstOrDefault(p => p.UserId == userId);
+            if (player1InList != null)
+            {
+                player1InList.ConnectionId = connectionId;
+            }
 
             // Lưu mapping connection -> room
             await SaveConnectionMappingAsync(connectionId, roomPin);
@@ -269,22 +296,39 @@ namespace BusinessLogic.Services
                 return null;
 
             // Check status
-            if (room.Status != OneVsOneRoomStatus.Waiting)
+            if (room.Status != OneVsOneRoomStatus.Waiting && room.Status != OneVsOneRoomStatus.Ready)
                 return null; // Room đã bắt đầu hoặc đã kết thúc
 
             // Validate: Player1 không được join bằng method này (phải dùng Player1Connect)
             if (room.Player1?.UserId == userId)
             {
-                _logger.LogWarning($"❌ Player1 (UserId: {userId}) tried to join using Player2Join. Use Player1Connect instead.");
+                _logger.LogWarning($"❌ Player1 (UserId: {userId}) tried to join using PlayerJoin. Use Player1Connect instead.");
                 return null;
             }
 
-            // Check nếu đã có Player2
-            if (room.Player2 != null)
-                return null; // Room đã đầy
+            // ✨ NEW: Check MaxPlayers
+            if (room.MaxPlayers.HasValue && room.Players.Count >= room.MaxPlayers.Value)
+            {
+                _logger.LogWarning($"❌ Room {roomPin} is full ({room.Players.Count}/{room.MaxPlayers.Value})");
+                return null;
+            }
 
-            // Add Player2
-            var player2 = new OneVsOnePlayerDto
+            // Check duplicate player (same userId)
+            if (room.Players.Any(p => p.UserId == userId))
+            {
+                _logger.LogWarning($"❌ User {userId} already in room {roomPin}");
+                return null;
+            }
+
+            // Check duplicate name
+            if (room.Players.Any(p => p.PlayerName.Equals(playerName, StringComparison.OrdinalIgnoreCase)))
+            {
+                _logger.LogWarning($"❌ Player name '{playerName}' already taken in room {roomPin}");
+                return null;
+            }
+
+            // Add new player
+            var newPlayer = new OneVsOnePlayerDto
             {
                 ConnectionId = connectionId,
                 UserId = userId,
@@ -295,15 +339,39 @@ namespace BusinessLogic.Services
                 IsReady = true
             };
 
-            room.Player2 = player2;
-            room.Status = OneVsOneRoomStatus.Ready; // Đủ 2 người, sẵn sàng start
+            room.Players.Add(newPlayer);
+
+            // ✨ NEW: Update status based on Mode
+            if (room.Mode == GameModeEnum.OneVsOne)
+            {
+                // 1vs1: Ready khi đủ 2 người
+                if (room.Players.Count == 2)
+                {
+                    room.Player2 = newPlayer; // Backward compat
+                    room.Status = OneVsOneRoomStatus.Ready;
+                }
+            }
+            else if (room.Mode == GameModeEnum.Multiplayer)
+            {
+                // Multiplayer: Ready khi >= 2 người
+                if (room.Players.Count >= 2)
+                {
+                    room.Status = OneVsOneRoomStatus.Ready;
+                }
+                
+                // Update Player2 cho backward compat nếu có
+                if (room.Players.Count >= 2 && room.Player2 == null)
+                {
+                    room.Player2 = room.Players[1];
+                }
+            }
 
             await SaveConnectionMappingAsync(connectionId, roomPin);
             await SaveRoomToRedisAsync(roomPin, room);
 
-            _logger.LogInformation($"✅ Player2 '{playerName}' joined room {roomPin}");
+            _logger.LogInformation($"✅ Player '{playerName}' joined {room.Mode} room {roomPin} ({room.Players.Count}/{room.MaxPlayers?.ToString() ?? "∞"} players)");
 
-            return player2;
+            return newPlayer;
         }
 
         public async Task<bool> PlayerLeaveAsync(string roomPin, string connectionId)
@@ -312,25 +380,37 @@ namespace BusinessLogic.Services
             if (room == null)
                 return false;
 
+            var leavingPlayer = room.Players.FirstOrDefault(p => p.ConnectionId == connectionId);
+            if (leavingPlayer == null)
+                return false;
+
+            // Player1 (Host) leave → Cancel room
             if (room.Player1?.ConnectionId == connectionId)
             {
-                // Player1 leave → Cancel room
                 room.Status = OneVsOneRoomStatus.Cancelled;
-            }
-            else if (room.Player2?.ConnectionId == connectionId)
-            {
-                // Player2 leave → Reset to Waiting
-                room.Player2 = null;
-                room.Status = OneVsOneRoomStatus.Waiting;
+                _logger.LogInformation($"Host left room {roomPin} - Room cancelled");
             }
             else
             {
-                return false;
+                // Other players leave → Remove from list
+                room.Players.Remove(leavingPlayer);
+                
+                // Update status
+                if (room.Players.Count < 2)
+                {
+                    room.Status = OneVsOneRoomStatus.Waiting;
+                }
+                
+                // Update backward compat fields
+                if (room.Player2?.ConnectionId == connectionId)
+                {
+                    room.Player2 = room.Players.Count >= 2 ? room.Players[1] : null;
+                }
+
+                _logger.LogInformation($"Player '{leavingPlayer.PlayerName}' left room {roomPin} ({room.Players.Count} players remaining)");
             }
 
             await SaveRoomToRedisAsync(roomPin, room);
-            _logger.LogInformation($"Player left room {roomPin}");
-
             return true;
         }
 
@@ -342,15 +422,21 @@ namespace BusinessLogic.Services
                 return false;
 
             if (room.Status != OneVsOneRoomStatus.Ready)
-                return false; // Chưa đủ 2 người
-
-            // Validate: Cả 2 players phải có connectionId (đã connect)
-            if (room.Player1 == null || room.Player2 == null)
                 return false;
 
-            if (string.IsNullOrEmpty(room.Player1.ConnectionId) || string.IsNullOrEmpty(room.Player2.ConnectionId))
+            // ✨ NEW: Validate tất cả players đã connect
+            var minPlayers = room.Mode == GameModeEnum.OneVsOne ? 2 : 2; // Cả 2 modes đều cần ít nhất 2 players
+            if (room.Players.Count < minPlayers)
             {
-                _logger.LogWarning($"❌ Cannot start game: One or both players not connected. P1: {!string.IsNullOrEmpty(room.Player1.ConnectionId)}, P2: {!string.IsNullOrEmpty(room.Player2.ConnectionId)}");
+                _logger.LogWarning($"❌ Cannot start game: Not enough players ({room.Players.Count}/{minPlayers})");
+                return false;
+            }
+
+            // Validate: Tất cả players phải có connectionId
+            var playersNotConnected = room.Players.Where(p => string.IsNullOrEmpty(p.ConnectionId)).ToList();
+            if (playersNotConnected.Any())
+            {
+                _logger.LogWarning($"❌ Cannot start game: {playersNotConnected.Count} player(s) not connected yet");
                 return false;
             }
 
@@ -358,10 +444,11 @@ namespace BusinessLogic.Services
             room.CurrentQuestionIndex = 0;
             room.QuestionStartedAt = DateTime.UtcNow;
             room.CurrentRoundResult = null;
+            room.CurrentAnswers.Clear(); // Clear previous answers
 
             await SaveRoomToRedisAsync(roomPin, room);
 
-            _logger.LogInformation($"✅ 1v1 Game started in room {roomPin}");
+            _logger.LogInformation($"✅ {room.Mode} Game started in room {roomPin} with {room.Players.Count} players");
 
             return true;
         }
@@ -379,17 +466,17 @@ namespace BusinessLogic.Services
             if (!room.QuestionStartedAt.HasValue)
                 return null;
 
-            // Xác định player
-            OneVsOnePlayerDto? player = null;
-            if (room.Player1?.ConnectionId == connectionId)
-                player = room.Player1;
-            else if (room.Player2?.ConnectionId == connectionId)
-                player = room.Player2;
-            else
-                return null;
-
+            // ✨ NEW: Tìm player trong Players list
+            var player = room.Players.FirstOrDefault(p => p.ConnectionId == connectionId);
             if (player == null)
                 return null;
+
+            // Check đã trả lời chưa
+            if (room.CurrentAnswers.ContainsKey(connectionId))
+            {
+                _logger.LogWarning($"❌ Player '{player.PlayerName}' already answered this question");
+                return null;
+            }
 
             // Check đáp án đúng
             bool isCorrect = false;
@@ -412,79 +499,120 @@ namespace BusinessLogic.Services
 
             player.Score += points;
 
-            // Lưu answer vào current round result
-            if (room.CurrentRoundResult == null)
+            // Lưu answer vào dictionary
+            var answer = new OneVsOneAnswerDto
             {
-                room.CurrentRoundResult = new OneVsOneRoundResultDto
-                {
-                    QuestionId = questionId,
-                    QuestionNumber = room.CurrentQuestionIndex + 1,
-                    TotalQuestions = room.Questions.Count
-                };
-
-                // Tìm đáp án đúng
-                var currentQuestion = room.Questions[room.CurrentQuestionIndex];
-                foreach (var option in currentQuestion.AnswerOptions)
-                {
-                    if (correctMap?.GetValueOrDefault(option.AnswerId, false) == true)
-                    {
-                        room.CurrentRoundResult.CorrectAnswerId = option.AnswerId;
-                        room.CurrentRoundResult.CorrectAnswerText = option.OptionText;
-                        break;
-                    }
-                }
-            }
-
-            // Cập nhật kết quả player
-            var playerResult = new OneVsOnePlayerResult
-            {
+                ConnectionId = connectionId,
+                UserId = player.UserId,
                 PlayerName = player.PlayerName,
+                QuestionId = questionId,
                 AnswerId = answerId,
                 IsCorrect = isCorrect,
                 PointsEarned = points,
-                TimeSpent = timeSpent
+                TimeSpent = timeSpent,
+                SubmittedAt = DateTime.UtcNow
             };
 
-            if (player == room.Player1)
-                room.CurrentRoundResult.Player1Result = playerResult;
-            else
-                room.CurrentRoundResult.Player2Result = playerResult;
+            room.CurrentAnswers[connectionId] = answer;
 
-            // Check xem cả 2 đã trả lời chưa
-            bool bothAnswered = room.CurrentRoundResult.Player1Result != null && 
-                               room.CurrentRoundResult.Player2Result != null;
+            // ✨ NEW: Check xem tất cả players đã trả lời chưa
+            bool allAnswered = room.Players.All(p => room.CurrentAnswers.ContainsKey(p.ConnectionId));
 
-            if (bothAnswered)
+            if (allAnswered)
             {
-                // Xác định winner của round này
-                var p1Correct = room.CurrentRoundResult.Player1Result?.IsCorrect ?? false;
-                var p2Correct = room.CurrentRoundResult.Player2Result?.IsCorrect ?? false;
-                var p1Points = room.CurrentRoundResult.Player1Result?.PointsEarned ?? 0;
-                var p2Points = room.CurrentRoundResult.Player2Result?.PointsEarned ?? 0;
-
-                if (p1Correct && !p2Correct)
-                    room.CurrentRoundResult.WinnerName = room.Player1?.PlayerName;
-                else if (!p1Correct && p2Correct)
-                    room.CurrentRoundResult.WinnerName = room.Player2?.PlayerName;
-                else if (p1Correct && p2Correct)
-                {
-                    // Cả 2 đúng → Ai nhanh hơn thắng
-                    if (p1Points > p2Points)
-                        room.CurrentRoundResult.WinnerName = room.Player1?.PlayerName;
-                    else if (p2Points > p1Points)
-                        room.CurrentRoundResult.WinnerName = room.Player2?.PlayerName;
-                    // Nếu bằng nhau thì không có winner
-                }
-
+                // Tạo round result
+                room.CurrentRoundResult = await BuildRoundResultAsync(room, correctMap);
                 room.Status = OneVsOneRoomStatus.ShowingResult;
             }
 
             await SaveRoomToRedisAsync(roomPin, room);
 
-            _logger.LogInformation($"✅ Player '{player.PlayerName}' submitted answer. Both answered: {bothAnswered}");
+            _logger.LogInformation($"✅ Player '{player.PlayerName}' submitted answer ({room.CurrentAnswers.Count}/{room.Players.Count}). All answered: {allAnswered}");
 
-            // Trả về result nếu cả 2 đã trả lời
-            return bothAnswered ? room.CurrentRoundResult : null;
+            // Trả về result nếu tất cả đã trả lời
+            return allAnswered ? room.CurrentRoundResult : null;
+        }
+
+        /// <summary>
+        /// Build round result từ CurrentAnswers - CHỈ những người đã submit
+        /// </summary>
+        private async Task<OneVsOneRoundResultDto> BuildRoundResultAsync(OneVsOneRoomDto room, Dictionary<Guid, bool>? correctMap)
+        {
+            var currentQuestion = room.Questions[room.CurrentQuestionIndex];
+            
+            // Tìm đáp án đúng
+            Guid correctAnswerId = Guid.Empty;
+            string correctAnswerText = string.Empty;
+            foreach (var option in currentQuestion.AnswerOptions)
+            {
+                if (correctMap?.GetValueOrDefault(option.AnswerId, false) == true)
+                {
+                    correctAnswerId = option.AnswerId;
+                    correctAnswerText = option.OptionText;
+                    break;
+                }
+            }
+
+            // Players chưa submit sẽ KHÔNG có trong kết quả
+            var playerResults = room.CurrentAnswers.Values
+                .OrderByDescending(a => a.PointsEarned)
+                .ThenBy(a => a.TimeSpent)
+                .Select(a => new OneVsOnePlayerResult
+                {
+                    PlayerName = a.PlayerName,
+                    AnswerId = a.AnswerId,
+                    IsCorrect = a.IsCorrect,
+                    PointsEarned = a.PointsEarned,
+                    TimeSpent = a.TimeSpent
+                })
+                .ToList();
+
+            _logger.LogInformation($"BuildRoundResult: {playerResults.Count} players submitted answers out of {room.Players.Count} total players");
+            
+            // Log chi tiết để debug
+            foreach (var r in playerResults)
+            {
+                _logger.LogInformation($"  - {r.PlayerName}: {r.PointsEarned} pts, IsCorrect: {r.IsCorrect}");
+            }
+            
+            // Log players chưa submit
+            var playersNotAnswered = room.Players
+                .Where(p => !room.CurrentAnswers.ContainsKey(p.ConnectionId))
+                .Select(p => p.PlayerName)
+                .ToList();
+            
+            if (playersNotAnswered.Any())
+            {
+                _logger.LogWarning($"Players DID NOT submit answer: {string.Join(", ", playersNotAnswered)}");
+            }
+
+            // Xác định winner (người có điểm cao nhất trong số những người đã trả lời)
+            var topResult = playerResults.FirstOrDefault();
+            string? winnerName = null;
+            if (topResult != null && topResult.PointsEarned > 0 && topResult.IsCorrect)
+            {
+                // Nếu có nhiều người cùng điểm cao nhất thì không có winner
+                var topPoints = topResult.PointsEarned;
+                var topCount = playerResults.Count(r => r.PointsEarned == topPoints);
+                winnerName = topCount == 1 ? topResult.PlayerName : null;
+            }
+
+            var result = new OneVsOneRoundResultDto
+            {
+                QuestionId = currentQuestion.QuestionId,
+                QuestionNumber = room.CurrentQuestionIndex + 1,
+                TotalQuestions = room.Questions.Count,
+                CorrectAnswerId = correctAnswerId,
+                CorrectAnswerText = correctAnswerText,
+                PlayerResults = playerResults, 
+                WinnerName = winnerName
+            };
+
+            // Backward compatibility
+            result.Player1Result = playerResults.FirstOrDefault(r => r.PlayerName == room.Player1?.PlayerName);
+            result.Player2Result = playerResults.FirstOrDefault(r => r.PlayerName == room.Player2?.PlayerName);
+
+            return result;
         }
 
         // ==================== NEXT QUESTION ====================
@@ -520,6 +648,7 @@ namespace BusinessLogic.Services
             room.Status = OneVsOneRoomStatus.InProgress;
             room.QuestionStartedAt = DateTime.UtcNow;
             room.CurrentRoundResult = null;
+            room.CurrentAnswers.Clear();
 
             await SaveRoomToRedisAsync(roomPin, room);
 
@@ -549,7 +678,7 @@ namespace BusinessLogic.Services
 
         // ==================== RESULT MANAGEMENT ====================
         /// <summary>
-        /// Lấy kết quả round hiện tại (kể cả khi chưa đủ 2 người trả lời)
+        /// Lấy kết quả round hiện tại (kể cả khi chưa đủ người trả lời)
         /// </summary>
         public async Task<OneVsOneRoundResultDto?> GetCurrentRoundResultAsync(string roomPin)
         {
@@ -557,37 +686,44 @@ namespace BusinessLogic.Services
             if (room == null)
                 return null;
 
-            if (room.CurrentRoundResult == null)
+            // Nếu đã có result thì return luôn
+            if (room.CurrentRoundResult != null)
+                return room.CurrentRoundResult;
+
+            // Nếu có người đã trả lời thì build result từ CurrentAnswers
+            if (room.CurrentAnswers.Count > 0)
             {
-                // Nếu chưa có result, tạo một result rỗng với thông tin câu hỏi
-                if (room.CurrentQuestionIndex >= room.Questions.Count)
-                    return null;
-
-                var currentQuestion = room.Questions[room.CurrentQuestionIndex];
                 var correctMap = await GetCorrectAnswersFromRedisAsync(roomPin);
-
-                var result = new OneVsOneRoundResultDto
-                {
-                    QuestionId = currentQuestion.QuestionId,
-                    QuestionNumber = room.CurrentQuestionIndex + 1,
-                    TotalQuestions = room.Questions.Count
-                };
-
-                // Tìm đáp án đúng
-                foreach (var option in currentQuestion.AnswerOptions)
-                {
-                    if (correctMap?.GetValueOrDefault(option.AnswerId, false) == true)
-                    {
-                        result.CorrectAnswerId = option.AnswerId;
-                        result.CorrectAnswerText = option.OptionText;
-                        break;
-                    }
-                }
-
-                return result;
+                return await BuildRoundResultAsync(room, correctMap);
             }
 
-            return room.CurrentRoundResult;
+            // Nếu chưa có ai trả lời, tạo result rỗng với thông tin câu hỏi
+            if (room.CurrentQuestionIndex >= room.Questions.Count)
+                return null;
+
+            var currentQuestion = room.Questions[room.CurrentQuestionIndex];
+            var correctMapEmpty = await GetCorrectAnswersFromRedisAsync(roomPin);
+
+            var result = new OneVsOneRoundResultDto
+            {
+                QuestionId = currentQuestion.QuestionId,
+                QuestionNumber = room.CurrentQuestionIndex + 1,
+                TotalQuestions = room.Questions.Count,
+                PlayerResults = new List<OneVsOnePlayerResult>()
+            };
+
+            // Tìm đáp án đúng
+            foreach (var option in currentQuestion.AnswerOptions)
+            {
+                if (correctMapEmpty?.GetValueOrDefault(option.AnswerId, false) == true)
+                {
+                    result.CorrectAnswerId = option.AnswerId;
+                    result.CorrectAnswerText = option.OptionText;
+                    break;
+                }
+            }
+
+            return result;
         }
 
         /// <summary>
@@ -626,22 +762,32 @@ namespace BusinessLogic.Services
             if (room.Status != OneVsOneRoomStatus.Completed)
                 return null;
 
-            OneVsOnePlayerDto? winner = null;
-            if (room.Player1 != null && room.Player2 != null)
+            // ✨ NEW: Rankings sorted by score descending
+            var rankings = room.Players
+                .OrderByDescending(p => p.Score)
+                .ThenByDescending(p => p.CorrectAnswers)
+                .ThenBy(p => p.JoinedAt)
+                .ToList();
+
+            var winner = rankings.FirstOrDefault();
+            
+            // Nếu có nhiều người cùng điểm cao nhất thì không có winner
+            if (winner != null && rankings.Count(p => p.Score == winner.Score) > 1)
             {
-                if (room.Player1.Score > room.Player2.Score)
-                    winner = room.Player1;
-                else if (room.Player2.Score > room.Player1.Score)
-                    winner = room.Player2;
-                // Nếu bằng nhau thì winner = null
+                winner = null;
             }
 
             return new OneVsOneFinalResultDto
             {
                 RoomPin = roomPin,
+                Mode = room.Mode,
+                Rankings = rankings,
                 Winner = winner,
+                
+                // Backward compatibility
                 Player1 = room.Player1,
                 Player2 = room.Player2,
+                
                 TotalQuestions = room.Questions.Count,
                 CompletedAt = DateTime.UtcNow
             };

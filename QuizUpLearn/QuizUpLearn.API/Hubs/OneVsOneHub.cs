@@ -2,14 +2,16 @@ using BusinessLogic.DTOs;
 using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.SignalR;
 using Repository.Entities;
+using Repository.Enums;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
 namespace QuizUpLearn.API.Hubs
 {
     /// <summary>
-    /// SignalR Hub cho game 1vs1
-    /// Flow: Player1 tạo phòng → Player2 join → Start → Questions → Instant Results → Next → Final Result
+    /// SignalR Hub cho game 1vs1 và Multiplayer
+    /// Flow: Player1 tạo phòng → Players join → Start → Questions → Instant Results → Next → Final Result
+    /// Hỗ trợ: OneVsOne (2 players) và Multiplayer (unlimited)
     /// </summary>
     public class OneVsOneHub : Hub
     {
@@ -104,8 +106,12 @@ namespace QuizUpLearn.API.Hubs
             }
         }
 
-        // ==================== PLAYER2 JOINS ROOM ====================
-        public async Task Player2Join(string roomPin, string playerName)
+        // ==================== PLAYERS JOIN ROOM ====================
+        /// <summary>
+        /// Player join vào phòng (Player2, Player3, Player4, ...)
+        /// Dùng chung cho cả 1vs1 và Multiplayer
+        /// </summary>
+        public async Task PlayerJoin(string roomPin, string playerName)
         {
             try
             {
@@ -128,25 +134,31 @@ namespace QuizUpLearn.API.Hubs
 
                 // Add vào SignalR Group
                 await Groups.AddToGroupAsync(Context.ConnectionId, $"Room_{roomPin}");
-                _logger.LogInformation($"Player2 '{playerName}' joined room {roomPin}");
+                
+                var room = await _gameService.GetRoomAsync(roomPin);
+                _logger.LogInformation($"Player '{playerName}' joined room {roomPin} ({room?.Players.Count ?? 0} players total)");
 
-                // Gửi xác nhận cho Player2
-                await Clients.Caller.SendAsync("Player2Joined", new
+                // Gửi xác nhận cho player vừa join
+                await Clients.Caller.SendAsync("PlayerJoined", new
                 {
                     RoomPin = roomPin,
                     PlayerName = playerName,
                     Message = "Successfully joined the room"
                 });
 
-                // Thông báo cho cả 2 người
-                await Clients.Group($"Room_{roomPin}").SendAsync("PlayerJoined", player);
+                // Thông báo cho tất cả trong room
+                await Clients.Group($"Room_{roomPin}").SendAsync("PlayerJoinedRoom", new
+                {
+                    PlayerName = playerName,
+                    Timestamp = DateTime.UtcNow
+                });
 
                 // Gửi room info cập nhật
                 await NotifyRoomStateChangedAsync(roomPin);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error in Player2Join for room {roomPin}");
+                _logger.LogError(ex, $"Error in PlayerJoin for room {roomPin}");
                 await Clients.Caller.SendAsync("Error", "An error occurred while joining the room");
             }
         }
@@ -212,17 +224,24 @@ namespace QuizUpLearn.API.Hubs
                 
                 if (result == null)
                 {
+                    // Chưa đủ người trả lời
+                    var room = await _gameService.GetRoomAsync(roomPin);
+                    var answeredCount = room?.CurrentAnswers.Count ?? 0;
+                    var totalPlayers = room?.Players.Count ?? 0;
+                    
                     await Clients.Caller.SendAsync("AnswerSubmitted", new
                     {
                         QuestionId = questionGuid,
                         AnswerId = answerGuid,
-                        Message = "Waiting for opponent...",
+                        Message = $"Waiting for other players... ({answeredCount}/{totalPlayers})",
+                        AnsweredCount = answeredCount,
+                        TotalPlayers = totalPlayers,
                         Timestamp = DateTime.UtcNow
                     });
                     return;
                 }
 
-                _logger.LogInformation($"✅ Both players answered in room {roomPin}, showing result");
+                _logger.LogInformation($"✅ All players answered in room {roomPin}, showing result");
 
                 await Clients.Group($"Room_{roomPin}").SendAsync("ShowRoundResult", result);
                 _logger.LogInformation($"✅ ShowRoundResult sent to all players in room {roomPin}");
@@ -231,14 +250,14 @@ namespace QuizUpLearn.API.Hubs
                 {
                     QuestionId = questionGuid,
                     AnswerId = answerGuid,
-                    Message = "Both players answered!",
+                    Message = "All players answered!",
                     Result = result,
                     Timestamp = DateTime.UtcNow
                 });
 
 
 
-                // ✨ Tự động chuyển câu hỏi sau 5 giây
+                // Tự động chuyển câu hỏi sau 5 giây
                 _logger.LogInformation($"🔄 Starting AutoNextQuestionAsync for room {roomPin} (will execute in 5 seconds)");
                 
                 _ = AutoNextQuestionAsync(roomPin);
@@ -260,7 +279,7 @@ namespace QuizUpLearn.API.Hubs
             {
                 _logger.LogInformation($"🔄 AutoNextQuestionAsync started for room {roomPin} - Waiting 5 seconds...");
                 
-                // Đợi 5 giây trước khi chuyển câu hỏi
+                // 5 giây trước khi chuyển câu hỏi
                 await Task.Delay(5000);
 
                 _logger.LogInformation($"🔄 AutoNextQuestionAsync: 5s delay completed, calling NextQuestionAsync for room {roomPin}");
@@ -418,7 +437,7 @@ namespace QuizUpLearn.API.Hubs
         }
 
         /// <summary>
-        /// **HÀM MỚI:** Gửi thông báo cập nhật trạng thái phòng cho cả group.
+        /// Gửi thông báo cập nhật trạng thái phòng cho cả group (hỗ trợ cả 1vs1 và Multiplayer)
         /// </summary>
         private async Task NotifyRoomStateChangedAsync(string roomPin)
         {
@@ -429,10 +448,24 @@ namespace QuizUpLearn.API.Hubs
                 return;
             }
 
-            // 1. Gửi RoomUpdated
+            // 1. Gửi RoomUpdated với danh sách tất cả players
             await Clients.Group($"Room_{roomPin}").SendAsync("RoomUpdated", new
             {
                 Status = room.Status.ToString(),
+                Mode = room.Mode.ToString(),
+                MaxPlayers = room.MaxPlayers,
+                CurrentPlayers = room.Players.Count,
+                
+                // ✨ NEW: Universal Players list
+                Players = room.Players.Select(p => new
+                {
+                    PlayerName = p.PlayerName,
+                    Score = p.Score,
+                    IsReady = p.IsReady,
+                    IsHost = p.UserId == room.Player1?.UserId
+                }).ToList(),
+                
+                // Backward compatibility
                 Player1 = room.Player1 != null ? new
                 {
                     PlayerName = room.Player1.PlayerName,
@@ -448,22 +481,24 @@ namespace QuizUpLearn.API.Hubs
             });
 
             // 2. Nếu đã sẵn sàng, gửi RoomReady
-            if (room.Status == OneVsOneRoomStatus.Ready && room.Player1 != null && room.Player2 != null)
+            if (room.Status == OneVsOneRoomStatus.Ready)
             {
+                var message = room.Mode == GameModeEnum.OneVsOne 
+                    ? "Both players are ready. You can start the game now."
+                    : $"{room.Players.Count} players ready. Game can start now.";
+
                 await Clients.Group($"Room_{roomPin}").SendAsync("RoomReady", new
                 {
                     RoomPin = roomPin,
-                    Player1 = new
+                    Mode = room.Mode.ToString(),
+                    PlayerCount = room.Players.Count,
+                    Players = room.Players.Select(p => new
                     {
-                        PlayerName = room.Player1.PlayerName,
-                        Score = room.Player1.Score
-                    },
-                    Player2 = new
-                    {
-                        PlayerName = room.Player2.PlayerName,
-                        Score = room.Player2.Score
-                    },
-                    Message = "Both players are ready. You can start the game now.",
+                        PlayerName = p.PlayerName,
+                        Score = p.Score,
+                        IsHost = p.UserId == room.Player1?.UserId
+                    }).ToList(),
+                    Message = message,
                     Timestamp = DateTime.UtcNow
                 });
             }

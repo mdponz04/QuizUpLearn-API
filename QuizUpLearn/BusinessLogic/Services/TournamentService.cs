@@ -119,13 +119,37 @@ namespace BusinessLogic.Services
 			var sets = await _tournamentQuizSetRepo.GetForDateAsync(tournamentId, today);
 			var active = sets.FirstOrDefault(x => x.IsActive) ?? sets.FirstOrDefault();
 			if (active == null) return null;
+			var startOfDay = today;
+			var endOfDay = today.AddDays(1).AddTicks(-1);
 			return new TournamentTodaySetDto
 			{
 				TournamentId = tournamentId,
-				Date = today,
+				StartDate = startOfDay,
+				EndDate = endOfDay,
 				QuizSetId = active.QuizSetId,
 				DayNumber = active.DateNumber
 			};
+		}
+
+		public async Task<IEnumerable<TournamentQuizSetItemDto>> GetQuizSetsAsync(Guid tournamentId)
+		{
+			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId) ?? throw new ArgumentException("Tournament not found");
+			if (tournament.Status != "Created")
+			{
+				throw new ArgumentException($"Chỉ có thể xem quiz set khi tournament đang ở trạng thái 'Created'. Trạng thái hiện tại: {tournament.Status}");
+			}
+
+			var items = await _tournamentQuizSetRepo.GetByTournamentAsync(tournamentId);
+			return items.OrderBy(x => x.DateNumber)
+				.Select(x => new TournamentQuizSetItemDto
+				{
+					Id = x.Id,
+					TournamentId = x.TournamentId,
+					QuizSetId = x.QuizSetId,
+					UnlockDate = x.UnlockDate,
+					IsActive = x.IsActive,
+					DayNumber = x.DateNumber
+				});
 		}
 
 		public async Task<bool> DeleteAsync(Guid tournamentId)
@@ -184,10 +208,17 @@ namespace BusinessLogic.Services
 				throw new ArgumentException("Không còn ngày nào trong tháng để thêm quiz set");
 			}
 
-			// Kiểm tra số quiz sets muốn add không được vượt quá số ngày còn lại
-			if (validIds.Count > days)
+			// Kiểm tra số quiz sets phải bằng đúng số ngày còn lại
+			if (validIds.Count != days)
 			{
-				throw new ArgumentException($"Chỉ có thể thêm được tối đa {days} quiz set(s) (số ngày còn lại trong tháng từ ngày tạo tournament đến cuối tháng). Bạn đang cố thêm {validIds.Count} quiz set(s).");
+				if (validIds.Count > days)
+				{
+					throw new ArgumentException($"Chỉ có thể thêm được tối đa {days} quiz set(s) (số ngày còn lại trong tháng từ ngày tạo tournament đến cuối tháng). Bạn đang cố thêm {validIds.Count} quiz set(s).");
+				}
+				else
+				{
+					throw new ArgumentException($"Cần truyền đúng {days} quiz set(s) tương ứng số ngày còn lại trong tháng (từ ngày tạo tournament đến cuối tháng). Bạn hiện chỉ truyền {validIds.Count} quiz set(s).");
+				}
 			}
 
 			// Xóa các quiz sets cũ nếu có (để add lại từ đầu)
@@ -197,24 +228,13 @@ namespace BusinessLogic.Services
 			var rnd = new Random();
 			var shuffled = validIds.OrderBy(_ => rnd.Next()).ToList();
 
-			// Nếu thiếu so với số ngày, lặp lại để đủ; nếu đủ thì dùng hết
-			var expanded = new List<Guid>();
-			while (expanded.Count < days)
-			{
-				foreach (var q in shuffled)
-				{
-					if (expanded.Count >= days) break;
-					expanded.Add(q);
-				}
-			}
-
 			var items = new List<TournamentQuizSet>();
 			for (int i = 0; i < days; i++)
 			{
 				items.Add(new TournamentQuizSet
 				{
 					TournamentId = tournament.Id,
-					QuizSetId = expanded[i],
+					QuizSetId = shuffled[i],
 					UnlockDate = startDate.AddDays(i + 1),
 					IsActive = false,
 					DateNumber = i + 1,
@@ -222,6 +242,20 @@ namespace BusinessLogic.Services
 				});
 			}
 			await _tournamentQuizSetRepo.AddRangeAsync(items);
+		}
+
+		public async Task<IEnumerable<TournamentResponseDto>> GetAllAsync(bool includeDeleted = false)
+		{
+			var tournaments = await _tournamentRepo.GetAllAsync(includeDeleted);
+			var result = new List<TournamentResponseDto>();
+			
+			foreach (var t in tournaments)
+			{
+				var quizSets = await _tournamentQuizSetRepo.GetByTournamentAsync(t.Id);
+				result.Add(MapResponse(t, quizSets.Count()));
+			}
+			
+			return result;
 		}
 
 		private static TournamentResponseDto MapResponse(Tournament t, int totalQuizSets)
