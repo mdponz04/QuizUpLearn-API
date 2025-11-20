@@ -1,4 +1,5 @@
-﻿using BusinessLogic.Interfaces;
+﻿using BusinessLogic.DTOs;
+using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QuizUpLearn.API.Models;
@@ -22,11 +23,11 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost("purchase")]
-        public async Task<IActionResult> StartBuyingSubscription(Guid userId, Guid planId)
+        public async Task<IActionResult> StartBuyingSubscription([FromBody] BuySubscriptionRequestDtos dto)
         {
             try
             {
-                var result = await _buySubscriptionService.StartSubscriptionPurchaseAsync(userId, planId);
+                var result = await _buySubscriptionService.StartSubscriptionPurchaseAsync(dto);
                 return Ok(new ApiResponse<object>
                 {
                     Success = true,
@@ -36,7 +37,7 @@ namespace QuizUpLearn.API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error starting subscription purchase for plan {PlanId}", planId);
+                _logger.LogError(ex, "Error starting subscription purchase for plan {PlanId}", dto.planId);
                 return BadRequest(new ApiResponse<object>
                 {
                     Success = false,
@@ -46,7 +47,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost("payment-success")]
-        public async Task<IActionResult> PaymentSuccess(long orderCode)
+        public async Task<IActionResult> PaymentSuccess([FromQuery] long orderCode)
         {
             try
             {
@@ -69,7 +70,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost("payment-cancel")]
-        public async Task<IActionResult> PaymentCancel(long orderCode)
+        public async Task<IActionResult> PaymentCancel([FromQuery] long orderCode)
         {
             try
             {

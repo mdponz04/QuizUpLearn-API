@@ -21,20 +21,23 @@ namespace BusinessLogic.Services
             _payOS = new PayOS(clientId, apiKey, checksumKey);
         }
 
-        public async Task<CreatePaymentResult?> CreatePaymentLinkAsync(int amount, string description, List<ItemData> items)
+        public async Task<CreatePaymentResult?> CreatePaymentLinkAsync(int amount, string description, List<ItemData> items, string? successUrl, string? cancelUrl)
         {
-            items = items ?? new List<ItemData>();
+            successUrl = successUrl ?? "https://www.google.com";
+            cancelUrl = cancelUrl ?? "https://www.youtube.com";
 
+            items = items ?? new List<ItemData>();
+            long orderCode = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             CreatePaymentResult? paymentLink;
             try
             {
-                var paymentData = new PaymentData(
-                    DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                var paymentData = new PaymentData (
+                    orderCode,
                     amount,
                     description,
                     items,
-                    "/payment/success",
-                    "/payment/cancel"
+                    cancelUrl!,
+                    successUrl!
                 );
 
                 paymentLink = await _payOS.createPaymentLink(paymentData);
@@ -57,9 +60,6 @@ namespace BusinessLogic.Services
         {
             return await _payOS.getPaymentLinkInformation(orderCode);
         }
-        public async Task<string> ConfirmWebhookUrl(string webhookUrl)
-        {
-            return await _payOS.confirmWebhook(webhookUrl);
-        }
+        
     }
 }

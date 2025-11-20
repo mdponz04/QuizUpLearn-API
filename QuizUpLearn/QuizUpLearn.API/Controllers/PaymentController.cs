@@ -14,9 +14,9 @@ namespace QuizUpLearn.API.Controllers
             _paymentService = paymentService;
         }
         [HttpPost("create-payment")]
-        public async Task<IActionResult> CreatePayment(int amount, string description)
+        public async Task<IActionResult> CreatePayment(int amount, string description, string successUrl, string cancelUrl)
         {
-            var paymentResult = await _paymentService.CreatePaymentLinkAsync(amount, description, null!);
+            var paymentResult = await _paymentService.CreatePaymentLinkAsync(amount, description, null!, successUrl, cancelUrl);
             if (paymentResult != null)
             {
                 return Ok(paymentResult);
@@ -42,16 +42,6 @@ namespace QuizUpLearn.API.Controllers
                 return Ok(paymentInfo);
             }
             return NotFound("Payment request not found");
-        }
-        [HttpPost("confirm-webhook")]
-        public async Task<IActionResult> ConfirmWebhook(string webhookUrl)
-        {
-            var confirmResult = await _paymentService.ConfirmWebhookUrl(webhookUrl);
-            if (confirmResult != null)
-            {
-                return Ok(confirmResult);
-            }
-            return StatusCode(500, "Webhook confirmation failed");
         }
     }
 }

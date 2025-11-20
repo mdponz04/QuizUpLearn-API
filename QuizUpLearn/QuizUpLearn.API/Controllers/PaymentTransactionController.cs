@@ -31,7 +31,13 @@ namespace QuizUpLearn.API.Controllers
             if (result == null) return NotFound();
             return Ok(result);
         }
-
+        [HttpGet("by-ordercode/{orderCode:long}")]
+        public async Task<ActionResult<ResponsePaymentTransactionDto>> GetByOrderCode(long orderCode)
+        {
+            var result = await _service.GetByPaymentGatewayTransactionOrderCodeAsync(orderCode.ToString());
+            if (result == null) return NotFound();
+            return Ok(result);
+        }
         [HttpPost]
         public async Task<ActionResult<ResponsePaymentTransactionDto>> Create([FromBody] RequestPaymentTransactionDto dto)
         {
