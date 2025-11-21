@@ -356,6 +356,7 @@ namespace BusinessLogic.Services
             int reaPoint = ConvertToTOEICScore(correctReaCount, isListening: false);
 
             // Cập nhật QuizAttempt
+            attempt.AttemptType = "placement";
             attempt.CorrectAnswers = correctLisCount + correctReaCount;
             attempt.WrongAnswers = attempt.TotalQuestions - attempt.CorrectAnswers;
             attempt.Score = lisPoint + reaPoint;
