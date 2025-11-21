@@ -2,7 +2,6 @@
 using BusinessLogic.DTOs.QuizSetDtos;
 using BusinessLogic.Helpers;
 using BusinessLogic.Interfaces;
-using BusinessLogic.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using QuizUpLearn.API.Hubs;
@@ -119,7 +118,7 @@ namespace QuizUpLearn.API.Controllers
                         QuizSetId = quizSetId
                     });
 
-                    /*var validateResult = await aiService.ValidateQuizSetAsync(quizSetId);
+                    var validateResult = await aiService.ValidateQuizSetAsync(quizSetId);
 
                     if (!validateResult.Item1)
                     {
@@ -142,8 +141,8 @@ namespace QuizUpLearn.API.Controllers
                             Status = "Completed",
                             QuizSetId = quizSetId
                         });
-                    }*/
-                    await subscriptionService.CalculateRemainingUsageByUserId(inputData.CreatorId, inputData.QuestionQuantity);
+                    }
+                    /*await subscriptionService.CalculateRemainingUsageByUserId(inputData.CreatorId, inputData.QuestionQuantity);
 
                     await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
                     {
@@ -151,7 +150,7 @@ namespace QuizUpLearn.API.Controllers
                         Result = result,
                         Status = "Completed",
                         QuizSetId = quizSetId
-                    });
+                    });*/
                 }
                 catch (Exception ex)
                 {
