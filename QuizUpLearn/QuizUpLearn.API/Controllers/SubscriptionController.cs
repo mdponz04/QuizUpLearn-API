@@ -16,7 +16,7 @@ namespace QuizUpLearn.API.Controllers
             _service = service;
         }
 
-        [HttpGet()]
+        [HttpGet]
         public async Task<ActionResult<PaginationResponseDto<ResponseSubscriptionDto>>> GetPaged([FromQuery] PaginationRequestDto pagination)
         {
             var result = await _service.GetAllAsync(pagination);
@@ -27,6 +27,14 @@ namespace QuizUpLearn.API.Controllers
         public async Task<ActionResult<ResponseSubscriptionDto>> GetById(Guid id)
         {
             var result = await _service.GetByIdAsync(id);
+            if (result == null) return NotFound();
+            return Ok(result);
+        }
+
+        [HttpGet("user/{userId:guid}")]
+        public async Task<ActionResult<ResponseSubscriptionDto>> GetByUserId(Guid userId)
+        {
+            var result = await _service.GetByUserIdAsync(userId);
             if (result == null) return NotFound();
             return Ok(result);
         }

@@ -36,7 +36,8 @@ namespace BusinessLogic.Services
                 SubscriptionPlanId = transaction.SubscriptionPlanId,
                 Amount = transaction.Amount,
                 PaymentGatewayTransactionId = transaction.PaymentGatewayTransactionId,
-                Status = Repository.Enums.TransactionStatusEnum.Failed
+                Status = Repository.Enums.TransactionStatusEnum.Failed,
+                CompletedDate = DateTime.UtcNow
             });
         }
 
@@ -65,6 +66,16 @@ namespace BusinessLogic.Services
                 throw new Exception("Subscription plan not found");
             
             var subscription = await _subscriptionService.GetByUserIdAsync(transaction.UserId);
+
+            // Calculate end date based on previous end date
+            DateTime? startDate = DateTime.UtcNow;
+            if(subscription != null 
+                && subscription.EndDate != null
+                && subscription.EndDate > DateTime.UtcNow)
+            {
+                startDate = subscription.EndDate;
+            }
+
             // If subscription does not exist, create a new one
             if (subscription == null)
             {
@@ -73,17 +84,18 @@ namespace BusinessLogic.Services
                     UserId = transaction.UserId,
                     SubscriptionPlanId = plan.Id,
                     AiGenerateQuizSetRemaining = plan.AiGenerateQuizSetMaxTimes,
-                    EndDate = DateTime.UtcNow.AddDays(plan.DurationDays)
+                    EndDate = startDate.Value.AddDays(plan.DurationDays)
                 });
-                return;
             }
-
-            await _subscriptionService.UpdateAsync(subscription.Id ,new RequestSubscriptionDto
+            else
             {
-                SubscriptionPlanId = transaction.SubscriptionPlanId,
-                AiGenerateQuizSetRemaining = plan.AiGenerateQuizSetMaxTimes,
-                EndDate = DateTime.UtcNow.AddDays(plan.DurationDays)
-            });
+                await _subscriptionService.UpdateAsync(subscription.Id, new RequestSubscriptionDto
+                {
+                    SubscriptionPlanId = transaction.SubscriptionPlanId,
+                    AiGenerateQuizSetRemaining = plan.AiGenerateQuizSetMaxTimes,
+                    EndDate = startDate.Value.AddDays(plan.DurationDays)
+                });
+            }
         }
 
         public async Task<(long, string)> StartSubscriptionPurchaseAsync(BuySubscriptionRequestDtos dto)
@@ -95,7 +107,7 @@ namespace BusinessLogic.Services
 
             var items = new List<ItemData>
             {
-                new ItemData(plan.Name, (int)plan.Price, 1)
+                new ItemData(plan.Name, 1, (int)plan.Price)
             };
 
             var paymentInfo = await _paymentService.CreatePaymentLinkAsync((int) plan.Price, $"QUL sub {plan.Name}", items, dto.successUrl, dto.cancelUrl);

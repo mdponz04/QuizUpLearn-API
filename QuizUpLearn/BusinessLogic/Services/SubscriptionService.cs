@@ -1,8 +1,8 @@
 ﻿using AutoMapper;
-using BusinessLogic.DTOs.SubscriptionDtos;
 using BusinessLogic.DTOs;
-using BusinessLogic.Interfaces;
+using BusinessLogic.DTOs.SubscriptionDtos;
 using BusinessLogic.Extensions;
+using BusinessLogic.Interfaces;
 using Repository.Entities;
 using Repository.Interfaces;
 
@@ -58,6 +58,12 @@ namespace BusinessLogic.Services
         public async Task<ResponseSubscriptionDto?> GetByUserIdAsync(Guid userId)
         {
             var entity = await _repo.GetByUserIdAsync(userId);
+            return entity == null ? null : _mapper.Map<ResponseSubscriptionDto>(entity);
+        }
+
+        public async Task<ResponseSubscriptionDto?> CalculateRemainingUsageByUserId(Guid userId, int usedQuantity)
+        {
+            var entity = await _repo.CalculateRemainingUsageByUserId(userId, usedQuantity);
             return entity == null ? null : _mapper.Map<ResponseSubscriptionDto>(entity);
         }
     }

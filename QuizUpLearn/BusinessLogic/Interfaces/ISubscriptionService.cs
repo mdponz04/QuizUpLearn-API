@@ -10,6 +10,7 @@ namespace BusinessLogic.Interfaces
         Task<ResponseSubscriptionDto?> GetByIdAsync(Guid id);
         Task<ResponseSubscriptionDto> CreateAsync(RequestSubscriptionDto dto);
         Task<ResponseSubscriptionDto?> UpdateAsync(Guid id, RequestSubscriptionDto dto);
+        Task<ResponseSubscriptionDto?> CalculateRemainingUsageByUserId(Guid userId, int usedQuantity);
         Task<bool> DeleteAsync(Guid id);
     }
 }

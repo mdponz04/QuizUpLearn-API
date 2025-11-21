@@ -2,6 +2,7 @@
 using BusinessLogic.DTOs.QuizSetDtos;
 using BusinessLogic.Helpers;
 using BusinessLogic.Interfaces;
+using BusinessLogic.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using QuizUpLearn.API.Hubs;
@@ -23,12 +24,7 @@ namespace QuizUpLearn.API.Controllers
             _workerService = workerService;
             _quizSetService = quizSetService;
         }
-        /// <summary>
-        /// This endpoint validates an existing quiz set by its ID.
-        /// </summary>
-        /// <param name="quizSetId"></param>
-        /// <returns></returns>
-        [HttpGet("validate-quiz-set/{quizSetId}")]
+        [HttpPost("validate-quiz-set/{quizSetId}")]
         public async Task<IActionResult> ValidateQuizSet(Guid quizSetId)
         {
             if (quizSetId == Guid.Empty)
@@ -46,51 +42,78 @@ namespace QuizUpLearn.API.Controllers
             }
         }
         /// <summary>
-        /// This is background job endpoint. It will return data to JobCompleted & JobFailed events in SignalR hub.
-        /// Choose quiz part to generate quiz set for this part.
+        /// Quiz Type: 0 = Practice, 1 = Placement, 2 = Tournament, 3 = Event
+        /// Quiz Part: 1 -> 7
         /// </summary>
         /// <param name="inputData"></param>
         /// <returns></returns>
         [HttpPost("generate-quiz-set")]
-        public async Task<IActionResult> GeneratePracticeQuizSet([FromBody] AiGenerateQuizSetRequestDto inputData, QuizPartEnums quizPart)
+        public async Task<IActionResult> GeneratePracticeQuizSet([FromBody] AiGenerateQuizSetRequestDto inputData, QuizPartEnums quizPart, QuizSetTypeEnum quizType)
         {
             if (inputData == null)
             {
                 return BadRequest("Prompt cannot be empty.");
             }
+
             // Create a new quiz set first to hold the generated quizzes
             var jobId = Guid.NewGuid();
             var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
             {
                 Title = inputData.Topic,
                 Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC {quizPart.ToString()}",
-                QuizSetType = QuizSetTypeEnum.Practice,
+                QuizSetType = quizType,
                 DifficultyLevel = inputData.Difficulty,
                 CreatedBy = inputData.CreatorId,
+                IsAIGenerated = true
             });
             var quizSetId = createdQuizSet.Id;
 
+            /*switch (quizPart)
+            {
+                case QuizPartEnums.PART1:
+                    await _aiService.GeneratePracticeQuizSetPart1Async(inputData, quizSetId);
+                    break;
+                case QuizPartEnums.PART2:
+                    await _aiService.GeneratePracticeQuizSetPart2Async(inputData, quizSetId);
+                    break;
+                case QuizPartEnums.PART3:
+                    await _aiService.GeneratePracticeQuizSetPart3Async(inputData, quizSetId);
+                    break;
+                case QuizPartEnums.PART4:
+                    await _aiService.GeneratePracticeQuizSetPart4Async(inputData, quizSetId);
+                    break;
+                case QuizPartEnums.PART5:
+                    await _aiService.GeneratePracticeQuizSetPart5Async(inputData, quizSetId);
+                    break;
+                case QuizPartEnums.PART6:
+                    await _aiService.GeneratePracticeQuizSetPart6Async(inputData, quizSetId);
+                    break;
+                case QuizPartEnums.PART7:
+                    await _aiService.GeneratePracticeQuizSetPart7Async(inputData, quizSetId);
+                    break;
+            }*/
+
             _ = _workerService.EnqueueJob(async (sp, token) =>
             {
+                var subscriptionService = sp.GetRequiredService<ISubscriptionService>();
                 var aiService = sp.GetRequiredService<IAIService>();
                 var hubContext = sp.GetRequiredService<IHubContext<BackgroundJobHub>>();
                 
                 try
                 {
                     var result = false;
-                    
-                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobFailed", new
+
+                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobStarted", new
                     {
                         JobId = jobId,
                         Result = "",
                         Status = "Processing",
                         QuizSetId = quizSetId
                     });
-
+                    //generate quiz set
                     switch (quizPart)
                     {
                         case QuizPartEnums.PART1:
-
                             result = await aiService.GeneratePracticeQuizSetPart1Async(inputData, quizSetId);
                             break;
                         case QuizPartEnums.PART2:
@@ -113,10 +136,10 @@ namespace QuizUpLearn.API.Controllers
                             break;
                     }
 
-                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
+                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobValidating", new
                     {
                         JobId = jobId,
-                        Result = "",
+                        Result = "Validating",
                         Status = "Validating",
                         QuizSetId = quizSetId
                     });
@@ -135,14 +158,17 @@ namespace QuizUpLearn.API.Controllers
                     }
                     else
                     {
+                        await subscriptionService.CalculateRemainingUsageByUserId(inputData.CreatorId, inputData.QuestionQuantity);
+
                         await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
                         {
                             JobId = jobId,
-                            Result = result,
+                            Result = "Completed",
                             Status = "Completed",
                             QuizSetId = quizSetId
                         });
                     }*/
+                    await subscriptionService.CalculateRemainingUsageByUserId(inputData.CreatorId, inputData.QuestionQuantity);
 
                     await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
                     {
@@ -166,12 +192,6 @@ namespace QuizUpLearn.API.Controllers
 
             return Ok(new { JobId = jobId, Message = "Quiz set generation started in background.", Status = "Processing", QuizSetId = quizSetId });
         }
-        /// <summary>
-        /// This is background job endpoint. It will return data to JobCompleted & JobFailed events in SignalR hub.
-        /// Choose quiz part to generate quiz set for this part.
-        /// </summary>
-        /// <param name="inputData"></param>
-        /// <returns></returns>
         [HttpPost("generate-event-quiz-set")]
         public async Task<IActionResult> GenerateEventQuizSet([FromBody] AiGenerateQuizSetRequestDto inputData, QuizPartEnums quizPart)
         {
@@ -188,6 +208,7 @@ namespace QuizUpLearn.API.Controllers
                 QuizSetType = QuizSetTypeEnum.Event,
                 DifficultyLevel = inputData.Difficulty,
                 CreatedBy = inputData.CreatorId,
+                IsAIGenerated = true
             });
             var quizSetId = createdQuizSet.Id;
 
@@ -200,7 +221,7 @@ namespace QuizUpLearn.API.Controllers
                 {
                     var result = false;
 
-                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobFailed", new
+                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
                     {
                         JobId = jobId,
                         Result = "",
@@ -279,12 +300,6 @@ namespace QuizUpLearn.API.Controllers
 
             return Ok(new { JobId = jobId, Message = "Quiz set generation started in background.", Status = "Processing", QuizSetId = quizSetId });
         }
-        /// <summary>
-        /// This is background job endpoint. It will return data to JobCompleted & JobFailed events in SignalR hub.
-        /// Choose quiz part to generate quiz set for this part.
-        /// </summary>
-        /// <param name="inputData"></param>
-        /// <returns></returns>
         [HttpPost("generate-tournament-quiz-set")]
         public async Task<IActionResult> GenerateTournamentQuizSet([FromBody] AiGenerateQuizSetRequestDto inputData, QuizPartEnums quizPart)
         {
@@ -304,6 +319,7 @@ namespace QuizUpLearn.API.Controllers
                 QuizSetType = QuizSetTypeEnum.Tournament,
                 DifficultyLevel = inputData.Difficulty,
                 CreatedBy = inputData.CreatorId,
+                IsAIGenerated = true
             });
             var quizSetId = createdQuizSet.Id;
 
@@ -316,7 +332,7 @@ namespace QuizUpLearn.API.Controllers
                 {
                     var result = false;
 
-                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobFailed", new
+                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
                     {
                         JobId = jobId,
                         Result = "",

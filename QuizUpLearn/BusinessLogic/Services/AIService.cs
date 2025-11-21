@@ -62,8 +62,9 @@ namespace BusinessLogic.Services
 
         private async Task<string> GeminiGenerateContentAsync(string prompt)
         {
-            _logger.LogInformation($"Gemini api key: {_geminiApiKey}");
             var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
+            /*Console.WriteLine("Http client Gemini base address: " + _httpClient.BaseAddress);
+            Console.WriteLine("Gemini api key: " + _geminiApiKey);*/
 
             var body = new
             {
@@ -116,11 +117,9 @@ namespace BusinessLogic.Services
 
         private async Task<string?> GenerateContentAsync(string prompt)
         {
-            _logger.LogInformation($"OpenRouter api key: {_openRouterApiKey}");
             var url = "https://openrouter.ai/api/v1/chat/completions";
-
-            _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_openRouterApiKey}");   
+            /*Console.WriteLine("Http client open router base address: " + _httpClient.BaseAddress);
+            Console.WriteLine("Open router api key: " + _openRouterApiKey);*/
 
             var body = new
             {
@@ -136,9 +135,15 @@ namespace BusinessLogic.Services
             };
 
             var json = JsonSerializer.Serialize(body);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            using var content = new StringContent(json, Encoding.UTF8, "application/json");
+            // Attach the API key per request instead of modifying DefaultRequestHeaders
+            using var request = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = content
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _openRouterApiKey);
 
-            using var response = await _httpClient.PostAsync(url, content);
+            using var response = await _httpClient.SendAsync(request);
             var result = await response.Content.ReadAsStringAsync();
 
             using var doc = JsonDocument.Parse(result);

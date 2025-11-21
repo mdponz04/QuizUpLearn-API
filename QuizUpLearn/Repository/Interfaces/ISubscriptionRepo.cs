@@ -5,10 +5,11 @@ namespace Repository.Interfaces
     public interface ISubscriptionRepo
     {
         Task<IEnumerable<Subscription>> GetAllAsync();
-        Task<Subscription> GetByUserIdAsync(Guid userId);
-        Task<Subscription> GetByIdAsync(Guid id);
-        Task<Subscription> CreateAsync(Subscription subscriptionPlan);
-        Task<Subscription> UpdateAsync(Guid id, Subscription subscriptionPlan);
+        Task<Subscription?> GetByUserIdAsync(Guid userId);
+        Task<Subscription?> GetByIdAsync(Guid id);
+        Task<Subscription?> CreateAsync(Subscription subscriptionPlan);
+        Task<Subscription?> UpdateAsync(Guid id, Subscription subscriptionPlan);
+        Task<Subscription?> CalculateRemainingUsageByUserId(Guid userId, int usedQuantity);
         Task<bool> DeleteAsync(Guid id);
     }
 }

@@ -38,8 +38,6 @@ namespace Repository.Repositories
 
             if(existing.SubscriptionPlanId != subscription.SubscriptionPlanId)
                 existing.SubscriptionPlanId = subscription.SubscriptionPlanId;
-            if(existing.AiGenerateQuizSetRemaining != subscription.AiGenerateQuizSetRemaining)
-                existing.AiGenerateQuizSetRemaining = subscription.AiGenerateQuizSetRemaining;
             if(existing.EndDate != subscription.EndDate)
                 existing.EndDate = subscription.EndDate;
 
@@ -65,6 +63,21 @@ namespace Repository.Repositories
             return await _context.Subscriptions
                 .Where(s => Guid.Equals(s.UserId, userId))
                 .FirstOrDefaultAsync();
+        }
+
+        public async Task<Subscription?> CalculateRemainingUsageByUserId(Guid userId, int usedQuantity)
+        {
+            var existing = await _context.Subscriptions
+                .Where(s => Guid.Equals(s.UserId, userId))
+                .FirstOrDefaultAsync();
+
+            if (existing == null) return null;
+
+            existing.AiGenerateQuizSetRemaining -= usedQuantity;
+            existing.UpdatedAt = DateTime.UtcNow;
+            _context.Subscriptions.Update(existing);
+            await _context.SaveChangesAsync();
+            return existing;
         }
     }
 }

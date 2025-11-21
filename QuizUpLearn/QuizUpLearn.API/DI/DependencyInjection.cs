@@ -87,7 +87,7 @@ namespace QuizUpLearn.API.DI
         public static void AddServices(this IServiceCollection services)
         {
             services.AddLogging();
-            services.AddHttpClient<AIService>();
+            services.AddHttpClient<IAIService, AIService>();
 
             services.AddScoped<IRoleService, RoleService>();
             services.AddScoped<IAccountService, AccountService>();
@@ -100,7 +100,6 @@ namespace QuizUpLearn.API.DI
             services.AddScoped<IQuizAttemptService, QuizAttemptService>();
             services.AddScoped<IQuizAttemptDetailService, QuizAttemptDetailService>();
             services.AddScoped<IAnswerOptionService, AnswerOptionService>();
-            services.AddScoped<IAIService, AIService>();
             services.AddScoped<IDashboardService, DashboardService>();
             services.AddScoped<IPlacementQuizSetService, PlacementQuizSetService>();
             services.AddScoped<IUserMistakeService, UserMistakeService>();
