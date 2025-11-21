@@ -4,6 +4,7 @@ namespace BusinessLogic.DTOs
     {
         public Guid Id { get; set; }
         public string? Email { get; set; }
+        public string Username { get; set; } = string.Empty;
         public Guid UserId { get; set; }
         public Guid RoleId { get; set; }
         public bool IsEmailVerified { get; set; }
