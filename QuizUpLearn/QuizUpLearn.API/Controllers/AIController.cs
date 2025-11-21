@@ -121,7 +121,7 @@ namespace QuizUpLearn.API.Controllers
                         QuizSetId = quizSetId
                     });
 
-                    var validateResult = await aiService.ValidateQuizSetAsync(quizSetId);
+                    /*var validateResult = await aiService.ValidateQuizSetAsync(quizSetId);
 
                     if (!validateResult.Item1)
                     {
@@ -142,7 +142,15 @@ namespace QuizUpLearn.API.Controllers
                             Status = "Completed",
                             QuizSetId = quizSetId
                         });
-                    }
+                    }*/
+
+                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
+                    {
+                        JobId = jobId,
+                        Result = result,
+                        Status = "Completed",
+                        QuizSetId = quizSetId
+                    });
                 }
                 catch (Exception ex)
                 {
