@@ -115,7 +115,7 @@ namespace BusinessLogic.Services
             }
         }
 
-        private async Task<string?> GenerateContentAsync(string prompt)
+        private async Task<string?> OpenRouterGenerateContentAsync(string prompt)
         {
             var url = "https://openrouter.ai/api/v1/chat/completions";
             /*Console.WriteLine("Http client open router base address: " + _httpClient.BaseAddress);
@@ -123,7 +123,7 @@ namespace BusinessLogic.Services
 
             var body = new
             {
-                model = "meta-llama/llama-4-maverick:free",
+                model = "x-ai/grok-4.1-fast",
                 messages = new[]
                 {
                     new 
@@ -345,7 +345,7 @@ Return only these 2 fields as JSON structure:
     ""Feedback"": "".....""
 }}
 ";
-                var response = await GenerateContentAsync(validationPrompt);
+                var response = await OpenRouterGenerateContentAsync(validationPrompt);
                 
                 var validation = JsonSerializer.Deserialize<AiValidationResponseDto>(response ?? string.Empty);
 
