@@ -59,11 +59,20 @@ namespace BusinessLogic.MappingProfile
             // QuizGroupItem Mappings
             CreateMap<Repository.Entities.QuizGroupItem, DTOs.QuizGroupItemDtos.RequestQuizGroupItemDto>().ReverseMap();
             CreateMap<Repository.Entities.QuizGroupItem, DTOs.QuizGroupItemDtos.ResponseQuizGroupItemDto>().ReverseMap();
-            //Add other mappings here as needed
 
             // UserWeakPoint Mappings
             CreateMap<Repository.Entities.UserWeakPoint, DTOs.UserWeakPointDtos.ResponseUserWeakPointDto>().ReverseMap();
             CreateMap<Repository.Entities.UserWeakPoint, DTOs.UserWeakPointDtos.RequestUserWeakPointDto>().ReverseMap();
+
+            //subscription mappings
+            CreateMap<Repository.Entities.Subscription, DTOs.SubscriptionDtos.RequestSubscriptionDto>().ReverseMap();
+            CreateMap<Repository.Entities.Subscription, DTOs.SubscriptionDtos.ResponseSubscriptionDto>().ReverseMap();
+            //Subscription plan mappings
+            CreateMap<Repository.Entities.SubscriptionPlan, DTOs.SubscriptionPlanDtos.RequestSubscriptionPlanDto>().ReverseMap();
+            CreateMap<Repository.Entities.SubscriptionPlan, DTOs.SubscriptionPlanDtos.ResponseSubscriptionPlanDto>().ReverseMap();
+            //Payment transaction mappings
+            CreateMap<Repository.Entities.PaymentTransaction, DTOs.PaymentTransactionDtos.RequestPaymentTransactionDto>().ReverseMap();
+            CreateMap<Repository.Entities.PaymentTransaction, DTOs.PaymentTransactionDtos.ResponsePaymentTransactionDto>().ReverseMap();
         }
     }
 }

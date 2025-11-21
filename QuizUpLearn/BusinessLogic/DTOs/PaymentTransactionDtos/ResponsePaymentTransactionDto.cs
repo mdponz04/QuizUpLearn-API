@@ -1,6 +1,6 @@
 ﻿using Repository.Enums;
 
-namespace BusinessLogic.DTOs.TransactionDtos
+namespace BusinessLogic.DTOs.PaymentTransactionDtos
 {
     public class ResponsePaymentTransactionDto
     {

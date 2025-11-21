@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using BusinessLogic.Interfaces;
 using BusinessLogic.DTOs.PaymentTransactionDtos;
-using BusinessLogic.DTOs.TransactionDtos;
+using BusinessLogic.DTOs.PaymentTransactionDtos;
 using BusinessLogic.DTOs;
 
 namespace QuizUpLearn.API.Controllers
