@@ -9,7 +9,7 @@ namespace BusinessLogic.DTOs.QuizSetDtos
         public Guid Id { get; set; }
         public string? Title { get; set; }
         public string? Description { get; set; }
-        public QuizSetTypeEnum QuizType { get; set; }
+        public QuizSetTypeEnum QuizSetType { get; set; }
         public string? DifficultyLevel { get; set; }
         public int TotalQuestions { get; set; }
         public Guid CreatedBy { get; set; }
