@@ -1,0 +1,20 @@
+using BusinessLogic.DTOs.EventDtos;
+
+namespace BusinessLogic.Interfaces
+{
+    public interface IEventService
+    {
+        Task<EventResponseDto> CreateEventAsync(Guid userId, CreateEventRequestDto dto);
+        Task<EventResponseDto?> GetEventByIdAsync(Guid id);
+        Task<IEnumerable<EventResponseDto>> GetAllEventsAsync();
+        Task<IEnumerable<EventResponseDto>> GetActiveEventsAsync();
+        Task<IEnumerable<EventResponseDto>> GetUpcomingEventsAsync();
+        Task<IEnumerable<EventResponseDto>> GetMyEventsAsync(Guid userId);
+        Task<EventResponseDto?> UpdateEventAsync(Guid id, UpdateEventRequestDto dto);
+        Task<bool> DeleteEventAsync(Guid id);
+        Task<StartEventResponseDto> StartEventAsync(Guid userId, StartEventRequestDto dto);
+        Task<IEnumerable<EventParticipantResponseDto>> GetEventParticipantsAsync(Guid eventId);
+        Task<bool> JoinEventAsync(Guid eventId, Guid userId);
+    }
+}
+

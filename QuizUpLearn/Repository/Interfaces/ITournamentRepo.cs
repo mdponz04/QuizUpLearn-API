@@ -11,6 +11,7 @@ namespace Repository.Interfaces
 		Task<bool> ExistsInMonthAsync(int year, int month);
 		Task<IEnumerable<Tournament>> GetStartedAsync();
 		Task<bool> DeleteAsync(Guid id);
+		Task<IEnumerable<Tournament>> GetAllAsync(bool includeDeleted = false);
 	}
 }
 

@@ -27,6 +27,22 @@ namespace QuizUpLearn.API.Controllers
 			_logger = logger;
 		}
 
+		[HttpGet]
+		[AllowAnonymous]
+		public async Task<ActionResult<ApiResponse<IEnumerable<TournamentResponseDto>>>> GetAll([FromQuery] bool includeDeleted = false)
+		{
+			try
+			{
+				var res = await _tournamentService.GetAllAsync(includeDeleted);
+				return Ok(new ApiResponse<IEnumerable<TournamentResponseDto>> { Success = true, Data = res, Message = "OK" });
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "Get tournaments failed");
+				return BadRequest(new ApiResponse<IEnumerable<TournamentResponseDto>> { Success = false, Message = ex.Message });
+			}
+		}
+
 		[HttpPost("create")]
 		public async Task<ActionResult<ApiResponse<TournamentResponseDto>>> Create([FromBody] CreateTournamentRequestDto dto)
 		{
