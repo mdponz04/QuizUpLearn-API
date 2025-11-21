@@ -43,12 +43,11 @@ namespace QuizUpLearn.API.Controllers
         }
         /// <summary>
         /// Quiz Type: 0 = Practice, 1 = Placement, 2 = Tournament, 3 = Event
-        /// Quiz Part: 1 -> 7
         /// </summary>
         /// <param name="inputData"></param>
         /// <returns></returns>
         [HttpPost("generate-quiz-set")]
-        public async Task<IActionResult> GeneratePracticeQuizSet([FromBody] AiGenerateQuizSetRequestDto inputData, QuizPartEnums quizPart, QuizSetTypeEnum quizType)
+        public async Task<IActionResult> GeneratePracticeQuizSet([FromBody] AiGenerateQuizSetRequestDto inputData, QuizPartEnums quizPart)
         {
             if (inputData == null)
             {
@@ -61,37 +60,13 @@ namespace QuizUpLearn.API.Controllers
             {
                 Title = inputData.Topic,
                 Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC {quizPart.ToString()}",
-                QuizSetType = quizType,
+                QuizSetType = QuizSetTypeEnum.Practice,
                 DifficultyLevel = inputData.Difficulty,
                 CreatedBy = inputData.CreatorId,
                 IsAIGenerated = true
             });
             var quizSetId = createdQuizSet.Id;
 
-            /*switch (quizPart)
-            {
-                case QuizPartEnums.PART1:
-                    await _aiService.GeneratePracticeQuizSetPart1Async(inputData, quizSetId);
-                    break;
-                case QuizPartEnums.PART2:
-                    await _aiService.GeneratePracticeQuizSetPart2Async(inputData, quizSetId);
-                    break;
-                case QuizPartEnums.PART3:
-                    await _aiService.GeneratePracticeQuizSetPart3Async(inputData, quizSetId);
-                    break;
-                case QuizPartEnums.PART4:
-                    await _aiService.GeneratePracticeQuizSetPart4Async(inputData, quizSetId);
-                    break;
-                case QuizPartEnums.PART5:
-                    await _aiService.GeneratePracticeQuizSetPart5Async(inputData, quizSetId);
-                    break;
-                case QuizPartEnums.PART6:
-                    await _aiService.GeneratePracticeQuizSetPart6Async(inputData, quizSetId);
-                    break;
-                case QuizPartEnums.PART7:
-                    await _aiService.GeneratePracticeQuizSetPart7Async(inputData, quizSetId);
-                    break;
-            }*/
 
             _ = _workerService.EnqueueJob(async (sp, token) =>
             {
