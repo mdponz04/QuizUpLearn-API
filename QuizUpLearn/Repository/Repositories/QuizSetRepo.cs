@@ -75,6 +75,25 @@ namespace Repository.Repositories
             return await query.ToListAsync();
         }
 
+        public async Task<IEnumerable<QuizSet>> GetPublishedQuizSetsAsync(
+            string? searchTerm = null,
+            string? sortBy = null,
+            string? sortDirection = null,
+            bool? isPremiumOnly = null,
+            bool? isAiGenerated = null,
+            QuizSetTypeEnum? quizSetType = null)
+        {
+            var query = _context.QuizSets
+                .Include(qs => qs.Creator)
+                .Where(qs => qs.IsPublished && qs.DeletedAt == null);
+
+            query = ApplyFilters(query, false, isPremiumOnly, true, isAiGenerated, quizSetType);
+            query = ApplySearch(query, searchTerm);
+            query = ApplySorting(query, sortBy, sortDirection);
+
+            return await query.ToListAsync();
+        }
+
         public async Task<QuizSet?> UpdateQuizSetAsync(Guid id, QuizSet quizSet)
         {
             var existingQuizSet = await _context.QuizSets.FindAsync(id);

@@ -26,6 +26,13 @@ namespace Repository.Interfaces
             bool? isPublished = null,
             bool? isAiGenerated = null,
             QuizSetTypeEnum? quizSetType = null);
+        Task<IEnumerable<QuizSet>> GetPublishedQuizSetsAsync(
+            string? searchTerm = null,
+            string? sortBy = null,
+            string? sortDirection = null,
+            bool? isPremiumOnly = null,
+            bool? isAiGenerated = null,
+            QuizSetTypeEnum? quizSetType = null);
         Task<QuizSet?> UpdateQuizSetAsync(Guid id, QuizSet quizSet);
         Task<bool> SoftDeleteQuizSetAsync(Guid id);
         Task<bool> HardDeleteQuizSetAsync(Guid id);
