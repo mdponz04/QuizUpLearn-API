@@ -9,6 +9,7 @@ namespace BusinessLogic.Interfaces
         Task<QuizSetResponseDto> GetQuizSetByIdAsync(Guid id);
         Task<PaginationResponseDto<QuizSetResponseDto>> GetAllQuizSetsAsync(PaginationRequestDto pagination);
         Task<PaginationResponseDto<QuizSetResponseDto>> GetQuizSetsByCreatorAsync(Guid creatorId, PaginationRequestDto pagination);
+        Task<PaginationResponseDto<QuizSetResponseDto>> GetPublishedQuizSetsAsync(PaginationRequestDto pagination);
         Task<QuizSetResponseDto> UpdateQuizSetAsync(Guid id, QuizSetRequestDto quizSetDto);
         Task<bool> SoftDeleteQuizSetAsync(Guid id);
         Task<bool> HardDeleteQuizSetAsync(Guid id);

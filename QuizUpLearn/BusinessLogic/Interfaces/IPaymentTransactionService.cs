@@ -1,6 +1,5 @@
 ﻿using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.PaymentTransactionDtos;
-using BusinessLogic.DTOs.PaymentTransactionDtos;
 using Repository.Entities;
 
 namespace BusinessLogic.Interfaces

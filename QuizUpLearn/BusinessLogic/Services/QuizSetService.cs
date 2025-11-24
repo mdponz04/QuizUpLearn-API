@@ -74,6 +74,22 @@ namespace BusinessLogic.Services
             return PaginationHelper.CreatePagedResponse(dtos, pagination);
         }
 
+        public async Task<PaginationResponseDto<QuizSetResponseDto>> GetPublishedQuizSetsAsync(PaginationRequestDto pagination)
+        {
+            var filters = ExtractFilterValues(pagination);
+
+            var quizSets = await _quizSetRepo.GetPublishedQuizSetsAsync(
+                pagination.SearchTerm,
+                pagination.SortBy,
+                pagination.SortDirection,
+                filters.isPremiumOnly,
+                filters.isAiGenerated,
+                filters.quizSetType);
+
+            var dtos = _mapper.Map<IEnumerable<QuizSetResponseDto>>(quizSets);
+            return PaginationHelper.CreatePagedResponse(dtos, pagination);
+        }
+
         public async Task<QuizSetResponseDto> UpdateQuizSetAsync(Guid id, QuizSetRequestDto quizSetDto)
         {
             var updatedQuizSet = await _quizSetRepo.UpdateQuizSetAsync(id, _mapper.Map<QuizSet>(quizSetDto));

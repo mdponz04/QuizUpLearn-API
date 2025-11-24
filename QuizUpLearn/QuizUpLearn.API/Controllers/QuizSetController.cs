@@ -10,7 +10,6 @@ namespace QuizUpLearn.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
     public class QuizSetController : ControllerBase
     {
         private readonly IQuizSetService _quizSetService;
@@ -26,6 +25,7 @@ namespace QuizUpLearn.API.Controllers
         /// <param name="quizSetDto">Quiz set data</param>
         /// <returns>Newly created quiz set</returns>
         [HttpPost]
+        [Authorize]
         public async Task<ActionResult<QuizSetResponseDto>> CreateQuizSet([FromBody] QuizSetRequestDto quizSetDto)
         {
             if (!ModelState.IsValid)
@@ -34,13 +34,13 @@ namespace QuizUpLearn.API.Controllers
             var createdQuizSet = await _quizSetService.CreateQuizSetAsync(quizSetDto);
             return CreatedAtAction(nameof(GetQuizSetById), new { id = createdQuizSet.Id }, createdQuizSet);
         }
-
         /// <summary>
         /// Gets a quiz set by ID
         /// </summary>
         /// <param name="id">Quiz set ID</param>
         /// <returns>Quiz set data</returns>
         [HttpGet("{id}")]
+        [Authorize]
         public async Task<ActionResult<QuizSetResponseDto>> GetQuizSetById(Guid id)
         {
             var quizSet = await _quizSetService.GetQuizSetByIdAsync(id);
@@ -56,6 +56,7 @@ namespace QuizUpLearn.API.Controllers
         /// <param name="request">Pagination and filter parameters</param>
         /// <returns>List of quiz sets</returns>
         [HttpPost("search")]
+        [Authorize]
         public async Task<ActionResult<PaginationResponseDto<QuizSetResponseDto>>> GetAllQuizSets(
             [FromBody] PaginationRequestDto request)
         {
@@ -70,11 +71,26 @@ namespace QuizUpLearn.API.Controllers
         /// <param name="request">Pagination and filter parameters</param>
         /// <returns>List of quiz sets by creator</returns>
         [HttpPost("creator/{creatorId}/search")]
+        [Authorize]
         public async Task<ActionResult<PaginationResponseDto<QuizSetResponseDto>>> GetQuizSetsByCreator(
             Guid creatorId,
             [FromBody] PaginationRequestDto request)
         {
             var quizSets = await _quizSetService.GetQuizSetsByCreatorAsync(creatorId, request);
+            return Ok(quizSets);
+        }
+
+        /// <summary>
+        /// Gets only published and non-deleted quiz sets
+        /// </summary>
+        /// <param name="request">Pagination and filter parameters</param>
+        /// <returns>List of published quiz sets</returns>
+        [HttpPost("published/search")]
+        [AllowAnonymous]
+        public async Task<ActionResult<PaginationResponseDto<QuizSetResponseDto>>> GetPublishedQuizSets(
+            [FromBody] PaginationRequestDto request)
+        {
+            var quizSets = await _quizSetService.GetPublishedQuizSetsAsync(request);
             return Ok(quizSets);
         }
 
@@ -85,6 +101,7 @@ namespace QuizUpLearn.API.Controllers
         /// <param name="quizSetDto">Updated quiz set data</param>
         /// <returns>Updated quiz set</returns>
         [HttpPut("{id}")]
+        [Authorize]
         public async Task<ActionResult<QuizSetResponseDto>> UpdateQuizSet(Guid id, [FromBody] QuizSetRequestDto quizSetDto)
         {
             if (!ModelState.IsValid)
@@ -103,6 +120,7 @@ namespace QuizUpLearn.API.Controllers
         /// <param name="id">Quiz set ID</param>
         /// <returns>Success/failure status</returns>
         [HttpDelete("{id}")]
+        [Authorize]
         public async Task<IActionResult> SoftDeleteQuizSet(Guid id)
         {
             var result = await _quizSetService.SoftDeleteQuizSetAsync(id);
@@ -118,6 +136,7 @@ namespace QuizUpLearn.API.Controllers
         /// <param name="id">Quiz set ID</param>
         /// <returns>Success/failure status</returns>
         [HttpDelete("{id}/permanent")]
+        [Authorize]
         public async Task<IActionResult> HardDeleteQuizSet(Guid id)
         {
             var result = await _quizSetService.HardDeleteQuizSetAsync(id);
@@ -128,6 +147,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost("{id}/restore")]
+        [Authorize]
         public async Task<ActionResult<QuizSetResponseDto>> RestoreQuizSet(Guid id)
         {
             var restoredQuizSet = await _quizSetService.RestoreQuizSetAsync(id);

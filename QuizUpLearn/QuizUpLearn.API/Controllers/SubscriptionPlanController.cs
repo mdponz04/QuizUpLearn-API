@@ -9,6 +9,7 @@ namespace QuizUpLearn.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [AllowAnonymous]
     public class SubscriptionPlanController : ControllerBase
     {
         private readonly ISubscriptionPlanService _service;
