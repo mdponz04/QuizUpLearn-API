@@ -1,6 +1,7 @@
 using AutoMapper;
 using BusinessLogic.DTOs;
 using BusinessLogic.Interfaces;
+using BusinessLogic.DTOs.SubscriptionDtos;
 using Repository.Entities;
 using Repository.Interfaces;
 using BCrypt.Net;
@@ -16,14 +17,25 @@ namespace BusinessLogic.Services
         private readonly IOtpVerificationRepo _otpRepo;
         private readonly IMailerSendService _mailer;
         private readonly IConfiguration _configuration;
+        private readonly ISubscriptionService _subscriptionService;
+        private readonly ISubscriptionPlanService _subscriptionPlanService;
 
-        public IdentityService(IAccountRepo accountRepo, IOtpVerificationRepo otpRepo, IMailerSendService mailer, IConfiguration configuration, IMapper mapper)
+        public IdentityService(
+            IAccountRepo accountRepo,
+            IOtpVerificationRepo otpRepo,
+            IMailerSendService mailer,
+            IConfiguration configuration,
+            IMapper mapper,
+            ISubscriptionService subscriptionService,
+            ISubscriptionPlanService subscriptionPlanService)
         {
             _accountRepo = accountRepo;
             _otpRepo = otpRepo;
             _mailer = mailer;
             _configuration = configuration;
             _mapper = mapper;
+            _subscriptionService = subscriptionService;
+            _subscriptionPlanService = subscriptionPlanService;
         }
 
         public async Task<LoginResponseDto?> LoginAsync(LoginRequestDto dto)
@@ -59,6 +71,16 @@ namespace BusinessLogic.Services
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password)
             };
             var created = await _accountRepo.CreateAsync(entity);
+
+            var freePlan = await _subscriptionPlanService.GetFreeSubscriptionPlanAsync();
+            await _subscriptionService.CreateAsync(new RequestSubscriptionDto
+            {
+                UserId = created.UserId,
+                SubscriptionPlanId = freePlan.Id,
+                AiGenerateQuizSetRemaining = freePlan.AiGenerateQuizSetMaxTimes,
+                EndDate = DateTime.UtcNow.AddDays(freePlan.DurationDays)
+            });
+
             return _mapper.Map<ResponseAccountDto>(created);
         }
 

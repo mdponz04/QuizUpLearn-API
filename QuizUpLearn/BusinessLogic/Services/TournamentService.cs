@@ -46,20 +46,25 @@ namespace BusinessLogic.Services
 				Status = "Created",
 				CreatedBy = dto.CreatedBy
 			};
+			var scheduledQuizSetIds = dto.QuizSetIds.Any()
+				? await BuildScheduledQuizSetIdsAsync(entity, dto.QuizSetIds)
+				: new List<Guid>();
+
 			entity = await _tournamentRepo.CreateAsync(entity);
 
-			if (dto.QuizSetIds.Any())
+			if (scheduledQuizSetIds.Any())
 			{
-				await AddQuizSetsInternal(entity, dto.QuizSetIds);
+				await SaveTournamentQuizSetsAsync(entity, scheduledQuizSetIds);
 			}
 
-			return MapResponse(entity, dto.QuizSetIds.Count());
+			return MapResponse(entity, scheduledQuizSetIds.Count);
 		}
 
 		public async Task<TournamentResponseDto> AddQuizSetsAsync(Guid tournamentId, IEnumerable<Guid> quizSetIds)
 		{
 			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId) ?? throw new ArgumentException("Tournament not found");
-			await AddQuizSetsInternal(tournament, quizSetIds);
+			var scheduledIds = await BuildScheduledQuizSetIdsAsync(tournament, quizSetIds);
+			await SaveTournamentQuizSetsAsync(tournament, scheduledIds);
 			var all = await _tournamentQuizSetRepo.GetByTournamentAsync(tournamentId);
 			return MapResponse(tournament, all.Count());
 		}
@@ -164,12 +169,14 @@ namespace BusinessLogic.Services
 			return await _tournamentRepo.DeleteAsync(tournamentId);
 		}
 
-		private async Task AddQuizSetsInternal(Tournament tournament, IEnumerable<Guid> quizSetIds)
+		private async Task<List<Guid>> BuildScheduledQuizSetIdsAsync(Tournament tournament, IEnumerable<Guid> quizSetIds)
 		{
 			var ids = quizSetIds.Distinct().ToList();
-			if (!ids.Any()) return;
+			if (!ids.Any())
+			{
+				throw new ArgumentException("Phải cung cấp ít nhất một quiz set cho tournament.");
+			}
 
-			// chỉ cho phép quiz set có type Tournament
 			var validIds = new List<Guid>();
 			var invalidIds = new List<Guid>();
 			foreach (var id in ids)
@@ -187,60 +194,55 @@ namespace BusinessLogic.Services
 				}
 				validIds.Add(id);
 			}
-			
+
 			if (invalidIds.Any())
 			{
 				throw new ArgumentException($"Các quiz set sau không phải loại Tournament hoặc không tồn tại: {string.Join(", ", invalidIds)}");
 			}
-			
-			if (!validIds.Any()) 
+
+			if (!validIds.Any())
 			{
 				throw new ArgumentException("Không có quiz set hợp lệ để thêm vào tournament");
 			}
 
-			// số ngày còn lại trong tháng kể từ sau StartDate
 			var startDate = tournament.StartDate.Date;
 			var daysInMonth = DateTime.DaysInMonth(startDate.Year, startDate.Month);
 			var days = daysInMonth - startDate.Day;
-			
+
 			if (days <= 0)
 			{
 				throw new ArgumentException("Không còn ngày nào trong tháng để thêm quiz set");
 			}
 
-			// Kiểm tra số quiz sets phải bằng đúng số ngày còn lại
 			if (validIds.Count != days)
 			{
 				if (validIds.Count > days)
 				{
 					throw new ArgumentException($"Chỉ có thể thêm được tối đa {days} quiz set(s) (số ngày còn lại trong tháng từ ngày tạo tournament đến cuối tháng). Bạn đang cố thêm {validIds.Count} quiz set(s).");
 				}
-				else
-				{
-					throw new ArgumentException($"Cần truyền đúng {days} quiz set(s) tương ứng số ngày còn lại trong tháng (từ ngày tạo tournament đến cuối tháng). Bạn hiện chỉ truyền {validIds.Count} quiz set(s).");
-				}
+
+				throw new ArgumentException($"Cần truyền đúng {days} quiz set(s) tương ứng số ngày còn lại trong tháng (từ ngày tạo tournament đến cuối tháng). Bạn hiện chỉ truyền {validIds.Count} quiz set(s).");
 			}
 
-			// Xóa các quiz sets cũ nếu có (để add lại từ đầu)
+			var rnd = new Random();
+			return validIds.OrderBy(_ => rnd.Next()).ToList();
+		}
+
+		private async Task SaveTournamentQuizSetsAsync(Tournament tournament, IList<Guid> scheduledQuizSetIds)
+		{
 			await _tournamentQuizSetRepo.RemoveAllByTournamentAsync(tournament.Id);
 
-			// shuffle ngẫu nhiên danh sách quiz set
-			var rnd = new Random();
-			var shuffled = validIds.OrderBy(_ => rnd.Next()).ToList();
-
-			var items = new List<TournamentQuizSet>();
-			for (int i = 0; i < days; i++)
+			var startDate = tournament.StartDate.Date;
+			var items = scheduledQuizSetIds.Select((quizSetId, index) => new TournamentQuizSet
 			{
-				items.Add(new TournamentQuizSet
-				{
-					TournamentId = tournament.Id,
-					QuizSetId = shuffled[i],
-					UnlockDate = startDate.AddDays(i + 1),
-					IsActive = false,
-					DateNumber = i + 1,
-					CreatedAt = DateTime.UtcNow
-				});
-			}
+				TournamentId = tournament.Id,
+				QuizSetId = quizSetId,
+				UnlockDate = startDate.AddDays(index + 1),
+				IsActive = false,
+				DateNumber = index + 1,
+				CreatedAt = DateTime.UtcNow
+			}).ToList();
+
 			await _tournamentQuizSetRepo.AddRangeAsync(items);
 		}
 
