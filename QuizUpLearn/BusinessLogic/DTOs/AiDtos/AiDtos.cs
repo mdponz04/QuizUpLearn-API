@@ -8,7 +8,7 @@ namespace BusinessLogic.DTOs.AiDtos
         public int QuestionQuantity { get; set; }
         public required string Difficulty { get; set; }
         public required string Topic { get; set; }
-        public Guid CreatorId { get; set; }
+        public Guid? CreatorId { get; set; }
     }
     public class AiGenerateQuizResponseDto
     {

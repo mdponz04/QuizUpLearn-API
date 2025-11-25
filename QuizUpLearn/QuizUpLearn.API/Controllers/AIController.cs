@@ -2,8 +2,10 @@
 using BusinessLogic.DTOs.QuizSetDtos;
 using BusinessLogic.Helpers;
 using BusinessLogic.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using QuizUpLearn.API.Attributes;
 using QuizUpLearn.API.Hubs;
 using Repository.Enums;
 
@@ -11,6 +13,7 @@ namespace QuizUpLearn.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class AIController : ControllerBase
     {
         private readonly IAIService _aiService;
@@ -23,7 +26,9 @@ namespace QuizUpLearn.API.Controllers
             _workerService = workerService;
             _quizSetService = quizSetService;
         }
+
         [HttpPost("validate-quiz-set/{quizSetId}")]
+        [SubscriptionAndRoleAuthorize("Mod", "User", RequireAiFeatures = true)]
         public async Task<IActionResult> ValidateQuizSet(Guid quizSetId)
         {
             if (quizSetId == Guid.Empty)
@@ -40,32 +45,68 @@ namespace QuizUpLearn.API.Controllers
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
+
         /// <summary>
-        /// Quiz Type: 0 = Practice, 1 = Placement, 2 = Tournament, 3 = Event
+        /// Quiz Type enums: 0 = Practice, 1 = Placement, 2 = Tournament, 3 = Event
+        /// Admin can generate any type, Teachers can generate Practice/Event, Premium Users can generate Practice only
         /// </summary>
         /// <param name="inputData"></param>
+        /// <param name="quizPart"></param>
+        /// <param name="quizSetType"></param>
         /// <returns></returns>
         [HttpPost("generate-quiz-set")]
-        public async Task<IActionResult> GeneratePracticeQuizSet([FromBody] AiGenerateQuizSetRequestDto inputData, QuizPartEnums quizPart)
+        [SubscriptionAndRoleAuthorize("Mod", "User", RequireAiFeatures = true)]
+        public async Task<IActionResult> GeneratePracticeQuizSet([FromBody] AiGenerateQuizSetRequestDto inputData, QuizPartEnums quizPart, QuizSetTypeEnum quizSetType)
         {
             if (inputData == null)
             {
                 return BadRequest("Prompt cannot be empty.");
             }
 
+            // Get user role and check permissions for specific quiz set types
+            var userRole = HttpContext.Items["UserRole"]?.ToString();
+            var isAdmin = (bool)(HttpContext.Items["IsAdmin"] ?? false);
+
+            // Role-based quiz set type restrictions
+            switch (quizSetType)
+            {
+                case QuizSetTypeEnum.Tournament:
+                case QuizSetTypeEnum.Placement:
+                    if (!isAdmin && !userRole.Equals("Mod", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return Forbid($"Only Admin and Mod can generate {quizSetType} quiz sets.");
+                    }
+                    break;
+                case QuizSetTypeEnum.Event:
+                    if (!isAdmin && !userRole.Equals("Mod", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return Forbid($"Only Admin and Mod can generate {quizSetType} quiz sets.");
+                    }
+                    break;
+                case QuizSetTypeEnum.Practice:
+                    // All authorized users can generate practice quiz sets
+                    break;
+                default:
+                    return BadRequest("Invalid quiz set type.");
+            }
+
+            // Get user ID from HttpContext (set by SubscriptionAndRoleAuthorizeAttribute)
+            var userId = (Guid)HttpContext.Items["UserId"]!;
+
+            inputData.CreatorId = userId;
+
             // Create a new quiz set first to hold the generated quizzes
             var jobId = Guid.NewGuid();
             var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
             {
                 Title = inputData.Topic,
-                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC {quizPart.ToString()}",
-                QuizSetType = QuizSetTypeEnum.Practice,
+                Description = $"AI-generated TOEIC {quizSetType.ToString()} quiz set on {inputData.Topic} focus on TOEIC {quizPart.ToString()}",
+                QuizSetType = quizSetType,
                 DifficultyLevel = inputData.Difficulty,
                 CreatedBy = inputData.CreatorId,
                 IsAIGenerated = true
             });
             var quizSetId = createdQuizSet.Id;
-
 
             _ = _workerService.EnqueueJob(async (sp, token) =>
             {
@@ -84,6 +125,7 @@ namespace QuizUpLearn.API.Controllers
                         Status = "Processing",
                         QuizSetId = quizSetId
                     });
+
                     //generate quiz set
                     switch (quizPart)
                     {
@@ -132,7 +174,11 @@ namespace QuizUpLearn.API.Controllers
                     }
                     else
                     {
-                        await subscriptionService.CalculateRemainingUsageByUserId(inputData.CreatorId, inputData.QuestionQuantity);
+                        // Only deduct usage for non-admin users
+                        if (!isAdmin)
+                        {
+                            await subscriptionService.CalculateRemainingUsageByUserId(userId, inputData.QuestionQuantity);
+                        }
 
                         await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
                         {
@@ -157,237 +203,19 @@ namespace QuizUpLearn.API.Controllers
 
             return Ok(new { JobId = jobId, Message = "Quiz set generation started in background.", Status = "Processing", QuizSetId = quizSetId });
         }
-        [HttpPost("generate-event-quiz-set")]
-        public async Task<IActionResult> GenerateEventQuizSet([FromBody] AiGenerateQuizSetRequestDto inputData, QuizPartEnums quizPart)
-        {
-            if (inputData == null)
-            {
-                return BadRequest("Prompt cannot be empty.");
-            }
-            // Create a new quiz set first to hold the generated quizzes
-            var jobId = Guid.NewGuid();
-            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
-            {
-                Title = inputData.Topic,
-                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC {quizPart.ToString()}",
-                QuizSetType = QuizSetTypeEnum.Event,
-                DifficultyLevel = inputData.Difficulty,
-                CreatedBy = inputData.CreatorId,
-                IsAIGenerated = true
-            });
-            var quizSetId = createdQuizSet.Id;
 
-            _ = _workerService.EnqueueJob(async (sp, token) =>
-            {
-                var aiService = sp.GetRequiredService<IAIService>();
-                var hubContext = sp.GetRequiredService<IHubContext<BackgroundJobHub>>();
-
-                try
-                {
-                    var result = false;
-
-                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
-                    {
-                        JobId = jobId,
-                        Result = "",
-                        Status = "Processing",
-                        QuizSetId = quizSetId
-                    });
-
-                    switch (quizPart)
-                    {
-                        case QuizPartEnums.PART1:
-
-                            result = await aiService.GeneratePracticeQuizSetPart1Async(inputData, quizSetId);
-                            break;
-                        case QuizPartEnums.PART2:
-                            result = await aiService.GeneratePracticeQuizSetPart2Async(inputData, quizSetId);
-                            break;
-                        case QuizPartEnums.PART3:
-                            result = await aiService.GeneratePracticeQuizSetPart3Async(inputData, quizSetId);
-                            break;
-                        case QuizPartEnums.PART4:
-                            result = await aiService.GeneratePracticeQuizSetPart4Async(inputData, quizSetId);
-                            break;
-                        case QuizPartEnums.PART5:
-                            result = await aiService.GeneratePracticeQuizSetPart5Async(inputData, quizSetId);
-                            break;
-                        case QuizPartEnums.PART6:
-                            result = await aiService.GeneratePracticeQuizSetPart6Async(inputData, quizSetId);
-                            break;
-                        case QuizPartEnums.PART7:
-                            result = await aiService.GeneratePracticeQuizSetPart7Async(inputData, quizSetId);
-                            break;
-                    }
-
-                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
-                    {
-                        JobId = jobId,
-                        Result = "",
-                        Status = "Validating",
-                        QuizSetId = quizSetId
-                    });
-
-                    var validateResult = await aiService.ValidateQuizSetAsync(quizSetId);
-
-                    if (!validateResult.Item1)
-                    {
-                        await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobFailed", new
-                        {
-                            JobId = jobId,
-                            Result = "Invalid quiz set: " + validateResult.Item2,
-                            Status = "Failed",
-                            QuizSetId = Guid.Empty
-                        });
-                    }
-                    else
-                    {
-                        await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
-                        {
-                            JobId = jobId,
-                            Result = result,
-                            Status = "Completed",
-                            QuizSetId = quizSetId
-                        });
-                    }
-                }
-                catch (Exception ex)
-                {
-                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobFailed", new
-                    {
-                        JobId = jobId,
-                        Result = ex.Message,
-                        Status = "Failed",
-                        QuizSetId = Guid.Empty
-                    });
-                }
-            });
-
-            return Ok(new { JobId = jobId, Message = "Quiz set generation started in background.", Status = "Processing", QuizSetId = quizSetId });
-        }
-        [HttpPost("generate-tournament-quiz-set")]
-        public async Task<IActionResult> GenerateTournamentQuizSet([FromBody] AiGenerateQuizSetRequestDto inputData, QuizPartEnums quizPart)
-        {
-            if (inputData == null)
-            {
-                return BadRequest("Prompt cannot be empty.");
-            }
-
-            inputData.QuestionQuantity = 15;
-
-            // Create a new quiz set first to hold the generated quizzes
-            var jobId = Guid.NewGuid();
-            var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
-            {
-                Title = inputData.Topic,
-                Description = $"AI-generated TOEIC practice quiz on {inputData.Topic} focus on TOEIC {quizPart.ToString()}",
-                QuizSetType = QuizSetTypeEnum.Tournament,
-                DifficultyLevel = inputData.Difficulty,
-                CreatedBy = inputData.CreatorId,
-                IsAIGenerated = true
-            });
-            var quizSetId = createdQuizSet.Id;
-
-            _ = _workerService.EnqueueJob(async (sp, token) =>
-            {
-                var aiService = sp.GetRequiredService<IAIService>();
-                var hubContext = sp.GetRequiredService<IHubContext<BackgroundJobHub>>();
-
-                try
-                {
-                    var result = false;
-
-                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
-                    {
-                        JobId = jobId,
-                        Result = "",
-                        Status = "Processing",
-                        QuizSetId = quizSetId
-                    });
-
-                    switch (quizPart)
-                    {
-                        case QuizPartEnums.PART1:
-
-                            result = await aiService.GeneratePracticeQuizSetPart1Async(inputData, quizSetId);
-                            break;
-                        case QuizPartEnums.PART2:
-                            result = await aiService.GeneratePracticeQuizSetPart2Async(inputData, quizSetId);
-                            break;
-                        case QuizPartEnums.PART3:
-                            result = await aiService.GeneratePracticeQuizSetPart3Async(inputData, quizSetId);
-                            break;
-                        case QuizPartEnums.PART4:
-                            result = await aiService.GeneratePracticeQuizSetPart4Async(inputData, quizSetId);
-                            break;
-                        case QuizPartEnums.PART5:
-                            result = await aiService.GeneratePracticeQuizSetPart5Async(inputData, quizSetId);
-                            break;
-                        case QuizPartEnums.PART6:
-                            result = await aiService.GeneratePracticeQuizSetPart6Async(inputData, quizSetId);
-                            break;
-                        case QuizPartEnums.PART7:
-                            result = await aiService.GeneratePracticeQuizSetPart7Async(inputData, quizSetId);
-                            break;
-                    }
-
-                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
-                    {
-                        JobId = jobId,
-                        Result = "",
-                        Status = "Validating",
-                        QuizSetId = quizSetId
-                    });
-
-                    var validateResult = await aiService.ValidateQuizSetAsync(quizSetId);
-
-                    if (!validateResult.Item1)
-                    {
-                        await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobFailed", new
-                        {
-                            JobId = jobId,
-                            Result = "Invalid quiz set: " + validateResult.Item2,
-                            Status = "Failed",
-                            QuizSetId = Guid.Empty
-                        });
-                    }
-                    else
-                    {
-                        await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
-                        {
-                            JobId = jobId,
-                            Result = result,
-                            Status = "Completed",
-                            QuizSetId = quizSetId
-                        });
-                    }
-                }
-                catch (Exception ex)
-                {
-                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobFailed", new
-                    {
-                        JobId = jobId,
-                        Result = ex.Message,
-                        Status = "Failed",
-                        QuizSetId = Guid.Empty
-                    });
-                }
-            });
-
-            return Ok(new { JobId = jobId, Message = "Quiz set generation started in background.", Status = "Processing", QuizSetId = quizSetId });
-        }
         /// <summary>
         /// This endpoint analyzes a user's mistakes and provides personalized advices & weak points.
+        /// Admins and Teachers can analyze any user, others can only analyze themselves.
         /// </summary>
-        /// <param name="userId"></param>
+        /// <param name="targetUserId"></param>
         /// <returns></returns>
         [HttpPost("ai-analyze-user-mistakes")]
-        public async Task<IActionResult> AnalyzeUserMistakesAndAdvise(Guid userId)
+        [SubscriptionAndRoleAuthorize("Mod", "User", RequireAiFeatures = true)]
+        public async Task<IActionResult> AnalyzeUserMistakesAndAdvise()
         {
-            if(userId == Guid.Empty)
-            {
-                return BadRequest("UserId cannot be empty.");
-            }
+            // Get authenticated user ID from HttpContext
+            var userId = (Guid)HttpContext.Items["UserId"]!;
 
             var result = await _aiService.AnalyzeUserMistakesAndAdviseAsync(userId);
             return Ok(result);

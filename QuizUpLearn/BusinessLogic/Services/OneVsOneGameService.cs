@@ -271,7 +271,17 @@ namespace BusinessLogic.Services
                 return false;
             }
 
-            // Update connectionId cho Player1
+            // Update connectionId cho Player1 (handle reconnection)
+            var oldConnectionId = room.Player1.ConnectionId;
+            var isReconnecting = !string.IsNullOrEmpty(oldConnectionId) && oldConnectionId != connectionId;
+            
+            if (isReconnecting)
+            {
+                _logger.LogInformation($"🔄 Player1 '{room.Player1.PlayerName}' is RECONNECTING to room {roomPin}");
+                _logger.LogInformation($"   Old ConnectionId: {oldConnectionId}");
+                _logger.LogInformation($"   New ConnectionId: {connectionId}");
+            }
+            
             room.Player1.ConnectionId = connectionId;
             
             // ✨ NEW: Update trong Players list
@@ -279,6 +289,11 @@ namespace BusinessLogic.Services
             if (player1InList != null)
             {
                 player1InList.ConnectionId = connectionId;
+            }
+            
+            if (isReconnecting)
+            {
+                _logger.LogInformation($"✅ Player1 '{room.Player1.PlayerName}' ConnectionId updated successfully");
             }
 
             // Lưu mapping connection -> room
@@ -313,18 +328,27 @@ namespace BusinessLogic.Services
                 return null;
             }
 
-            // Check duplicate player (same userId)
-            if (room.Players.Any(p => p.UserId == userId))
+            // Check if player is reconnecting (same userId but different connectionId)
+            var existingPlayer = room.Players.FirstOrDefault(p => p.UserId == userId);
+            if (existingPlayer != null)
             {
-                _logger.LogWarning($"❌ User {userId} already in room {roomPin}");
-                return null;
+                _logger.LogInformation($"🔄 Player '{existingPlayer.PlayerName}' (UserId: {userId}) is RECONNECTING to room {roomPin}");
+                _logger.LogInformation($"   Old ConnectionId: {existingPlayer.ConnectionId}");
+                _logger.LogInformation($"   New ConnectionId: {connectionId}");
+                
+                // Update ConnectionId for reconnection
+                existingPlayer.ConnectionId = connectionId;
+                await SaveRoomToRedisAsync(roomPin, room);
+                
+                _logger.LogInformation($"✅ Player '{existingPlayer.PlayerName}' ConnectionId updated successfully");
+                return existingPlayer;
             }
 
             // Check duplicate name
             if (room.Players.Any(p => p.PlayerName.Equals(playerName, StringComparison.OrdinalIgnoreCase)))
             {
                 _logger.LogWarning($"❌ Player name '{playerName}' already taken in room {roomPin}");
-                return null;
+                throw new InvalidOperationException($"DUPLICATE_NAME:{playerName}");
             }
 
             // Add new player
@@ -372,6 +396,54 @@ namespace BusinessLogic.Services
             _logger.LogInformation($"✅ Player '{playerName}' joined {room.Mode} room {roomPin} ({room.Players.Count}/{room.MaxPlayers?.ToString() ?? "∞"} players)");
 
             return newPlayer;
+        }
+
+        /// <summary>
+        /// Reconnect a player to an active game (update ConnectionId without re-joining)
+        /// Used when player refreshes browser or loses connection during gameplay
+        /// </summary>
+        public async Task<bool> ReconnectPlayerAsync(string roomPin, Guid userId, string newConnectionId)
+        {
+            var room = await GetRoomFromRedisAsync(roomPin);
+            if (room == null)
+            {
+                _logger.LogWarning($"❌ Room {roomPin} not found for reconnection");
+                return false;
+            }
+
+            // Find player by userId (works for any game status)
+            var player = room.Players.FirstOrDefault(p => p.UserId == userId);
+            if (player == null)
+            {
+                _logger.LogWarning($"❌ Player with UserId {userId} not found in room {roomPin}");
+                return false;
+            }
+
+            var oldConnectionId = player.ConnectionId;
+            _logger.LogInformation($"🔄 RECONNECT - Player '{player.PlayerName}' (UserId: {userId}) in room {roomPin}");
+            _logger.LogInformation($"   Game Status: {room.Status}");
+            _logger.LogInformation($"   Old ConnectionId: {oldConnectionId}");
+            _logger.LogInformation($"   New ConnectionId: {newConnectionId}");
+
+            // Update ConnectionId
+            player.ConnectionId = newConnectionId;
+
+            // Update Player1/Player2 refs if needed
+            if (room.Player1?.UserId == userId)
+            {
+                room.Player1.ConnectionId = newConnectionId;
+            }
+            if (room.Player2?.UserId == userId)
+            {
+                room.Player2.ConnectionId = newConnectionId;
+            }
+
+            // Update connection mapping
+            await SaveConnectionMappingAsync(newConnectionId, roomPin);
+            await SaveRoomToRedisAsync(roomPin, room);
+
+            _logger.LogInformation($"✅ Player '{player.PlayerName}' ConnectionId updated successfully - can now submit answers");
+            return true;
         }
 
         public async Task<bool> PlayerLeaveAsync(string roomPin, string connectionId)
@@ -456,20 +528,44 @@ namespace BusinessLogic.Services
         // ==================== SUBMIT ANSWER ====================
         public async Task<OneVsOneRoundResultDto?> SubmitAnswerAsync(string roomPin, string connectionId, Guid questionId, Guid answerId)
         {
+            _logger.LogInformation($"🎯 SubmitAnswerAsync START - Room: {roomPin}, ConnectionId: {connectionId}, QuestionId: {questionId}, AnswerId: {answerId}");
+            
             var room = await GetRoomFromRedisAsync(roomPin);
             if (room == null)
+            {
+                _logger.LogWarning($"❌ Room {roomPin} not found in Redis");
                 return null;
+            }
 
             if (room.Status != OneVsOneRoomStatus.InProgress)
+            {
+                _logger.LogWarning($"❌ Room {roomPin} is not in progress (Status: {room.Status})");
                 return null;
+            }
 
             if (!room.QuestionStartedAt.HasValue)
+            {
+                _logger.LogWarning($"❌ Room {roomPin} has no QuestionStartedAt");
                 return null;
+            }
+
+            // Log all players in room
+            _logger.LogInformation($"📋 Room has {room.Players.Count} players:");
+            foreach (var p in room.Players)
+            {
+                _logger.LogInformation($"  - {p.PlayerName} (ConnectionId: {p.ConnectionId})");
+            }
 
             // ✨ NEW: Tìm player trong Players list
             var player = room.Players.FirstOrDefault(p => p.ConnectionId == connectionId);
             if (player == null)
+            {
+                _logger.LogWarning($"❌ Player with ConnectionId {connectionId} NOT FOUND in room.Players!");
+                _logger.LogWarning($"❌ Available ConnectionIds: {string.Join(", ", room.Players.Select(p => p.ConnectionId))}");
                 return null;
+            }
+            
+            _logger.LogInformation($"✅ Found player: {player.PlayerName}");
 
             // Check đã trả lời chưa
             if (room.CurrentAnswers.ContainsKey(connectionId))
@@ -478,6 +574,8 @@ namespace BusinessLogic.Services
                 return null;
             }
 
+            _logger.LogInformation($"✅ Player '{player.PlayerName}' has NOT answered yet. Current answers: {room.CurrentAnswers.Count}/{room.Players.Count}");
+
             // Check đáp án đúng
             bool isCorrect = false;
             var correctMap = await GetCorrectAnswersFromRedisAsync(roomPin);
@@ -485,6 +583,8 @@ namespace BusinessLogic.Services
             {
                 isCorrect = correctMap.GetValueOrDefault(answerId, false);
             }
+            
+            _logger.LogInformation($"✅ Answer checked. IsCorrect: {isCorrect}");
 
             // Tính điểm: 1000 điểm cơ bản + bonus theo tốc độ (tương tự Kahoot)
             var timeSpent = (DateTime.UtcNow - room.QuestionStartedAt.Value).TotalSeconds;
@@ -514,12 +614,25 @@ namespace BusinessLogic.Services
             };
 
             room.CurrentAnswers[connectionId] = answer;
+            
+            _logger.LogInformation($"✅ Answer stored in CurrentAnswers. Total: {room.CurrentAnswers.Count}/{room.Players.Count}");
 
             // ✨ NEW: Check xem tất cả players đã trả lời chưa
             bool allAnswered = room.Players.All(p => room.CurrentAnswers.ContainsKey(p.ConnectionId));
+            
+            // Log who answered and who didn't
+            var answeredPlayers = room.Players.Where(p => room.CurrentAnswers.ContainsKey(p.ConnectionId)).Select(p => p.PlayerName).ToList();
+            var notAnsweredPlayers = room.Players.Where(p => !room.CurrentAnswers.ContainsKey(p.ConnectionId)).Select(p => p.PlayerName).ToList();
+            
+            _logger.LogInformation($"✅ Answered players: {string.Join(", ", answeredPlayers)}");
+            if (notAnsweredPlayers.Any())
+            {
+                _logger.LogInformation($"⏳ Waiting for: {string.Join(", ", notAnsweredPlayers)}");
+            }
 
             if (allAnswered)
             {
+                _logger.LogInformation($"🎉 ALL PLAYERS ANSWERED! Building round result...");
                 // Tạo round result
                 room.CurrentRoundResult = await BuildRoundResultAsync(room, correctMap);
                 room.Status = OneVsOneRoomStatus.ShowingResult;
@@ -528,6 +641,7 @@ namespace BusinessLogic.Services
             await SaveRoomToRedisAsync(roomPin, room);
 
             _logger.LogInformation($"✅ Player '{player.PlayerName}' submitted answer ({room.CurrentAnswers.Count}/{room.Players.Count}). All answered: {allAnswered}");
+            _logger.LogInformation($"🎯 SubmitAnswerAsync END - Returning {(allAnswered ? "RESULT" : "NULL")}");
 
             // Trả về result nếu tất cả đã trả lời
             return allAnswered ? room.CurrentRoundResult : null;

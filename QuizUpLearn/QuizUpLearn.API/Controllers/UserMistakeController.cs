@@ -2,11 +2,14 @@
 using BusinessLogic.DTOs.UserMistakeDtos;
 using BusinessLogic.Interfaces;
 using BusinessLogic.DTOs;
+using Microsoft.AspNetCore.Authorization;
+using QuizUpLearn.API.Attributes;
 
 namespace QuizUpLearn.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class UserMistakeController : ControllerBase
     {
         private readonly IUserMistakeService _userMistakeService;
@@ -16,6 +19,7 @@ namespace QuizUpLearn.API.Controllers
             _userMistakeService = userMistakeService;
         }
         [HttpGet]
+        [SubscriptionAndRoleAuthorize("Administrator", "Mod")]
         public async Task<IActionResult> GetAll([FromQuery] PaginationRequestDto pagination)
         {
             var userMistakes = await _userMistakeService.GetAllAsync(pagination);

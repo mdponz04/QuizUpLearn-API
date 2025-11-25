@@ -14,6 +14,7 @@ namespace BusinessLogic.Interfaces
         // ==================== JOIN ROOM ====================
         Task<bool> PlayerConnectAsync(string roomPin, Guid userId, string connectionId);
         Task<OneVsOnePlayerDto?> PlayerJoinAsync(string roomPin, Guid userId, string playerName, string connectionId);
+        Task<bool> ReconnectPlayerAsync(string roomPin, Guid userId, string newConnectionId);
         Task<bool> PlayerLeaveAsync(string roomPin, string connectionId);
         
         // ==================== GAME CONTROL ====================

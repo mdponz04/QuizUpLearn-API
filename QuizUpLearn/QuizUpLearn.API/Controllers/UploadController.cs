@@ -1,11 +1,12 @@
 ﻿using BusinessLogic.Interfaces;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace QuizUpLearn.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class UploadController : ControllerBase
     {
         private readonly IUploadService _uploadService;

@@ -4,11 +4,14 @@ using Microsoft.AspNetCore.Mvc;
 using BusinessLogic.DTOs;
 using QuizUpLearn.API.Models;
 using System.Net;
+using Microsoft.AspNetCore.Authorization;
+using QuizUpLearn.API.Attributes;
 
 namespace QuizUpLearn.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class QuizController : ControllerBase
     {
         private readonly IQuizService _quizService;
@@ -24,6 +27,7 @@ namespace QuizUpLearn.API.Controllers
         /// <param name="quizDto">Quiz data</param>
         /// <returns>Newly created quiz</returns>
         [HttpPost]
+        [SubscriptionAndRoleAuthorize("Mod")]
         public async Task<ActionResult<QuizResponseDto>> CreateQuiz([FromBody] QuizRequestDto quizDto)
         {
             if (!ModelState.IsValid)
@@ -94,6 +98,7 @@ namespace QuizUpLearn.API.Controllers
         /// <param name="quizDto">Updated quiz data</param>
         /// <returns>Updated quiz</returns>
         [HttpPut("{id}")]
+        [SubscriptionAndRoleAuthorize("Mod")]
         public async Task<ActionResult<QuizResponseDto>> UpdateQuiz(Guid id, [FromBody] QuizRequestDto quizDto)
         {
             if (!ModelState.IsValid)

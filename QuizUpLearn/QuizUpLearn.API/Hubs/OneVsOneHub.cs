@@ -125,7 +125,19 @@ namespace QuizUpLearn.API.Hubs
                     return;
                 }
 
-                var player = await _gameService.PlayerJoinAsync(roomPin, user.Id, playerName.Trim(), Context.ConnectionId);
+                OneVsOnePlayerDto? player;
+                try
+                {
+                    player = await _gameService.PlayerJoinAsync(roomPin, user.Id, playerName.Trim(), Context.ConnectionId);
+                }
+                catch (InvalidOperationException ex) when (ex.Message.StartsWith("DUPLICATE_NAME:"))
+                {
+                    // Extract player name from exception message
+                    var duplicateName = ex.Message.Replace("DUPLICATE_NAME:", "");
+                    await Clients.Caller.SendAsync("Error", $"DUPLICATE_NAME:{duplicateName}");
+                    return;
+                }
+
                 if (player == null)
                 {
                     await Clients.Caller.SendAsync("Error", "Failed to join room. Room not found, already started, or full.");
@@ -163,6 +175,57 @@ namespace QuizUpLearn.API.Hubs
             }
         }
 
+        // ==================== RECONNECT DURING GAME ====================
+        /// <summary>
+        /// Allow player to reconnect during an active game (update ConnectionId)
+        /// Called automatically by frontend when detecting connection issues during gameplay
+        /// </summary>
+        public async Task ReconnectToGame(string roomPin)
+        {
+            try
+            {
+                var user = await GetAuthenticatedUserAsync();
+                if (user == null) return;
+
+                var success = await _gameService.ReconnectPlayerAsync(roomPin, user.Id, Context.ConnectionId);
+                if (!success)
+                {
+                    await Clients.Caller.SendAsync("Error", "Failed to reconnect. You may not be in this game.");
+                    return;
+                }
+
+                // Re-add to SignalR Group
+                await Groups.AddToGroupAsync(Context.ConnectionId, $"Room_{roomPin}");
+                
+                var room = await _gameService.GetRoomAsync(roomPin);
+                var player = room?.Players.FirstOrDefault(p => p.UserId == user.Id);
+                
+                _logger.LogInformation($"✅ Player '{player?.PlayerName}' (UserId: {user.Id}) reconnected to game in room {roomPin}");
+
+                // Send confirmation
+                await Clients.Caller.SendAsync("ReconnectedToGame", new
+                {
+                    RoomPin = roomPin,
+                    PlayerName = player?.PlayerName,
+                    CurrentQuestionIndex = room?.CurrentQuestionIndex,
+                    GameStatus = room?.Status.ToString(),
+                    Message = "Successfully reconnected to game"
+                });
+
+                // Notify others (optional)
+                await Clients.OthersInGroup($"Room_{roomPin}").SendAsync("PlayerReconnected", new
+                {
+                    PlayerName = player?.PlayerName,
+                    Timestamp = DateTime.UtcNow
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error in ReconnectToGame for room {roomPin}");
+                await Clients.Caller.SendAsync("Error", "An error occurred while reconnecting");
+            }
+        }
+
         // ==================== START GAME ====================
         public async Task StartGame(string roomPin)
         {
@@ -192,7 +255,7 @@ namespace QuizUpLearn.API.Hubs
                     Timestamp = DateTime.UtcNow
                 });
 
-                await Task.Delay(3000);
+                await Task.Delay(4000);
 
                 var firstQuestion = room.Questions[0];
                 await Clients.Group($"Room_{roomPin}").SendAsync("ShowQuestion", firstQuestion);

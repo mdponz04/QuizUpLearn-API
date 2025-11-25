@@ -2,13 +2,14 @@
 using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using QuizUpLearn.API.Attributes;
 using QuizUpLearn.API.Models;
 
 namespace QuizUpLearn.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    //[Authorize]
+    [Authorize]
     public class BuySubscriptionController : ControllerBase
     {
         private readonly IBuySubscriptionService _buySubscriptionService;
@@ -23,8 +24,12 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost("purchase")]
+        [SubscriptionAndRoleAuthorize]
         public async Task<IActionResult> StartBuyingSubscription([FromBody] BuySubscriptionRequestDtos dto)
         {
+            var userId = (Guid)HttpContext.Items["UserId"]!;
+            dto.userId = userId;
+
             try
             {
                 var result = await _buySubscriptionService.StartSubscriptionPurchaseAsync(dto);

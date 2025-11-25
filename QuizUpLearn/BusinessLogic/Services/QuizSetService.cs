@@ -1,10 +1,11 @@
 ﻿using AutoMapper;
+using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.QuizSetDtos;
+using BusinessLogic.Helpers;
 using BusinessLogic.Interfaces;
 using Repository.Entities;
+using Repository.Enums;
 using Repository.Interfaces;
-using BusinessLogic.Extensions;
-using BusinessLogic.DTOs;
 
 namespace BusinessLogic.Services
 {
@@ -36,26 +37,57 @@ namespace BusinessLogic.Services
             return _mapper.Map<QuizSetResponseDto>(quizSet);
         }
 
-        public async Task<PaginationResponseDto<QuizSetResponseDto>> GetAllQuizSetsAsync(bool includeDeleted, PaginationRequestDto pagination)
+        public async Task<PaginationResponseDto<QuizSetResponseDto>> GetAllQuizSetsAsync(PaginationRequestDto pagination)
         {
-            var quizSets = await _quizSetRepo.GetAllQuizSetsAsync(includeDeleted);
+            var filters = ExtractFilterValues(pagination);
+
+            var quizSets = await _quizSetRepo.GetAllQuizSetsAsync( 
+                pagination.SearchTerm, 
+                pagination.SortBy, 
+                pagination.SortDirection,
+                filters.isDeleted,
+                filters.isPremiumOnly,
+                filters.isPublished,
+                filters.isAiGenerated,
+                filters.quizSetType);
 
             var dtos = _mapper.Map<IEnumerable<QuizSetResponseDto>>(quizSets);
-            return dtos.ToPagedResponse(pagination);
+            return PaginationHelper.CreatePagedResponse(dtos, pagination);
         }
 
         public async Task<PaginationResponseDto<QuizSetResponseDto>> GetQuizSetsByCreatorAsync(Guid creatorId, PaginationRequestDto pagination)
         {
-            var quizSets = await _quizSetRepo.GetQuizSetsByCreatorAsync(creatorId);
+            var filters = ExtractFilterValues(pagination);
+
+            var quizSets = await _quizSetRepo.GetQuizSetsByCreatorAsync(
+                creatorId, 
+                pagination.SearchTerm, 
+                pagination.SortBy, 
+                pagination.SortDirection,
+                filters.isDeleted,
+                filters.isPremiumOnly,
+                filters.isPublished,
+                filters.isAiGenerated,
+                filters.quizSetType);
+
             var dtos = _mapper.Map<IEnumerable<QuizSetResponseDto>>(quizSets);
-            return dtos.ToPagedResponse(pagination);
+            return PaginationHelper.CreatePagedResponse(dtos, pagination);
         }
 
         public async Task<PaginationResponseDto<QuizSetResponseDto>> GetPublishedQuizSetsAsync(PaginationRequestDto pagination)
         {
-            var quizSets = await _quizSetRepo.GetPublishedQuizSetsAsync();
+            var filters = ExtractFilterValues(pagination);
+
+            var quizSets = await _quizSetRepo.GetPublishedQuizSetsAsync(
+                pagination.SearchTerm,
+                pagination.SortBy,
+                pagination.SortDirection,
+                filters.isPremiumOnly,
+                filters.isAiGenerated,
+                filters.quizSetType);
+
             var dtos = _mapper.Map<IEnumerable<QuizSetResponseDto>>(quizSets);
-            return dtos.ToPagedResponse(pagination);
+            return PaginationHelper.CreatePagedResponse(dtos, pagination);
         }
 
         public async Task<QuizSetResponseDto> UpdateQuizSetAsync(Guid id, QuizSetRequestDto quizSetDto)
@@ -78,6 +110,21 @@ namespace BusinessLogic.Services
         {
             var quizSet = await _quizSetRepo.RestoreQuizSetAsync(id);
             return _mapper.Map<QuizSetResponseDto>(quizSet);
+        }
+
+        private (bool? isDeleted, bool? isPremiumOnly, bool? isPublished, bool? isAiGenerated, QuizSetTypeEnum? quizSetType) ExtractFilterValues(PaginationRequestDto pagination)
+        {
+            var jsonExtractHelper = new JsonExtractHelper();
+            if (pagination.Filters == null)
+                return (null, null, null, null, null);
+
+            bool? showDeleted = jsonExtractHelper.GetBoolFromFilter(pagination.Filters, "isDeleted");
+            bool? showPremiumOnly = jsonExtractHelper.GetBoolFromFilter(pagination.Filters, "isPremiumOnly");
+            bool? showPublished = jsonExtractHelper.GetBoolFromFilter(pagination.Filters, "isPublished");
+            bool? showAIGenerated = jsonExtractHelper.GetBoolFromFilter(pagination.Filters, "isAiGenerated");
+            QuizSetTypeEnum? quizSetType = jsonExtractHelper.GetEnumFromFilter(pagination.Filters, "quizSetType");
+
+            return (showDeleted, showPremiumOnly, showPublished, showAIGenerated, quizSetType);
         }
     }
 }

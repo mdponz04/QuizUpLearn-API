@@ -3,7 +3,6 @@ using BusinessLogic.DTOs.PaymentTransactionDtos;
 using BusinessLogic.DTOs.SubscriptionDtos;
 using BusinessLogic.Interfaces;
 using Net.payOS.Types;
-using Repository.Entities;
 
 namespace BusinessLogic.Services
 {
@@ -62,7 +61,7 @@ namespace BusinessLogic.Services
             });
 
             var plan = await _subscriptionPlanService.GetByIdAsync(transaction.SubscriptionPlanId);
-            //If plan not found, throw exception
+            
             if (plan == null)
                 throw new Exception("Subscription plan not found");
             
@@ -116,7 +115,7 @@ namespace BusinessLogic.Services
 
             var transaction = await _paymentTransactionService.CreateAsync(new RequestPaymentTransactionDto
             {
-                UserId = dto.userId,
+                UserId = dto.userId!.Value,
                 SubscriptionPlanId = dto.planId,
                 Amount = plan.Price,
                 PaymentGatewayTransactionId = paymentInfo!.orderCode.ToString()

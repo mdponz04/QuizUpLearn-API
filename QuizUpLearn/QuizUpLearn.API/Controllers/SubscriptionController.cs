@@ -1,12 +1,15 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using BusinessLogic.Interfaces;
+﻿using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.SubscriptionDtos;
-using BusinessLogic.DTOs;
+using BusinessLogic.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using QuizUpLearn.API.Attributes;
 
 namespace QuizUpLearn.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class SubscriptionController : ControllerBase
     {
         private readonly ISubscriptionService _service;
@@ -17,6 +20,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpGet]
+        [SubscriptionAndRoleAuthorize("Mod")]
         public async Task<ActionResult<PaginationResponseDto<ResponseSubscriptionDto>>> GetPaged([FromQuery] PaginationRequestDto pagination)
         {
             var result = await _service.GetAllAsync(pagination);
@@ -55,6 +59,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpDelete("{id:guid}")]
+        [SubscriptionAndRoleAuthorize("Administrator")]
         public async Task<ActionResult> Delete(Guid id)
         {
             var deleted = await _service.DeleteAsync(id);

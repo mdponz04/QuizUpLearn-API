@@ -1,12 +1,14 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using BusinessLogic.DTOs.UserWeakPointDtos;
 using BusinessLogic.Interfaces;
-using BusinessLogic.DTOs; // For PaginationRequestDto
+using BusinessLogic.DTOs;
+using Microsoft.AspNetCore.Authorization;
 
 namespace QuizUpLearn.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class UserWeakPointController : ControllerBase
     {
         private readonly IUserWeakPointService _service;

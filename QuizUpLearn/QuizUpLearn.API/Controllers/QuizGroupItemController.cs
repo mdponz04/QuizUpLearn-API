@@ -2,11 +2,13 @@
 using BusinessLogic.DTOs.QuizGroupItemDtos;
 using BusinessLogic.Interfaces;
 using BusinessLogic.DTOs;
+using Microsoft.AspNetCore.Authorization;
 
 namespace QuizUpLearn.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class QuizGroupItemController : ControllerBase
     {
         private readonly IQuizGroupItemService _quizGroupItemService;
