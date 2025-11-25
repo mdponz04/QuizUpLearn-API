@@ -1,5 +1,6 @@
 ﻿using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using QuizUpLearn.API.Attributes;
 
 namespace QuizUpLearn.API.Controllers
 {
@@ -14,6 +15,7 @@ namespace QuizUpLearn.API.Controllers
             _paymentService = paymentService;
         }
         [HttpPost("create-payment")]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<IActionResult> CreatePayment(int amount, string description, string successUrl, string cancelUrl)
         {
             var paymentResult = await _paymentService.CreatePaymentLinkAsync(amount, description, null!, successUrl, cancelUrl);
@@ -24,6 +26,7 @@ namespace QuizUpLearn.API.Controllers
             return StatusCode(500, "Payment request create failed");
         }
         [HttpPost("cancel-payment")]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<IActionResult> CancelPayment(long orderCode, string? reason)
         {
             var cancelResult = await _paymentService.CancelPaymentLinkAsync(orderCode, reason);
@@ -34,6 +37,7 @@ namespace QuizUpLearn.API.Controllers
             return StatusCode(500, "Payment request cancel failed");
         }
         [HttpGet("get-payment/{orderCode}")]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<IActionResult> GetPayment(long orderCode)
         {
             var paymentInfo = await _paymentService.GetPaymentInfoAsync(orderCode);

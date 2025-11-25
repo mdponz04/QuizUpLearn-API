@@ -27,7 +27,7 @@ namespace QuizUpLearn.API.Controllers
         /// <param name="quizDto">Quiz data</param>
         /// <returns>Newly created quiz</returns>
         [HttpPost]
-        [SubscriptionAndRoleAuthorize("Mod")]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult<QuizResponseDto>> CreateQuiz([FromBody] QuizRequestDto quizDto)
         {
             if (!ModelState.IsValid)
@@ -98,7 +98,7 @@ namespace QuizUpLearn.API.Controllers
         /// <param name="quizDto">Updated quiz data</param>
         /// <returns>Updated quiz</returns>
         [HttpPut("{id}")]
-        [SubscriptionAndRoleAuthorize("Mod")]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult<QuizResponseDto>> UpdateQuiz(Guid id, [FromBody] QuizRequestDto quizDto)
         {
             if (!ModelState.IsValid)

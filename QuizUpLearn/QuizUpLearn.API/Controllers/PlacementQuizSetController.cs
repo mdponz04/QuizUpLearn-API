@@ -18,7 +18,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost("import-excel")]
-        [SubscriptionAndRoleAuthorize("Mod")]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<IActionResult> ImportExcelQuizSetFile(IFormFile file)
         {
             if (file == null || file.Length == 0)

@@ -52,6 +52,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost("payment-success")]
+        [SubscriptionAndRoleAuthorize]
         public async Task<IActionResult> PaymentSuccess([FromQuery] long orderCode)
         {
             try
@@ -75,6 +76,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost("payment-cancel")]
+        [SubscriptionAndRoleAuthorize]
         public async Task<IActionResult> PaymentCancel([FromQuery] long orderCode)
         {
             try

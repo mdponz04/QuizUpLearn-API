@@ -1,13 +1,15 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using BusinessLogic.DTOs;
+using BusinessLogic.DTOs.PaymentTransactionDtos;
 using BusinessLogic.Interfaces;
-using BusinessLogic.DTOs.PaymentTransactionDtos;
-using BusinessLogic.DTOs.PaymentTransactionDtos;
-using BusinessLogic.DTOs;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using QuizUpLearn.API.Attributes;
 
 namespace QuizUpLearn.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class PaymentTransactionController : ControllerBase
     {
         private readonly IPaymentTransactionService _service;
@@ -18,6 +20,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpGet]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult<PaginationResponseDto<ResponsePaymentTransactionDto>>> GetPaged([FromQuery] PaginationRequestDto pagination)
         {
             var result = await _service.GetAllAsync(pagination);
@@ -25,6 +28,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpGet("{id:guid}")]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult<ResponsePaymentTransactionDto>> GetById(Guid id)
         {
             var result = await _service.GetByIdAsync(id);
@@ -32,6 +36,7 @@ namespace QuizUpLearn.API.Controllers
             return Ok(result);
         }
         [HttpGet("by-ordercode/{orderCode:long}")]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult<ResponsePaymentTransactionDto>> GetByOrderCode(long orderCode)
         {
             var result = await _service.GetByPaymentGatewayTransactionOrderCodeAsync(orderCode.ToString());
@@ -39,6 +44,7 @@ namespace QuizUpLearn.API.Controllers
             return Ok(result);
         }
         [HttpPost]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult<ResponsePaymentTransactionDto>> Create([FromBody] RequestPaymentTransactionDto dto)
         {
             var created = await _service.CreateAsync(dto);
@@ -46,6 +52,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPut("{id:guid}")]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult<ResponsePaymentTransactionDto>> Update(Guid id, [FromBody] RequestPaymentTransactionDto dto)
         {
             var updated = await _service.UpdateAsync(id, dto);
@@ -54,6 +61,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpDelete("{id:guid}")]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult> Delete(Guid id)
         {
             var deleted = await _service.DeleteAsync(id);

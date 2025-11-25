@@ -28,7 +28,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost("validate-quiz-set/{quizSetId}")]
-        [SubscriptionAndRoleAuthorize("Mod", "User", RequireAiFeatures = true)]
+        [SubscriptionAndRoleAuthorize("Moderator", "User", RequireAiFeatures = true)]
         public async Task<IActionResult> ValidateQuizSet(Guid quizSetId)
         {
             if (quizSetId == Guid.Empty)
@@ -55,7 +55,7 @@ namespace QuizUpLearn.API.Controllers
         /// <param name="quizSetType"></param>
         /// <returns></returns>
         [HttpPost("generate-quiz-set")]
-        [SubscriptionAndRoleAuthorize("Mod", "User", RequireAiFeatures = true)]
+        [SubscriptionAndRoleAuthorize("Moderator", "User", RequireAiFeatures = true)]
         public async Task<IActionResult> GeneratePracticeQuizSet([FromBody] AiGenerateQuizSetRequestDto inputData, QuizPartEnums quizPart, QuizSetTypeEnum quizSetType)
         {
             if (inputData == null)
@@ -72,13 +72,13 @@ namespace QuizUpLearn.API.Controllers
             {
                 case QuizSetTypeEnum.Tournament:
                 case QuizSetTypeEnum.Placement:
-                    if (!isAdmin && !userRole.Equals("Mod", StringComparison.OrdinalIgnoreCase))
+                    if (!isAdmin && !userRole.Equals("Moderator", StringComparison.OrdinalIgnoreCase))
                     {
                         return Forbid($"Only Admin and Mod can generate {quizSetType} quiz sets.");
                     }
                     break;
                 case QuizSetTypeEnum.Event:
-                    if (!isAdmin && !userRole.Equals("Mod", StringComparison.OrdinalIgnoreCase))
+                    if (!isAdmin && !userRole.Equals("Moderator", StringComparison.OrdinalIgnoreCase))
                     {
                         return Forbid($"Only Admin and Mod can generate {quizSetType} quiz sets.");
                     }
@@ -211,7 +211,7 @@ namespace QuizUpLearn.API.Controllers
         /// <param name="targetUserId"></param>
         /// <returns></returns>
         [HttpPost("ai-analyze-user-mistakes")]
-        [SubscriptionAndRoleAuthorize("Mod", "User", RequireAiFeatures = true)]
+        [SubscriptionAndRoleAuthorize("Moderator", "User", RequireAiFeatures = true)]
         public async Task<IActionResult> AnalyzeUserMistakesAndAdvise()
         {
             // Get authenticated user ID from HttpContext

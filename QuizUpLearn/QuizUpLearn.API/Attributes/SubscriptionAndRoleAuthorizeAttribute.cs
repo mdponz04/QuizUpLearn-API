@@ -97,7 +97,8 @@ namespace QuizUpLearn.API.Attributes
 
                 // Check if admin bypass is allowed and user is admin
                 bool isAdmin = role.RoleName.Equals("Administrator", StringComparison.OrdinalIgnoreCase);
-                bool skipSubscriptionCheck = AllowAdminBypass && isAdmin;
+                bool isMod = role.RoleName.Equals("Moderator", StringComparison.OrdinalIgnoreCase);
+                bool skipSubscriptionCheck = AllowAdminBypass && (isAdmin || isMod);
 
                 // Store role info in HttpContext
                 context.HttpContext.Items["UserRole"] = role.RoleName;
