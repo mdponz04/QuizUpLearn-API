@@ -80,5 +80,11 @@ namespace BusinessLogic.Services
         {
             return await _repo.DeleteAsync(id);
         }
+
+        public async Task<ResponseSubscriptionPlanDto> GetFreeSubscriptionPlanAsync()
+        {
+            var freePlan = await _repo.GetFreeSubscriptionPlan();
+            return _mapper.Map<ResponseSubscriptionPlanDto>(freePlan);
+        }
     }
 }
