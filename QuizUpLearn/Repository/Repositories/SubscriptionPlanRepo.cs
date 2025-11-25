@@ -24,7 +24,7 @@ namespace Repository.Repositories
             return await _context.SubscriptionPlans.FindAsync(id);
         }
 
-        public async Task<SubscriptionPlan> CreateAsync(SubscriptionPlan subscriptionPlan)
+        public async Task<SubscriptionPlan?> CreateAsync(SubscriptionPlan subscriptionPlan)
         {
             _context.SubscriptionPlans.Add(subscriptionPlan);
             await _context.SaveChangesAsync();
@@ -49,6 +49,30 @@ namespace Repository.Repositories
             _context.SubscriptionPlans.Remove(entity);
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<SubscriptionPlan> GetFreeSubscriptionPlan()
+        {
+            var existing = await _context.SubscriptionPlans
+                .Where(sp => sp.Name.ToLower() == "free")
+                .FirstOrDefaultAsync();
+            if(existing != null) 
+                return existing;
+
+            var freePlan = new SubscriptionPlan
+            {
+                Name = "Free",
+                Price = 0,
+                DurationDays = 999999,
+                CanAccessPremiumContent = false,
+                CanAccessAiFeatures = false,
+                AiGenerateQuizSetMaxTimes = 0,
+                IsActive = true
+            };
+
+            _context.SubscriptionPlans.Add(freePlan);
+            await _context.SaveChangesAsync();
+            return freePlan;
         }
     }
 }
