@@ -65,8 +65,8 @@ namespace Repository.Repositories
                 Price = 0,
                 DurationDays = 999999,
                 CanAccessPremiumContent = false,
-                CanAccessAiFeatures = false,
-                AiGenerateQuizSetMaxTimes = 0,
+                CanAccessAiFeatures = true,
+                AiGenerateQuizSetMaxTimes = 10,
                 IsActive = true
             };
 

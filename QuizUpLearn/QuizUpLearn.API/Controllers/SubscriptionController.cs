@@ -35,7 +35,7 @@ namespace QuizUpLearn.API.Controllers
             return Ok(result);
         }
 
-        [HttpGet("user/{userId:guid}")]
+        [HttpGet("userid")]
         [SubscriptionAndRoleAuthorize]
         public async Task<ActionResult<ResponseSubscriptionDto>> GetByUserId()
         {

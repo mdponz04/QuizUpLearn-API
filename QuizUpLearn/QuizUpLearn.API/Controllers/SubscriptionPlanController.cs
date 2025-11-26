@@ -61,5 +61,11 @@ namespace QuizUpLearn.API.Controllers
             if (!deleted) return NotFound();
             return NoContent();
         }
+        [HttpGet("free-plan")]
+        public async Task<ActionResult<ResponseSubscriptionPlanDto>> GetFreePlan()
+        {
+            var freePlan = await _service.GetFreeSubscriptionPlanAsync();
+            return Ok(freePlan);
+        }
     }
 }
