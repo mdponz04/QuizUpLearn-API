@@ -14,6 +14,7 @@ namespace BusinessLogic.Services
         private readonly IQuizAttemptRepo _attemptRepo;
         private readonly IAnswerOptionRepo _answerOptionRepo;
         private readonly IQuizRepo _quizRepo;
+            private readonly IUserRepo _userRepo;
         private readonly IUserMistakeService _userMistakeService;
         private readonly IUserMistakeRepo _userMistakeRepo;
         private readonly IAIService _aiService;
@@ -25,6 +26,7 @@ namespace BusinessLogic.Services
             IQuizAttemptRepo attemptRepo,
             IAnswerOptionRepo answerOptionRepo,
             IQuizRepo quizRepo,
+                IUserRepo userRepo,
             IUserMistakeService userMistakeService,
             IUserMistakeRepo userMistakeRepo,
             IAIService aiService,
@@ -35,6 +37,7 @@ namespace BusinessLogic.Services
             _attemptRepo = attemptRepo;
             _answerOptionRepo = answerOptionRepo;
             _quizRepo = quizRepo;
+            _userRepo = userRepo;
             _userMistakeService = userMistakeService;
             _userMistakeRepo = userMistakeRepo;
             _aiService = aiService;
@@ -409,18 +412,30 @@ namespace BusinessLogic.Services
             // Quy đổi điểm TOEIC
             int lisPoint = ConvertToTOEICScore(correctLisCount, isListening: true);
             int reaPoint = ConvertToTOEICScore(correctReaCount, isListening: false);
+            int totalPlacementScore = lisPoint + reaPoint;
 
             // Cập nhật QuizAttempt để lưu vào history
             attempt.AttemptType = "placement";
             attempt.CorrectAnswers = correctLisCount + correctReaCount;
             attempt.WrongAnswers = attempt.TotalQuestions - attempt.CorrectAnswers;
-            attempt.Score = lisPoint + reaPoint;
+            attempt.Score = totalPlacementScore;
             attempt.Accuracy = attempt.TotalQuestions > 0 ? (decimal)attempt.CorrectAnswers / attempt.TotalQuestions : 0;
             attempt.Status = "completed";
             attempt.IsCompleted = true;
             attempt.TimeSpent = totalTimeSpent > 0 ? totalTimeSpent : (int?)null;
 
             await _attemptRepo.UpdateAsync(dto.AttemptId, attempt);
+
+            // Cập nhật TotalPoints của user nếu điểm placement lần này cao hơn
+            if (attempt.UserId != Guid.Empty)
+            {
+                var user = await _userRepo.GetByIdAsync(attempt.UserId);
+                if (user != null && totalPlacementScore > user.TotalPoints)
+                {
+                    user.TotalPoints = totalPlacementScore;
+                    await _userRepo.UpdateAsync(user.Id, user);
+                }
+            }
 
             var response = new ResponsePlacementTestDto
             {
@@ -523,53 +538,42 @@ namespace BusinessLogic.Services
             return response;
         }
 
+        private static readonly Dictionary<int, int> ListeningScoreMap = new()
+{
+    {0,5},{1,5},{2,5},{3,5},{4,10},{5,15},{6,20},{7,30},{8,35},{9,40},{10,45},
+    {11,50},{12,55},{13,60},{14,65},{15,70},{16,75},{17,80},{18,85},{19,90},{20,95},
+    {21,100},{22,105},{23,110},{24,115},{25,120},{26,125},{27,130},{28,135},{29,140},{30,145},
+    {31,150},{32,155},{33,160},{34,165},{35,170},{36,175},{37,180},{38,185},{39,190},{40,195},
+    {41,200},{42,205},{43,210},{44,215},{45,220},{46,225},{47,230},{48,235},{49,240},{50,245},
+    {51,250},{52,255},{53,260},{54,265},{55,270},{56,275},{57,280},{58,285},{59,290},{60,295},
+    {61,300},{62,305},{63,310},{64,315},{65,320},{66,325},{67,330},{68,335},{69,340},{70,345},
+    {71,350},{72,355},{73,360},{74,365},{75,370},{76,375},{77,380},{78,385},{79,390},{80,395},
+    {81,400},{82,405},{83,410},{84,415},{85,420},{86,425},{87,430},{88,435},{89,440},{90,445},
+    {91,450},{92,455},{93,460},{94,465},{95,470},{96,475},{97,480},{98,485},{99,490},{100,495}
+};
+
+        private static readonly Dictionary<int, int> ReadingScoreMap = new()
+{
+    {0,5},{1,5},{2,5},{3,10},{4,15},{5,20},{6,25},{7,30},{8,35},{9,40},{10,45},
+    {11,50},{12,55},{13,60},{14,65},{15,70},{16,75},{17,80},{18,85},{19,90},{20,95},
+    {21,100},{22,105},{23,110},{24,115},{25,120},{26,125},{27,130},{28,135},{29,140},{30,145},
+    {31,150},{32,155},{33,160},{34,165},{35,170},{36,175},{37,180},{38,185},{39,190},{40,195},
+    {41,200},{42,205},{43,210},{44,215},{45,220},{46,225},{47,230},{48,235},{49,240},{50,245},
+    {51,250},{52,255},{53,260},{54,265},{55,270},{56,275},{57,280},{58,285},{59,290},{60,295},
+    {61,300},{62,305},{63,310},{64,315},{65,320},{66,325},{67,330},{68,335},{69,340},{70,345},
+    {71,350},{72,355},{73,360},{74,365},{75,370},{76,375},{77,380},{78,385},{79,390},{80,395},
+    {81,400},{82,405},{83,410},{84,415},{85,420},{86,425},{87,430},{88,435},{89,440},{90,445},
+    {91,450},{92,455},{93,460},{94,465},{95,470},{96,475},{97,480},{98,485},{99,490},{100,495}
+};
+
         private int ConvertToTOEICScore(int correctAnswers, bool isListening)
         {
-            if (correctAnswers <= 0) return 5;
-            if (correctAnswers > 100) return 495;
+            if (correctAnswers < 0) correctAnswers = 0;
+            if (correctAnswers > 100) correctAnswers = 100;
 
-            // Bảng quy đổi điểm TOEIC theo số câu đúng
-            var scoreMap = new Dictionary<int, (int Listening, int Reading)>
-            {
-                { 1, (5, 5) }, { 2, (5, 5) }, { 3, (5, 5) }, { 4, (5, 5) }, { 5, (5, 5) },
-                { 6, (5, 5) }, { 7, (5, 5) }, { 8, (5, 5) }, { 9, (5, 5) }, { 10, (5, 5) },
-                { 11, (5, 5) }, { 12, (5, 5) }, { 13, (5, 5) }, { 14, (5, 5) }, { 15, (5, 5) },
-                { 16, (5, 5) }, { 17, (5, 5) }, { 18, (10, 5) }, { 19, (15, 5) }, { 20, (20, 5) },
-                { 21, (25, 5) }, { 22, (30, 10) }, { 23, (35, 15) }, { 24, (40, 20) }, { 25, (45, 25) },
-                { 26, (50, 30) }, { 27, (55, 35) }, { 28, (60, 40) }, { 29, (70, 45) }, { 30, (80, 55) },
-                { 31, (85, 60) }, { 32, (90, 65) }, { 33, (95, 70) }, { 34, (100, 75) }, { 35, (105, 80) },
-                { 36, (115, 85) }, { 37, (125, 90) }, { 38, (135, 95) }, { 39, (140, 105) }, { 40, (150, 115) },
-                { 41, (160, 120) }, { 42, (170, 125) }, { 43, (175, 130) }, { 44, (180, 135) }, { 45, (190, 140) },
-                { 46, (200, 145) }, { 47, (205, 155) }, { 48, (215, 160) }, { 49, (220, 170) }, { 50, (225, 175) },
-                { 51, (230, 185) }, { 52, (235, 195) }, { 53, (245, 205) }, { 54, (255, 210) }, { 55, (260, 215) },
-                { 56, (265, 220) }, { 57, (275, 230) }, { 58, (285, 240) }, { 59, (290, 245) }, { 60, (295, 250) },
-                { 61, (300, 255) }, { 62, (310, 260) }, { 63, (320, 270) }, { 64, (325, 275) }, { 65, (330, 280) },
-                { 66, (335, 285) }, { 67, (340, 290) }, { 68, (345, 295) }, { 69, (350, 295) }, { 70, (355, 300) },
-                { 71, (360, 310) }, { 72, (365, 315) }, { 73, (370, 320) }, { 74, (375, 325) }, { 75, (385, 330) },
-                { 76, (395, 335) }, { 77, (400, 340) }, { 78, (405, 345) }, { 79, (415, 355) }, { 80, (420, 360) },
-                { 81, (425, 370) }, { 82, (430, 375) }, { 83, (435, 385) }, { 84, (440, 390) }, { 85, (445, 395) },
-                { 86, (455, 405) }, { 87, (460, 415) }, { 88, (465, 420) }, { 89, (475, 425) }, { 90, (480, 435) },
-                { 91, (485, 440) }, { 92, (490, 450) }, { 93, (495, 455) }, { 94, (495, 460) }, { 95, (495, 470) },
-                { 96, (495, 475) }, { 97, (495, 485) }, { 98, (495, 485) }, { 99, (495, 490) }, { 100, (495, 495) }
-            };
-
-            if (scoreMap.TryGetValue(correctAnswers, out var scores))
-            {
-                return isListening ? scores.Listening : scores.Reading;
-            }
-
-            // Nếu không tìm thấy, tính nội suy hoặc trả về giá trị gần nhất
-            var lower = scoreMap.Keys.Where(k => k < correctAnswers).DefaultIfEmpty(1).Max();
-            var upper = scoreMap.Keys.Where(k => k > correctAnswers).DefaultIfEmpty(100).Min();
-            
-            if (scoreMap.TryGetValue(lower, out var lowerScores) && scoreMap.TryGetValue(upper, out var upperScores))
-            {
-                var lowerScore = isListening ? lowerScores.Listening : lowerScores.Reading;
-                var upperScore = isListening ? upperScores.Listening : upperScores.Reading;
-                return lowerScore; // Trả về điểm thấp hơn (conservative)
-            }
-
-            return isListening ? 5 : 5;
+            return isListening
+                ? ListeningScoreMap[correctAnswers]
+                : ReadingScoreMap[correctAnswers];
         }
     }
 }

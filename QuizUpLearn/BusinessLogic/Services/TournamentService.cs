@@ -82,6 +82,20 @@ namespace BusinessLogic.Services
 			return MapResponse(tournament, all.Count());
 		}
 
+		public async Task<TournamentResponseDto> EndAsync(Guid tournamentId)
+		{
+			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId) ?? throw new ArgumentException("Tournament not found");
+			if (tournament.Status != "Started")
+			{
+				throw new ArgumentException($"Chỉ có thể end tournament khi status là 'Started'. Trạng thái hiện tại: {tournament.Status}");
+			}
+
+			tournament.Status = "Ended";
+			await _tournamentRepo.UpdateAsync(tournament);
+			var all = await _tournamentQuizSetRepo.GetByTournamentAsync(tournamentId);
+			return MapResponse(tournament, all.Count());
+		}
+
 		public async Task<bool> JoinAsync(Guid tournamentId, Guid userId)
 		{
 			// Kiểm tra tournament tồn tại

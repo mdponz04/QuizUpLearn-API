@@ -108,6 +108,21 @@ namespace QuizUpLearn.API.Controllers
 			}
 		}
 
+		[HttpPost("{id:guid}/end")]
+		public async Task<ActionResult<ApiResponse<TournamentResponseDto>>> End([FromRoute] Guid id)
+		{
+			try
+			{
+				var res = await _tournamentService.EndAsync(id);
+				return Ok(new ApiResponse<TournamentResponseDto> { Success = true, Data = res, Message = "Tournament ended" });
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "End tournament failed");
+				return BadRequest(new ApiResponse<TournamentResponseDto> { Success = false, Message = ex.Message });
+			}
+		}
+
 		[HttpPost("{id:guid}/join")]
 		public async Task<ActionResult<ApiResponse<object>>> Join([FromRoute] Guid id)
 		{
