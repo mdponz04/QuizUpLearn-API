@@ -21,6 +21,8 @@ namespace BusinessLogic.DTOs.QuizSetDtos
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public DateTime? DeletedAt { get; set; }
+        public bool IsRequireValidate { get; set; }
+        public DateTime? ValidatedAt { get; set; }
         public List<ResponseQuizGroupItemDto> QuizGroupItems { get; set; } = new List<ResponseQuizGroupItemDto>();
         public List<QuizResponseDto> Quizzes { get; set; } = new List<QuizResponseDto>();
     }
