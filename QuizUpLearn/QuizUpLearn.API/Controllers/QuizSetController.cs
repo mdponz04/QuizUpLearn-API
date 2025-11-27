@@ -5,6 +5,7 @@ using BusinessLogic.DTOs;
 using QuizUpLearn.API.Models;
 using System.Net;
 using Microsoft.AspNetCore.Authorization;
+using QuizUpLearn.API.Attributes;
 
 namespace QuizUpLearn.API.Controllers
 {
@@ -154,6 +155,26 @@ namespace QuizUpLearn.API.Controllers
             if (restoredQuizSet == null)
                 throw new HttpException(HttpStatusCode.NotFound, "Quiz set not found");
             return Ok(restoredQuizSet);
+        }
+        [HttpPost("{id:guid}/request-validate")]
+        [Authorize]
+        [SubscriptionAndRoleAuthorize("User", RequirePremiumContent = true)]
+        public async Task<IActionResult> RequestValidateByMod(Guid id)
+        {
+            var result = await _quizSetService.RequestValidateByModAsync(id);
+            if (!result)
+                throw new HttpException(HttpStatusCode.NotFound, "Quiz set not found");
+            return Ok("Request validate quiz set to mod success");
+        }
+        [HttpPost("{id:guid}/validate")]
+        [Authorize]
+        [SubscriptionAndRoleAuthorize("Moderator")]
+        public async Task<IActionResult> ValidateQuizSet(Guid id)
+        {
+            var result = await _quizSetService.ValidateQuizSetAsync(id);
+            if (!result)
+                throw new HttpException(HttpStatusCode.NotFound, "Quiz set not found");
+            return Ok("Validate quiz set success");
         }
     }
 }

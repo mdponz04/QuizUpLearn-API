@@ -38,5 +38,7 @@ namespace Repository.Interfaces
         Task<bool> HardDeleteQuizSetAsync(Guid id);
         Task<bool> QuizSetExistsAsync(Guid id);
         Task<QuizSet?> RestoreQuizSetAsync(Guid id);
+        Task<bool> RequestValidateByMod(Guid id);
+        Task<bool> ValidateQuizSet(Guid id);
     }
 }

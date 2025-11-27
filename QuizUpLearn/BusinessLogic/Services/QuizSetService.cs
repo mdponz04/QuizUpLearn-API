@@ -126,5 +126,15 @@ namespace BusinessLogic.Services
 
             return (showDeleted, showPremiumOnly, showPublished, showAIGenerated, quizSetType);
         }
+
+        public async Task<bool> RequestValidateByModAsync(Guid id)
+        {
+            return await _quizSetRepo.RequestValidateByMod(id);
+        }
+
+        public async Task<bool> ValidateQuizSetAsync(Guid id)
+        {
+            return await _quizSetRepo.ValidateQuizSet(id);
+        }
     }
 }

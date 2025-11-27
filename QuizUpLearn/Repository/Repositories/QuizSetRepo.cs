@@ -159,6 +159,30 @@ namespace Repository.Repositories
             return quizSet;
         }
 
+        public async Task<bool> RequestValidateByMod(Guid id)
+        {
+            var existingQuizSet = await _context.QuizSets.FindAsync(id);
+            if(existingQuizSet == null || existingQuizSet.DeletedAt != null)
+                return false;
+            existingQuizSet.IsRequireValidate = true;
+            _context.QuizSets.Update(existingQuizSet);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> ValidateQuizSet(Guid id)
+        {
+            var existingQuizSet = await _context.QuizSets.FindAsync(id);
+            if (existingQuizSet == null || existingQuizSet.DeletedAt != null)
+                return false;
+            existingQuizSet.IsRequireValidate = false;
+            existingQuizSet.IsPremiumOnly = true;
+            existingQuizSet.ValidatedAt = DateTime.UtcNow;
+            _context.QuizSets.Update(existingQuizSet);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
         private IQueryable<QuizSet> ApplyFilters(
             IQueryable<QuizSet> query,
             bool? isDeleted = null,
