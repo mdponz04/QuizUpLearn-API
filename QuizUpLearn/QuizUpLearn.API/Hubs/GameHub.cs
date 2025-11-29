@@ -20,6 +20,46 @@ namespace QuizUpLearn.API.Hubs
             _logger = logger;
         }
 
+        // ==================== HELPER METHODS ====================
+        /// <summary>
+        /// Build ShowQuestion payload with group item data for TOEIC-style grouped questions
+        /// </summary>
+        private object BuildShowQuestionPayload(QuestionDto question, GameSessionDto? session)
+        {
+            QuizGroupItemDto? groupItem = null;
+            
+            // Get group item if this question belongs to a group (TOEIC Parts 3,4,6,7)
+            if (question.QuizGroupItemId.HasValue && 
+                session?.QuizGroupItems != null && 
+                session.QuizGroupItems.TryGetValue(question.QuizGroupItemId.Value, out var foundGroupItem))
+            {
+                groupItem = foundGroupItem;
+            }
+
+            return new
+            {
+                // Question data
+                QuestionId = question.QuestionId,
+                QuestionText = question.QuestionText,
+                ImageUrl = question.ImageUrl,
+                AudioUrl = question.AudioUrl,
+                AnswerOptions = question.AnswerOptions,
+                QuestionNumber = question.QuestionNumber,
+                TotalQuestions = question.TotalQuestions,
+                TimeLimit = question.TimeLimit ?? session?.QuestionTimeLimitSeconds ?? 30,
+                QuizGroupItemId = question.QuizGroupItemId,
+                
+                // Group item data (for TOEIC-style grouped questions with shared passage/audio/image)
+                GroupItem = groupItem != null ? new
+                {
+                    Id = groupItem.Id,
+                    AudioUrl = groupItem.AudioUrl,
+                    ImageUrl = groupItem.ImageUrl,
+                    PassageText = groupItem.PassageText
+                } : null
+            };
+        }
+
         // ==================== CONNECTION LIFECYCLE ====================
         public override async Task OnConnectedAsync()
         {
@@ -155,6 +195,24 @@ namespace QuizUpLearn.API.Hubs
                             Score = p.Score
                         }).ToList()
                     });
+
+                    // Send current Boss Fight settings to the new player if available
+                    _logger.LogInformation($"🔍 JoinGame - Checking settings for {gamePin}: IsBossFightMode={session.IsBossFightMode}, BossMaxHP={session.BossMaxHP}, BossCurrentHP={session.BossCurrentHP}");
+                    
+                    if (session.IsBossFightMode || session.BossMaxHP > 0)
+                    {
+                        var settingsToSend = new
+                        {
+                            GamePin = gamePin,
+                            BossMaxHP = session.BossMaxHP > 0 ? session.BossMaxHP : 10000,
+                            BossCurrentHP = session.BossCurrentHP > 0 ? session.BossCurrentHP : session.BossMaxHP,
+                            TimeLimitSeconds = session.GameTimeLimitSeconds,
+                            QuestionTimeLimitSeconds = session.QuestionTimeLimitSeconds > 0 ? session.QuestionTimeLimitSeconds : 30
+                        };
+                        
+                        _logger.LogInformation($"📤 Sending LobbySettingsUpdated to new player: BossMaxHP={settingsToSend.BossMaxHP}, BossCurrentHP={settingsToSend.BossCurrentHP}");
+                        await Clients.Caller.SendAsync("LobbySettingsUpdated", settingsToSend);
+                    }
                 }
             }
             catch (Exception ex)
@@ -241,7 +299,9 @@ namespace QuizUpLearn.API.Hubs
                 // Đợi 3 giây (countdown) rồi gửi câu hỏi đầu tiên
                 await Task.Delay(3000);
 
-                await Clients.Group($"Game_{gamePin}").SendAsync("ShowQuestion", question);
+                // Send question with group item data (for TOEIC-style grouped questions)
+                var questionPayload = BuildShowQuestionPayload(question, session);
+                await Clients.Group($"Game_{gamePin}").SendAsync("ShowQuestion", questionPayload);
             }
             catch (Exception ex)
             {
@@ -440,8 +500,10 @@ namespace QuizUpLearn.API.Hubs
 
                 _logger.LogInformation($"Game {gamePin} moved to next question");
 
-                // Gửi câu hỏi tiếp theo
-                await Clients.Group($"Game_{gamePin}").SendAsync("ShowQuestion", nextQuestion);
+                // Gửi câu hỏi tiếp theo with group item data (for TOEIC-style grouped questions)
+                var session = await _gameService.GetGameSessionAsync(gamePin);
+                var questionPayload = BuildShowQuestionPayload(nextQuestion, session);
+                await Clients.Group($"Game_{gamePin}").SendAsync("ShowQuestion", questionPayload);
             }
             catch (Exception ex)
             {
@@ -514,7 +576,7 @@ namespace QuizUpLearn.API.Hubs
         /// <summary>
         /// Host enables Boss Fight mode for the game
         /// </summary>
-        public async Task EnableBossFightMode(string gamePin, int bossHP = 10000, int? timeLimitSeconds = null, bool autoNextQuestion = true)
+        public async Task EnableBossFightMode(string gamePin, int bossHP = 10000, int? timeLimitSeconds = null, int questionTimeLimitSeconds = 30, bool autoNextQuestion = true)
         {
             try
             {
@@ -532,14 +594,14 @@ namespace QuizUpLearn.API.Hubs
                     return;
                 }
 
-                var success = await _gameService.EnableBossFightModeAsync(gamePin, bossHP, timeLimitSeconds, autoNextQuestion);
+                var success = await _gameService.EnableBossFightModeAsync(gamePin, bossHP, timeLimitSeconds, questionTimeLimitSeconds, autoNextQuestion);
                 if (!success)
                 {
                     await Clients.Caller.SendAsync("Error", "Failed to enable Boss Fight mode");
                     return;
                 }
 
-                _logger.LogInformation($"🎮 Boss Fight mode enabled for game {gamePin}. Boss HP: {bossHP}");
+                _logger.LogInformation($"🎮 Boss Fight mode enabled for game {gamePin}. Boss HP: {bossHP}, Question Time: {questionTimeLimitSeconds}s");
 
                 // Broadcast to all players that Boss Fight mode is enabled
                 await Clients.Group($"Game_{gamePin}").SendAsync("BossFightModeEnabled", new
@@ -548,6 +610,7 @@ namespace QuizUpLearn.API.Hubs
                     BossMaxHP = bossHP,
                     BossCurrentHP = bossHP,
                     TimeLimitSeconds = timeLimitSeconds,
+                    QuestionTimeLimitSeconds = questionTimeLimitSeconds,
                     AutoNextQuestion = autoNextQuestion,
                     Message = "Boss Fight mode activated! Work together to defeat the boss!"
                 });
@@ -556,6 +619,49 @@ namespace QuizUpLearn.API.Hubs
             {
                 _logger.LogError(ex, $"Error in EnableBossFightMode for game {gamePin}");
                 await Clients.Caller.SendAsync("Error", "An error occurred while enabling Boss Fight mode");
+            }
+        }
+
+        /// <summary>
+        /// Broadcast lobby settings to all players in real-time (when mod changes settings in lobby)
+        /// Also stores the settings in the session so new players can receive them
+        /// </summary>
+        public async Task BroadcastLobbySettings(string gamePin, int bossMaxHP, int? timeLimitSeconds, int questionTimeLimitSeconds)
+        {
+            try
+            {
+                var session = await _gameService.GetGameSessionAsync(gamePin);
+                if (session == null)
+                {
+                    await Clients.Caller.SendAsync("Error", "Game not found");
+                    return;
+                }
+
+                // Only host can broadcast settings
+                if (!string.Equals(session.HostConnectionId, Context.ConnectionId, StringComparison.OrdinalIgnoreCase))
+                {
+                    await Clients.Caller.SendAsync("Error", "Only host can broadcast lobby settings");
+                    return;
+                }
+
+                // Store the settings in the session (so new players joining will get them)
+                await _gameService.UpdateLobbySettingsAsync(gamePin, bossMaxHP, timeLimitSeconds, questionTimeLimitSeconds);
+
+                _logger.LogInformation($"📢 Broadcasting lobby settings for game {gamePin}: BossHP={bossMaxHP}, TimeLimit={timeLimitSeconds}, QuestionTime={questionTimeLimitSeconds}");
+
+                // Broadcast to all players (except host) in the game
+                await Clients.OthersInGroup($"Game_{gamePin}").SendAsync("LobbySettingsUpdated", new
+                {
+                    GamePin = gamePin,
+                    BossMaxHP = bossMaxHP,
+                    BossCurrentHP = bossMaxHP,
+                    TimeLimitSeconds = timeLimitSeconds,
+                    QuestionTimeLimitSeconds = questionTimeLimitSeconds
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error in BroadcastLobbySettings for game {gamePin}");
             }
         }
 
@@ -611,14 +717,23 @@ namespace QuizUpLearn.API.Hubs
                 if (await _gameService.IsBossFightTimeExpiredAsync(gamePin))
                 {
                     // Boss wins - time ran out
-                    await Clients.Group($"Game_{gamePin}").SendAsync("BossFightTimeUp", new
+                    var timeUpResult = await _gameService.GetBossFightTimeUpResultAsync(gamePin);
+                    if (timeUpResult != null)
                     {
-                        GamePin = gamePin,
-                        Message = "Time's up! The boss has won!",
-                        BossCurrentHP = session.BossCurrentHP,
-                        BossMaxHP = session.BossMaxHP,
-                        TotalDamageDealt = session.TotalDamageDealt
-                    });
+                        await Clients.Group($"Game_{gamePin}").SendAsync("BossFightTimeUp", timeUpResult);
+                    }
+                    else
+                    {
+                        await Clients.Group($"Game_{gamePin}").SendAsync("BossFightTimeUp", new
+                        {
+                            GamePin = gamePin,
+                            Message = "Time's up! The boss has won!",
+                            BossCurrentHP = session.BossCurrentHP,
+                            BossMaxHP = session.BossMaxHP,
+                            TotalDamageDealt = session.TotalDamageDealt,
+                            BossWins = true
+                        });
+                    }
                     return;
                 }
 
@@ -629,21 +744,31 @@ namespace QuizUpLearn.API.Hubs
                 {
                     // Out of questions but boss not defeated
                     // In boss fight mode, this means boss wins
-                    await Clients.Group($"Game_{gamePin}").SendAsync("BossFightQuestionsExhausted", new
+                    var questionsExhaustedResult = await _gameService.GetBossFightTimeUpResultAsync(gamePin);
+                    if (questionsExhaustedResult != null)
                     {
-                        GamePin = gamePin,
-                        Message = "All questions answered! But the boss survived...",
-                        BossCurrentHP = session.BossCurrentHP,
-                        BossMaxHP = session.BossMaxHP,
-                        TotalDamageDealt = session.TotalDamageDealt
-                    });
+                        await Clients.Group($"Game_{gamePin}").SendAsync("BossFightQuestionsExhausted", questionsExhaustedResult);
+                    }
+                    else
+                    {
+                        await Clients.Group($"Game_{gamePin}").SendAsync("BossFightQuestionsExhausted", new
+                        {
+                            GamePin = gamePin,
+                            Message = "All questions answered! But the boss survived...",
+                            BossCurrentHP = session.BossCurrentHP,
+                            BossMaxHP = session.BossMaxHP,
+                            TotalDamageDealt = session.TotalDamageDealt,
+                            BossWins = true
+                        });
+                    }
                     return;
                 }
 
                 _logger.LogInformation($"🎮 Boss Fight - Game {gamePin} moved to next question");
 
-                // Send next question immediately (no leaderboard delay in boss fight)
-                await Clients.Group($"Game_{gamePin}").SendAsync("ShowQuestion", nextQuestion);
+                // Send next question immediately with group item data (for TOEIC-style grouped questions)
+                var questionPayload = BuildShowQuestionPayload(nextQuestion, session);
+                await Clients.Group($"Game_{gamePin}").SendAsync("ShowQuestion", questionPayload);
             }
             catch (Exception ex)
             {
@@ -674,6 +799,7 @@ namespace QuizUpLearn.API.Hubs
                         PlayerName = p.PlayerName,
                         TotalDamage = p.TotalDamage,
                         CorrectAnswers = p.CorrectAnswers,
+                        TotalAnswered = p.TotalAnswered,
                         Rank = index + 1,
                         DamagePercent = totalDamage > 0 ? (double)p.TotalDamage / totalDamage * 100 : 0
                     })
@@ -729,6 +855,7 @@ namespace QuizUpLearn.API.Hubs
                             Score = p.Score,
                             TotalDamage = p.TotalDamage,
                             CorrectAnswers = p.CorrectAnswers,
+                            TotalAnswered = p.TotalAnswered,
                             Rank = index + 1,
                             DamagePercent = totalDamage > 0 ? (double)p.TotalDamage / totalDamage * 100 : 0
                         })
@@ -798,7 +925,11 @@ namespace QuizUpLearn.API.Hubs
                     return;
                 }
 
-                await Clients.Caller.SendAsync("PlayerQuestion", question);
+                // Get session for group item lookup
+                var session = await _gameService.GetGameSessionAsync(gamePin);
+                var questionPayload = BuildShowQuestionPayload(question, session);
+
+                await Clients.Caller.SendAsync("PlayerQuestion", questionPayload);
                 
                 _logger.LogInformation($"📋 Sent question {question.QuestionNumber} to player {Context.ConnectionId}");
             }
@@ -852,7 +983,9 @@ namespace QuizUpLearn.API.Hubs
                     PointsEarned = result.PointsEarned,
                     TimeSpent = result.TimeSpent,
                     CorrectAnswerId = correctAnswerId,
-                    CorrectAnswerText = correctAnswerText
+                    CorrectAnswerText = correctAnswerText,
+                    CorrectAnswers = result.CorrectAnswers,
+                    TotalAnswered = result.TotalAnswered
                 });
 
                 // If correct, deal damage to boss

@@ -148,11 +148,27 @@ namespace BusinessLogic.Services
             var quizSetRepository = scope.ServiceProvider.GetRequiredService<IQuizSetRepo>();
             var quizRepository = scope.ServiceProvider.GetRequiredService<IQuizRepo>();
             var answerOptionRepository = scope.ServiceProvider.GetRequiredService<IAnswerOptionRepo>();
+            var quizGroupItemRepository = scope.ServiceProvider.GetRequiredService<IQuizGroupItemRepo>();
 
             // Validate quiz set exists
             var quizSet = await quizSetRepository.GetQuizSetByIdAsync(dto.QuizSetId);
             if (quizSet == null)
                 throw new ArgumentException("Quiz set not found");
+
+            // Load quiz group items for TOEIC-style grouped questions (Parts 3,4,6,7)
+            var quizGroupItems = await quizGroupItemRepository.GetAllByQuizSetIdAsync(dto.QuizSetId);
+            var quizGroupItemsMap = new Dictionary<Guid, QuizGroupItemDto>();
+            foreach (var groupItem in quizGroupItems)
+            {
+                quizGroupItemsMap[groupItem.Id] = new QuizGroupItemDto
+                {
+                    Id = groupItem.Id,
+                    Name = groupItem.Name,
+                    AudioUrl = groupItem.AudioUrl,
+                    ImageUrl = groupItem.ImageUrl,
+                    PassageText = groupItem.PassageText
+                };
+            }
 
             // Load questions
             var quizzes = await quizRepository.GetQuizzesByQuizSetIdAsync(dto.QuizSetId);
@@ -173,6 +189,7 @@ namespace BusinessLogic.Services
                     QuestionNumber = questionNumber,
                     TotalQuestions = quizzes.Count(),
                     TimeLimit = null, // Host sẽ set theo từng câu
+                    QuizGroupItemId = quiz.QuizGroupItemId, // Reference to group item (TOEIC Parts 3,4,6,7)
                     AnswerOptions = answerOptions.Select(ao => new AnswerOptionDto
                     {
                         AnswerId = ao.Id,
@@ -213,6 +230,7 @@ namespace BusinessLogic.Services
                 QuizSetId = dto.QuizSetId,
                 Status = GameStatus.Lobby,
                 Questions = questionsList,
+                QuizGroupItems = quizGroupItemsMap, // Store group items for TOEIC-style questions
                 CurrentQuestionIndex = 0,
                 CreatedAt = DateTime.UtcNow
             };
@@ -221,6 +239,7 @@ namespace BusinessLogic.Services
             await SaveCorrectAnswersToRedisAsync(gamePin, correctAnswersMap);
 
             _logger.LogInformation($"✅ Game created in Redis with PIN: {gamePin} by Host: {dto.HostUserName}");
+            _logger.LogInformation($"📦 Loaded {quizGroupItemsMap.Count} quiz group items for grouped questions");
 
             return new CreateGameResponseDto
             {
@@ -326,10 +345,15 @@ namespace BusinessLogic.Services
             session.QuestionStartedAt = DateTime.UtcNow;
             session.CurrentAnswers.Clear();
 
-            // Boss Fight mode - track game start time
+            // Boss Fight mode - track game start time and initialize PlayerQuestionStartedAt for all players
             if (session.IsBossFightMode)
             {
                 session.GameStartedAt = DateTime.UtcNow;
+                // Initialize PlayerQuestionStartedAt for all players so first question scoring works correctly
+                foreach (var player in session.Players)
+                {
+                    player.PlayerQuestionStartedAt = DateTime.UtcNow;
+                }
             }
 
             var question = session.Questions[0];
@@ -396,8 +420,8 @@ namespace BusinessLogic.Services
                 isCorrect = correctMap.GetValueOrDefault(answerId, false);
             }
 
-            // Tính điểm: 1000 điểm cơ bản + bonus theo tốc độ
-            // Nếu trả lời nhanh hơn = điểm cao hơn (Kahoot style)
+            // Tính điểm: 500 điểm cơ bản + bonus theo phần trăm thời gian còn lại
+            // Ví dụ: 30s câu hỏi, trả lời còn 60% thời gian → 500 + 500*0.6 = 800 điểm
             // Sử dụng TimeLimit của câu hỏi nếu Host đã đặt, mặc định 30s
             int points = 0;
             if (isCorrect)
@@ -406,8 +430,8 @@ namespace BusinessLogic.Services
                 int maxTime = currentQuestion.TimeLimit.HasValue && currentQuestion.TimeLimit.Value > 0
                     ? currentQuestion.TimeLimit.Value
                     : 30;
-                double timeRatio = Math.Max(0, 1.0 - (timeSpent / maxTime));
-                points = (int)(1000 + (timeRatio * 500)); // Tối đa 1500 điểm
+                double timeRemainingRatio = Math.Max(0, 1.0 - (timeSpent / maxTime));
+                points = (int)(500 + (500 * timeRemainingRatio)); // Base 500 + bonus up to 500 = max 1000
             }
 
             var answer = new PlayerAnswer
@@ -426,8 +450,9 @@ namespace BusinessLogic.Services
 
             // Cập nhật điểm của player
             player.Score += points;
-
-            // Boss Fight mode - track correct answers
+            
+            // Track answer statistics
+            player.TotalAnswered++; // Always increment total answered
             if (isCorrect)
             {
                 player.CorrectAnswers++;
@@ -550,7 +575,8 @@ namespace BusinessLogic.Services
                 {
                     PlayerName = p.PlayerName,
                     TotalScore = p.Score,
-                    CorrectAnswers = 0, // TODO: Track this
+                    CorrectAnswers = p.CorrectAnswers,
+                    TotalAnswered = p.TotalAnswered,
                     Rank = index + 1
                 })
                 .ToList();
@@ -580,7 +606,8 @@ namespace BusinessLogic.Services
                 {
                     PlayerName = p.PlayerName,
                     TotalScore = p.Score,
-                    CorrectAnswers = 0, // TODO: Track this
+                    CorrectAnswers = p.CorrectAnswers,
+                    TotalAnswered = p.TotalAnswered,
                     Rank = index + 1
                 })
                 .ToList();
@@ -648,7 +675,8 @@ namespace BusinessLogic.Services
                 {
                     PlayerName = p.PlayerName,
                     TotalScore = p.Score,
-                    CorrectAnswers = 0, // TODO: Track this
+                    CorrectAnswers = p.CorrectAnswers,
+                    TotalAnswered = p.TotalAnswered,
                     Rank = index + 1
                 })
                 .ToList();
@@ -678,10 +706,36 @@ namespace BusinessLogic.Services
         }
 
         // ==================== BOSS FIGHT MODE ====================
+        
+        /// <summary>
+        /// Update lobby settings (called when mod changes settings in lobby)
+        /// This stores the settings so new players joining will receive them
+        /// </summary>
+        public async Task<bool> UpdateLobbySettingsAsync(string gamePin, int bossMaxHP, int? timeLimitSeconds, int questionTimeLimitSeconds)
+        {
+            var session = await GetGameSessionFromRedisAsync(gamePin);
+            if (session == null)
+                return false;
+
+            // Only update in lobby phase
+            if (session.Status != GameStatus.Lobby)
+                return false;
+
+            session.BossMaxHP = bossMaxHP;
+            session.BossCurrentHP = bossMaxHP;
+            session.GameTimeLimitSeconds = timeLimitSeconds;
+            session.QuestionTimeLimitSeconds = questionTimeLimitSeconds;
+
+            await SaveGameSessionToRedisAsync(gamePin, session);
+            
+            _logger.LogInformation($"📝 Lobby settings updated for game {gamePin}. BossHP: {bossMaxHP}, TimeLimit: {timeLimitSeconds}, QuestionTime: {questionTimeLimitSeconds}s");
+            return true;
+        }
+
         /// <summary>
         /// Bật Boss Fight mode cho game session
         /// </summary>
-        public async Task<bool> EnableBossFightModeAsync(string gamePin, int bossHP = 10000, int? timeLimitSeconds = null, bool autoNextQuestion = true)
+        public async Task<bool> EnableBossFightModeAsync(string gamePin, int bossHP = 10000, int? timeLimitSeconds = null, int questionTimeLimitSeconds = 30, bool autoNextQuestion = true)
         {
             var session = await GetGameSessionFromRedisAsync(gamePin);
             if (session == null)
@@ -696,11 +750,12 @@ namespace BusinessLogic.Services
             session.TotalDamageDealt = 0;
             session.BossDefeated = false;
             session.GameTimeLimitSeconds = timeLimitSeconds;
+            session.QuestionTimeLimitSeconds = questionTimeLimitSeconds;
             session.AutoNextQuestion = autoNextQuestion;
 
             await SaveGameSessionToRedisAsync(gamePin, session);
             
-            _logger.LogInformation($"🎮 Boss Fight mode enabled for game {gamePin}. Boss HP: {bossHP}");
+            _logger.LogInformation($"🎮 Boss Fight mode enabled for game {gamePin}. Boss HP: {bossHP}, Question Time: {questionTimeLimitSeconds}s");
             return true;
         }
 
@@ -761,6 +816,7 @@ namespace BusinessLogic.Services
                     PlayerName = p.PlayerName,
                     TotalDamage = p.TotalDamage,
                     CorrectAnswers = p.CorrectAnswers,
+                    TotalAnswered = p.TotalAnswered,
                     Rank = index + 1,
                     DamagePercent = totalDamage > 0 ? (double)p.TotalDamage / totalDamage * 100 : 0
                 })
@@ -794,6 +850,44 @@ namespace BusinessLogic.Services
 
             var elapsed = (DateTime.UtcNow - session.GameStartedAt.Value).TotalSeconds;
             return elapsed >= session.GameTimeLimitSeconds.Value;
+        }
+
+        /// <summary>
+        /// Lấy kết quả Boss Fight khi boss thắng (hết giờ hoặc hết câu hỏi)
+        /// </summary>
+        public async Task<BossDefeatedDto?> GetBossFightTimeUpResultAsync(string gamePin)
+        {
+            var session = await GetGameSessionFromRedisAsync(gamePin);
+            if (session == null || !session.IsBossFightMode)
+                return null;
+
+            var totalDamage = session.TotalDamageDealt;
+            var rankings = session.Players
+                .OrderByDescending(p => p.TotalDamage)
+                .Select((p, index) => new PlayerDamageRanking
+                {
+                    PlayerName = p.PlayerName,
+                    TotalDamage = p.TotalDamage,
+                    CorrectAnswers = p.CorrectAnswers,
+                    TotalAnswered = p.TotalAnswered,
+                    Rank = index + 1,
+                    DamagePercent = totalDamage > 0 ? (double)p.TotalDamage / totalDamage * 100 : 0
+                })
+                .ToList();
+
+            var timeElapsed = session.GameStartedAt.HasValue 
+                ? (DateTime.UtcNow - session.GameStartedAt.Value).TotalSeconds 
+                : 0;
+
+            return new BossDefeatedDto
+            {
+                GamePin = gamePin,
+                TotalDamageDealt = totalDamage,
+                DamageRankings = rankings,
+                MvpPlayer = rankings.FirstOrDefault(),
+                TimeToDefeat = timeElapsed,
+                BossWins = true  // Flag to indicate boss won
+            };
         }
 
         /// <summary>
@@ -902,8 +996,12 @@ namespace BusinessLogic.Services
                 AnswerOptions = question.AnswerOptions,
                 QuestionNumber = player.CurrentQuestionIndex + 1 + (player.QuestionLoopCount * totalQuestions),
                 TotalQuestions = -1, // -1 indicates infinite (boss fight mode)
-                TimeLimit = question.TimeLimit ?? 30
+                TimeLimit = session.QuestionTimeLimitSeconds > 0 ? session.QuestionTimeLimitSeconds : (question.TimeLimit ?? 30),
+                QuizGroupItemId = question.QuizGroupItemId // Include group item reference for TOEIC-style questions
             };
+
+            // Set the time when player receives this question (for accurate time-based scoring)
+            player.PlayerQuestionStartedAt = DateTime.UtcNow;
 
             await SaveGameSessionToRedisAsync(gamePin, session);
 
@@ -964,39 +1062,46 @@ namespace BusinessLogic.Services
             if (player == null)
                 return null;
 
-            // Calculate time spent
-            var timeSpent = session.QuestionStartedAt.HasValue 
-                ? (DateTime.UtcNow - session.QuestionStartedAt.Value).TotalSeconds 
+            // Calculate time spent using player's individual question start time
+            var timeSpent = player.PlayerQuestionStartedAt.HasValue 
+                ? (DateTime.UtcNow - player.PlayerQuestionStartedAt.Value).TotalSeconds 
                 : 0;
 
-            // Check answer correctness
+            // Check answer correctness - use question-specific correct answers
             bool isCorrect = false;
             string correctAnswerText = "";
-            var correctMap = await GetCorrectAnswersFromRedisAsync(gamePin);
+            Guid correctAnswerId = Guid.Empty;
+            
+            // Get correct answers only for this specific question
+            var correctMap = await GetCorrectAnswersForQuestionAsync(gamePin, questionId);
             if (correctMap != null)
             {
                 isCorrect = correctMap.GetValueOrDefault(answerId, false);
+                // Find the correct answer ID
+                correctAnswerId = correctMap.FirstOrDefault(x => x.Value).Key;
             }
 
             // Find correct answer text
             var question = session.Questions.FirstOrDefault(q => q.QuestionId == questionId);
-            if (question != null && correctMap != null)
+            if (question != null && correctAnswerId != Guid.Empty)
             {
-                var correctAnswerId = correctMap.FirstOrDefault(x => x.Value).Key;
                 var correctAnswer = question.AnswerOptions.FirstOrDefault(a => a.AnswerId == correctAnswerId);
                 correctAnswerText = correctAnswer?.OptionText ?? "";
             }
 
-            // Calculate points (Kahoot style - faster = more points)
+            // Tính điểm: 500 điểm cơ bản + bonus theo phần trăm thời gian còn lại
+            // timeSpent is calculated from player's individual question start time
             int points = 0;
             if (isCorrect)
             {
-                int maxTime = question?.TimeLimit ?? 30;
-                double timeRatio = Math.Max(0, 1.0 - (timeSpent / maxTime));
-                points = (int)(1000 + (timeRatio * 500)); // Max 1500 points
+                // Use the session's question time limit setting, or question-specific, or default 30
+                int maxTime = session.QuestionTimeLimitSeconds > 0 ? session.QuestionTimeLimitSeconds : (question?.TimeLimit ?? 30);
+                double timeRemainingRatio = Math.Max(0, 1.0 - (timeSpent / maxTime));
+                points = (int)(500 + (500 * timeRemainingRatio)); // Base 500 + bonus up to 500 = max 1000
             }
 
             // Update player stats
+            player.TotalAnswered++; // Track total questions answered
             player.Score += points;
             if (isCorrect)
             {
@@ -1006,14 +1111,16 @@ namespace BusinessLogic.Services
 
             await SaveGameSessionToRedisAsync(gamePin, session);
 
-            _logger.LogInformation($"⚔️ Player '{player.PlayerName}' answered Q:{questionId}. Correct: {isCorrect}, Points: {points}");
+            _logger.LogInformation($"⚔️ Player '{player.PlayerName}' answered Q:{questionId}. Correct: {isCorrect}, Points: {points}, Total: {player.CorrectAnswers}/{player.TotalAnswered}");
 
             return new PlayerAnswerResult
             {
                 PlayerName = player.PlayerName,
                 IsCorrect = isCorrect,
                 PointsEarned = points,
-                TimeSpent = timeSpent
+                TimeSpent = timeSpent,
+                CorrectAnswers = player.CorrectAnswers,
+                TotalAnswered = player.TotalAnswered
             };
         }
 
@@ -1036,6 +1143,7 @@ namespace BusinessLogic.Services
                     PlayerName = p.PlayerName,
                     TotalScore = p.TotalDamage > 0 ? p.TotalDamage : p.Score,
                     CorrectAnswers = p.CorrectAnswers,
+                    TotalAnswered = p.TotalAnswered,
                     Rank = index + 1
                 })
                 .ToList();

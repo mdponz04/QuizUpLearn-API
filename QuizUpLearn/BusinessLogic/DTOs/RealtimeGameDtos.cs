@@ -43,12 +43,14 @@ namespace BusinessLogic.DTOs
         // Boss Fight Mode stats
         public int TotalDamage { get; set; } = 0; // Total damage dealt to boss
         public int CorrectAnswers { get; set; } = 0; // Number of correct answers
+        public int TotalAnswered { get; set; } = 0; // Total questions answered (for tracking X/Y correct format)
         
         // Per-player question tracking for Boss Fight infinite loop mode
         public int CurrentQuestionIndex { get; set; } = 0; // Current question index for this player
         public int QuestionLoopCount { get; set; } = 0; // How many times player has looped through all questions
         public List<int> ShuffledQuestionOrder { get; set; } = new(); // Shuffled order of question indices
         public HashSet<Guid> AnsweredQuestionIds { get; set; } = new(); // Questions answered in current loop
+        public DateTime? PlayerQuestionStartedAt { get; set; } // When the current question was sent to this player
     }
 
     /// <summary>
@@ -65,6 +67,7 @@ namespace BusinessLogic.DTOs
         public GameStatus Status { get; set; }
         public List<PlayerInfo> Players { get; set; } = new();
         public List<QuestionDto> Questions { get; set; } = new();
+        public Dictionary<Guid, QuizGroupItemDto> QuizGroupItems { get; set; } = new(); // GroupItemId -> GroupItem
         public int CurrentQuestionIndex { get; set; } = 0;
         public DateTime? QuestionStartedAt { get; set; }
         public Dictionary<string, PlayerAnswer> CurrentAnswers { get; set; } = new(); // ConnectionId -> Answer
@@ -77,6 +80,7 @@ namespace BusinessLogic.DTOs
         public int TotalDamageDealt { get; set; } = 0;
         public bool BossDefeated { get; set; } = false;
         public int? GameTimeLimitSeconds { get; set; } // Overall time limit for boss fight
+        public int QuestionTimeLimitSeconds { get; set; } = 30; // Per-question time limit in seconds
         public DateTime? GameStartedAt { get; set; } // When game actually started
         public bool AutoNextQuestion { get; set; } = false; // Continuous question flow
     }
@@ -104,6 +108,7 @@ namespace BusinessLogic.DTOs
         public List<PlayerDamageRanking> DamageRankings { get; set; } = new();
         public PlayerDamageRanking? MvpPlayer { get; set; }
         public double TimeToDefeat { get; set; } // seconds
+        public bool BossWins { get; set; } = false; // True when boss wins (time up / questions exhausted)
     }
 
     /// <summary>
@@ -114,6 +119,7 @@ namespace BusinessLogic.DTOs
         public string PlayerName { get; set; } = string.Empty;
         public int TotalDamage { get; set; }
         public int CorrectAnswers { get; set; }
+        public int TotalAnswered { get; set; } // Total questions answered by this player
         public int Rank { get; set; }
         public double DamagePercent { get; set; }
     }
@@ -132,6 +138,21 @@ namespace BusinessLogic.DTOs
         public int QuestionNumber { get; set; }
         public int TotalQuestions { get; set; }
         public int? TimeLimit { get; set; } // seconds, do Host đặt cho từng câu
+        
+        // TOEIC-style grouped question support
+        public Guid? QuizGroupItemId { get; set; } // Reference to group item (for grouped questions)
+    }
+
+    /// <summary>
+    /// Quiz Group Item DTO (for TOEIC-style grouped questions with shared passages/audio/images)
+    /// </summary>
+    public class QuizGroupItemDto
+    {
+        public Guid Id { get; set; }
+        public string? Name { get; set; }
+        public string? AudioUrl { get; set; }
+        public string? ImageUrl { get; set; }
+        public string? PassageText { get; set; }
     }
 
     /// <summary>
@@ -178,6 +199,8 @@ namespace BusinessLogic.DTOs
         public bool IsCorrect { get; set; }
         public int PointsEarned { get; set; }
         public double TimeSpent { get; set; }
+        public int CorrectAnswers { get; set; } // Cumulative correct answers
+        public int TotalAnswered { get; set; } // Cumulative total answered
     }
 
     // ==================== LEADERBOARD ====================
@@ -196,6 +219,7 @@ namespace BusinessLogic.DTOs
         public string PlayerName { get; set; } = string.Empty;
         public int TotalScore { get; set; }
         public int CorrectAnswers { get; set; }
+        public int TotalAnswered { get; set; } // Total questions answered by this player
         public int Rank { get; set; }
     }
 
