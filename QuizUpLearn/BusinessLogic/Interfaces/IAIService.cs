@@ -16,6 +16,6 @@ namespace BusinessLogic.Interfaces
         Task<bool> GeneratePracticeQuizSetPart5Async(AiGenerateQuizSetRequestDto inputData, Guid quizSetId);
         Task<bool> GeneratePracticeQuizSetPart6Async(AiGenerateQuizSetRequestDto inputData, Guid quizSetId);
         Task<bool> GeneratePracticeQuizSetPart7Async(AiGenerateQuizSetRequestDto inputData, Guid quizSetId);
-        Task<QuizSetResponseDto> GenerateFixWeakPointQuizSetAsync();
+        Task<QuizSetResponseDto> GenerateFixWeakPointQuizSetAsync(Guid userId);
     }
 }
