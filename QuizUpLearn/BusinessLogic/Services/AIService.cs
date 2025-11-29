@@ -979,21 +979,59 @@ namespace BusinessLogic.Services
                     continue;
                 }
 
-                // var newUserWeakPoint = await _userWeakPointService.AddAsync(new RequestUserWeakPointDto
-                // {
-                //     UserId = userId,
-                //     WeakPoint = $"Weakpoint in {quiz.TOEICPart} at point range {quizSet.DifficultyLevel}: " + analysisResult.WeakPoint,
-                //     Advice = $"Advice in {quiz.TOEICPart} at point range {quizSet.DifficultyLevel}: " + analysisResult.Advice,
-                //     IsDone = false
-                // });
+                var newUserWeakPoint = await _userWeakPointService.AddAsync(new RequestUserWeakPointDto
+                {
+                    UserId = userId,
+                    WeakPoint = analysisResult.WeakPoint,
+                    Advice = analysisResult.Advice,
+                    ToeicPart = quiz.TOEICPart,
+                    DifficultyLevel = quizSet.DifficultyLevel,
+                    IsDone = false
+                });
             }
 
             return await _userWeakPointService.GetByUserIdAsync(userId, null!);
         }
 
-        public Task<QuizSetResponseDto> GenerateFixWeakPointQuizSetAsync()
+        public async Task<QuizSetResponseDto> GenerateFixWeakPointQuizSetAsync(Guid userId)
         {
-            throw new NotImplementedException();
+            /*//Get all user weak points that are not done yet
+            var userWeakPoints = await _userWeakPointService.GetByUserIdAsync(userId, null!);
+            string[] parts = [];
+            Dictionary<string, ResponseUserWeakPointDto> weakPointsInTheSamePart = new();//Key: Part, Value: WeakPoint
+            foreach (var wp in userWeakPoints.Data)
+            {
+                if(wp.IsDone) continue;
+                //Take all the weak points that have the same Part
+                weakPointsInTheSamePart.Add(wp.ToeicPart, wp);
+
+                if (!parts.Contains(wp.ToeicPart))
+                {
+                    parts = parts.Append(wp.ToeicPart).ToArray();
+                }
+
+                await _userWeakPointService.UpdateAsync(wp.Id, new RequestUserWeakPointDto
+                {
+                    UserId = wp.UserId,
+                    WeakPoint = wp.WeakPoint,
+                    Advice = wp.Advice,
+                    ToeicPart = wp.ToeicPart,
+                    DifficultyLevel = wp.DifficultyLevel,
+                    IsDone = true,
+                    CompleteAt = DateTime.UtcNow
+                });
+
+            }
+
+            //Take each weak points in the same part to generate a quiz set about 10 quizzes
+            foreach(var part in parts)
+            {
+                foreach(var wp in weakPointsInTheSamePart)
+                {
+                    //Generate quiz here
+                }
+            }*/
+            throw new Exception("Not implemented yet.");
         }
     }
 }
