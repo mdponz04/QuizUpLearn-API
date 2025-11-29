@@ -74,6 +74,8 @@ namespace BusinessLogic.MappingProfile
             //Payment transaction mappings
             CreateMap<Repository.Entities.PaymentTransaction, DTOs.PaymentTransactionDtos.RequestPaymentTransactionDto>().ReverseMap();
             CreateMap<Repository.Entities.PaymentTransaction, DTOs.PaymentTransactionDtos.ResponsePaymentTransactionDto>().ReverseMap();
+            //App setting mappings
+            CreateMap<Repository.Entities.AppSetting, DTOs.AppSettingDto>().ReverseMap();
         }
     }
 }

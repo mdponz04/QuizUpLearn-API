@@ -66,5 +66,10 @@ namespace BusinessLogic.Services
             var entity = await _repo.CalculateRemainingUsageByUserId(userId, usedQuantity);
             return entity == null ? null : _mapper.Map<ResponseSubscriptionDto>(entity);
         }
+
+        public async Task<IEnumerable<ResponseSubscriptionDto>> GetByPlanIdAsync(Guid subscriptionPlanId)
+        {
+            return _mapper.Map<IEnumerable<ResponseSubscriptionDto>>(await _repo.GetByPlanIdAsync(subscriptionPlanId));
+        }
     }
 }

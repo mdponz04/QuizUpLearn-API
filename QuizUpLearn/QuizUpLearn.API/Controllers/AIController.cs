@@ -55,7 +55,7 @@ namespace QuizUpLearn.API.Controllers
         /// <param name="quizSetType"></param>
         /// <returns></returns>
         [HttpPost("generate-quiz-set")]
-        [SubscriptionAndRoleAuthorize("Moderator", "User", RequireAiFeatures = true)]
+        [SubscriptionAndRoleAuthorize("Moderator", "User", RequireAiFeatures = true, CheckRemainingUsage = true)]
         public async Task<IActionResult> GeneratePracticeQuizSet([FromBody] AiGenerateQuizSetRequestDto inputData, QuizPartEnums quizPart, QuizSetTypeEnum quizSetType)
         {
             if (inputData == null)
@@ -72,11 +72,6 @@ namespace QuizUpLearn.API.Controllers
             {
                 case QuizSetTypeEnum.Tournament:
                 case QuizSetTypeEnum.Placement:
-                    if (!isAdmin && !userRole.Equals("Moderator", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return Forbid($"Only Admin and Mod can generate {quizSetType} quiz sets.");
-                    }
-                    break;
                 case QuizSetTypeEnum.Event:
                     if (!isAdmin && !userRole.Equals("Moderator", StringComparison.OrdinalIgnoreCase))
                     {

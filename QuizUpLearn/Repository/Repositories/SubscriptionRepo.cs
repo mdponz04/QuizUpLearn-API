@@ -24,7 +24,7 @@ namespace Repository.Repositories
             return await _context.Subscriptions.FindAsync(id);
         }
 
-        public async Task<Subscription> CreateAsync(Subscription subscription)
+        public async Task<Subscription?> CreateAsync(Subscription subscription)
         {
             _context.Subscriptions.Add(subscription);
             await _context.SaveChangesAsync();
@@ -38,8 +38,12 @@ namespace Repository.Repositories
 
             if(existing.SubscriptionPlanId != subscription.SubscriptionPlanId)
                 existing.SubscriptionPlanId = subscription.SubscriptionPlanId;
-            if(existing.EndDate != subscription.EndDate)
+            if(existing.EndDate != subscription.EndDate
+                && subscription.EndDate != null)
                 existing.EndDate = subscription.EndDate;
+            if(existing.AiGenerateQuizSetRemaining != subscription.AiGenerateQuizSetRemaining
+                && subscription.AiGenerateQuizSetRemaining > 0)
+                existing.AiGenerateQuizSetRemaining = subscription.AiGenerateQuizSetRemaining;
 
             existing.UpdatedAt = DateTime.UtcNow;
 
@@ -78,6 +82,13 @@ namespace Repository.Repositories
             _context.Subscriptions.Update(existing);
             await _context.SaveChangesAsync();
             return existing;
+        }
+
+        public async Task<IEnumerable<Subscription>> GetByPlanIdAsync(Guid subscriptionPlanId)
+        {
+            return await _context.Subscriptions
+                .Where(s => s.SubscriptionPlanId == subscriptionPlanId)
+                .ToListAsync();
         }
     }
 }
