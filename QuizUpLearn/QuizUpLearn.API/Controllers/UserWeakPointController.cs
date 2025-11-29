@@ -19,7 +19,7 @@ namespace QuizUpLearn.API.Controllers
             _service = service;
         }
 
-        [HttpGet("user/{userId}")]
+        [HttpGet("user")]
         [SubscriptionAndRoleAuthorize]
         public async Task<ActionResult<PaginationResponseDto<ResponseUserWeakPointDto>>> GetByUserId(
             [FromQuery] PaginationRequestDto pagination)

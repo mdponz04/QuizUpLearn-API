@@ -5,6 +5,7 @@ namespace Repository.Interfaces
     public interface ISubscriptionRepo
     {
         Task<IEnumerable<Subscription>> GetAllAsync();
+        Task<IEnumerable<Subscription>> GetByPlanIdAsync(Guid subscriptionPlanId);
         Task<Subscription?> GetByUserIdAsync(Guid userId);
         Task<Subscription?> GetByIdAsync(Guid id);
         Task<Subscription?> CreateAsync(Subscription subscriptionPlan);
