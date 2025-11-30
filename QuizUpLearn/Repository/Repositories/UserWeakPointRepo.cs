@@ -48,6 +48,10 @@ namespace Repository.Repositories
                 existing.CompleteAt = userWeakPoint.CompleteAt;
             if(userWeakPoint.QuizSetId != null)
                 existing.QuizSetId = userWeakPoint.QuizSetId;
+            if(existing.ToeicPart != userWeakPoint.ToeicPart)
+                existing.ToeicPart = userWeakPoint.ToeicPart;
+            if(userWeakPoint.DifficultyLevel != null)
+                existing.DifficultyLevel = userWeakPoint.DifficultyLevel;
 
             existing.UpdatedAt = DateTime.UtcNow;
 
