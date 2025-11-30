@@ -6,7 +6,7 @@ namespace Repository.Entities
     {
         public Guid UserId { get; set; }
         public Guid QuizId { get; set; }
-        public string UserAnswer { get; set; } = string.Empty;
+        public string? UserAnswer { get; set; }
         public int TimesAttempted { get; set; } = 0;
         public int TimesWrong { get; set; } = 0;
         public DateTime LastAttemptedAt { get; set; } = DateTime.UtcNow;
