@@ -141,6 +141,7 @@ namespace BusinessLogic.DTOs
         
         // TOEIC-style grouped question support
         public Guid? QuizGroupItemId { get; set; } // Reference to group item (for grouped questions)
+        public string? ToeicPart { get; set; } // TOEIC Part (PART1, PART2, etc.) for UI logic
     }
 
     /// <summary>
@@ -161,7 +162,8 @@ namespace BusinessLogic.DTOs
     public class AnswerOptionDto
     {
         public Guid AnswerId { get; set; }
-        public string OptionText { get; set; } = string.Empty;
+        public string OptionLabel { get; set; } = string.Empty; // A, B, C, D
+        public string OptionText { get; set; } = string.Empty;  // Answer text (may be empty for audio-only questions)
     }
 
     // ==================== SUBMIT ANSWER ====================

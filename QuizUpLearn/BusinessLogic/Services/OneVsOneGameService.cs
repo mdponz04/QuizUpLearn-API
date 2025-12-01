@@ -178,9 +178,11 @@ namespace BusinessLogic.Services
                     QuestionNumber = questionNumber,
                     TotalQuestions = quizzes.Count(),
                     QuizGroupItemId = quiz.QuizGroupItemId, // Reference to group item (TOEIC Parts 3,4,6,7)
+                    ToeicPart = quiz.TOEICPart, // TOEIC Part for UI logic (Parts 1,2,5 don't show group)
                     AnswerOptions = answerOptions.Select(ao => new AnswerOptionDto
                     {
                         AnswerId = ao.Id,
+                        OptionLabel = ao.OptionLabel,
                         OptionText = ao.OptionText
                     }).ToList()
                 };

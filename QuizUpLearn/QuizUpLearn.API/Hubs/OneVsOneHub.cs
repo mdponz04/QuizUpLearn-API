@@ -41,7 +41,13 @@ namespace QuizUpLearn.API.Hubs
             QuizGroupItemDto? groupItem = null;
             
             // Get group item if this question belongs to a group (TOEIC Parts 3,4,6,7)
-            if (question.QuizGroupItemId.HasValue && 
+            // Parts 1, 2, 5 are standalone - don't need group display
+            var toeicPart = question.ToeicPart?.ToUpperInvariant();
+            var partsWithGroupContent = new[] { "PART3", "PART4", "PART6", "PART7" };
+            var shouldIncludeGroup = toeicPart != null && partsWithGroupContent.Contains(toeicPart);
+            
+            if (shouldIncludeGroup && 
+                question.QuizGroupItemId.HasValue && 
                 room?.QuizGroupItems != null && 
                 room.QuizGroupItems.TryGetValue(question.QuizGroupItemId.Value, out var foundGroupItem))
             {
@@ -60,8 +66,10 @@ namespace QuizUpLearn.API.Hubs
                 TotalQuestions = question.TotalQuestions,
                 TimeLimit = question.TimeLimit ?? 30,
                 QuizGroupItemId = question.QuizGroupItemId,
+                ToeicPart = question.ToeicPart, // Include TOEIC Part for frontend logic
                 
                 // Group item data (for TOEIC-style grouped questions with shared passage/audio/image)
+                // Only included for Parts 3, 4, 6, 7
                 GroupItem = groupItem != null ? new
                 {
                     Id = groupItem.Id,
@@ -521,16 +529,27 @@ namespace QuizUpLearn.API.Hubs
         }
         private async Task<ResponseUserDto?> GetAuthenticatedUserAsync()
         {
-            var accountIdClaim = Context.User?.FindFirst("UserId")?.Value
-                ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                ?? Context.User?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+            // JWT Token structure:
+            // - "sub" = Account ID (primary key for authentication)
+            // - "userId" = User ID (the actual User entity ID, different from Account)
+            // We need the Account ID to look up the user via GetByAccountIdAsync
+            
+            // Note: .NET JWT handler maps "sub" claim to ClaimTypes.NameIdentifier by default
+            // So we check multiple claim types to ensure compatibility
+            var accountIdClaim = Context.User?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value  // Raw "sub"
+                ?? Context.User?.FindFirst("sub")?.Value  // Also try raw string "sub"
+                ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value  // .NET mapped sub
+                ?? Context.User?.FindFirst("UserId")?.Value;  // Fallback to userId claim
 
             if (string.IsNullOrEmpty(accountIdClaim) || !Guid.TryParse(accountIdClaim, out var accountId))
             {
-                _logger.LogWarning($"❌ Failed to get Account ID from JWT token. Claims: {string.Join(", ", Context.User?.Claims.Select(c => $"{c.Type}={c.Value}") ?? Array.Empty<string>())}");
+                var allClaims = Context.User?.Claims.Select(c => $"{c.Type}={c.Value}") ?? Array.Empty<string>();
+                _logger.LogWarning($"❌ Failed to get Account ID from JWT token. Available claims: {string.Join(", ", allClaims)}");
                 await Clients.Caller.SendAsync("Error", "Invalid user authentication. Account ID not found in token.");
                 return null;
             }
+
+            _logger.LogInformation($"✅ Found Account ID: {accountId} from claim");
 
             var user = await _userService.GetByAccountIdAsync(accountId);
             if (user == null)

@@ -29,7 +29,13 @@ namespace QuizUpLearn.API.Hubs
             QuizGroupItemDto? groupItem = null;
             
             // Get group item if this question belongs to a group (TOEIC Parts 3,4,6,7)
-            if (question.QuizGroupItemId.HasValue && 
+            // Parts 1, 2, 5 are standalone - don't need group display
+            var toeicPart = question.ToeicPart?.ToUpperInvariant();
+            var partsWithGroupContent = new[] { "PART3", "PART4", "PART6", "PART7" };
+            var shouldIncludeGroup = toeicPart != null && partsWithGroupContent.Contains(toeicPart);
+            
+            if (shouldIncludeGroup && 
+                question.QuizGroupItemId.HasValue && 
                 session?.QuizGroupItems != null && 
                 session.QuizGroupItems.TryGetValue(question.QuizGroupItemId.Value, out var foundGroupItem))
             {
@@ -48,8 +54,10 @@ namespace QuizUpLearn.API.Hubs
                 TotalQuestions = question.TotalQuestions,
                 TimeLimit = question.TimeLimit ?? session?.QuestionTimeLimitSeconds ?? 30,
                 QuizGroupItemId = question.QuizGroupItemId,
+                ToeicPart = question.ToeicPart, // Include TOEIC Part for frontend logic
                 
                 // Group item data (for TOEIC-style grouped questions with shared passage/audio/image)
+                // Only included for Parts 3, 4, 6, 7
                 GroupItem = groupItem != null ? new
                 {
                     Id = groupItem.Id,

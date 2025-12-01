@@ -190,9 +190,11 @@ namespace BusinessLogic.Services
                     TotalQuestions = quizzes.Count(),
                     TimeLimit = null, // Host sẽ set theo từng câu
                     QuizGroupItemId = quiz.QuizGroupItemId, // Reference to group item (TOEIC Parts 3,4,6,7)
+                    ToeicPart = quiz.TOEICPart, // TOEIC Part for UI logic
                     AnswerOptions = answerOptions.Select(ao => new AnswerOptionDto
                     {
                         AnswerId = ao.Id,
+                        OptionLabel = ao.OptionLabel,
                         OptionText = ao.OptionText
                         // Không gửi IsCorrect cho client!
                     }).ToList()
