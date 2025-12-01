@@ -86,6 +86,13 @@ namespace BusinessLogic.DTOs
         public OneVsOnePlayerDto? Player2 { get; set; }
         
         public List<QuestionDto> Questions { get; set; } = new();
+        
+        /// <summary>
+        /// Quiz Group Items for TOEIC-style grouped questions (Parts 3,4,6,7)
+        /// Key = QuizGroupItemId, Value = QuizGroupItemDto
+        /// </summary>
+        public Dictionary<Guid, QuizGroupItemDto> QuizGroupItems { get; set; } = new();
+        
         public int CurrentQuestionIndex { get; set; } = 0;
         public DateTime? QuestionStartedAt { get; set; }
         

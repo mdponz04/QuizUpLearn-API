@@ -32,6 +32,46 @@ namespace QuizUpLearn.API.Hubs
             _hubContext = hubContext;
         }
 
+        // ==================== HELPER METHODS ====================
+        /// <summary>
+        /// Build ShowQuestion payload with group item data for TOEIC-style grouped questions
+        /// </summary>
+        private object BuildShowQuestionPayload(QuestionDto question, OneVsOneRoomDto? room)
+        {
+            QuizGroupItemDto? groupItem = null;
+            
+            // Get group item if this question belongs to a group (TOEIC Parts 3,4,6,7)
+            if (question.QuizGroupItemId.HasValue && 
+                room?.QuizGroupItems != null && 
+                room.QuizGroupItems.TryGetValue(question.QuizGroupItemId.Value, out var foundGroupItem))
+            {
+                groupItem = foundGroupItem;
+            }
+
+            return new
+            {
+                // Question data
+                QuestionId = question.QuestionId,
+                QuestionText = question.QuestionText,
+                ImageUrl = question.ImageUrl,
+                AudioUrl = question.AudioUrl,
+                AnswerOptions = question.AnswerOptions,
+                QuestionNumber = question.QuestionNumber,
+                TotalQuestions = question.TotalQuestions,
+                TimeLimit = question.TimeLimit ?? 30,
+                QuizGroupItemId = question.QuizGroupItemId,
+                
+                // Group item data (for TOEIC-style grouped questions with shared passage/audio/image)
+                GroupItem = groupItem != null ? new
+                {
+                    Id = groupItem.Id,
+                    AudioUrl = groupItem.AudioUrl,
+                    ImageUrl = groupItem.ImageUrl,
+                    PassageText = groupItem.PassageText
+                } : null
+            };
+        }
+
         // ==================== CONNECTION LIFECYCLE ====================
         public override async Task OnConnectedAsync()
         {
@@ -257,8 +297,10 @@ namespace QuizUpLearn.API.Hubs
 
                 await Task.Delay(4000);
 
+                // Send first question with group item data (for TOEIC-style grouped questions)
                 var firstQuestion = room.Questions[0];
-                await Clients.Group($"Room_{roomPin}").SendAsync("ShowQuestion", firstQuestion);
+                var questionPayload = BuildShowQuestionPayload(firstQuestion, room);
+                await Clients.Group($"Room_{roomPin}").SendAsync("ShowQuestion", questionPayload);
 
                 _ = StartQuestionTimerAsync(roomPin, firstQuestion.QuestionId);
             }
@@ -365,8 +407,10 @@ namespace QuizUpLearn.API.Hubs
 
                 _logger.LogInformation($"✅ Room {roomPin} auto-moving to next question (Index: {room.CurrentQuestionIndex + 1}/{room.Questions.Count})");
 
+                // Send next question with group item data (for TOEIC-style grouped questions)
                 var nextQuestion = room.Questions[room.CurrentQuestionIndex];
-                await _hubContext.Clients.Group($"Room_{roomPin}").SendAsync("ShowQuestion", nextQuestion);
+                var questionPayload = BuildShowQuestionPayload(nextQuestion, room);
+                await _hubContext.Clients.Group($"Room_{roomPin}").SendAsync("ShowQuestion", questionPayload);
                 
                 _logger.LogInformation($"✅ ShowQuestion sent for room {roomPin}, question {room.CurrentQuestionIndex + 1}");
 
