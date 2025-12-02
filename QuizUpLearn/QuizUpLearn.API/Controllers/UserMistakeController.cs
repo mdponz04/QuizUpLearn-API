@@ -81,7 +81,7 @@ namespace QuizUpLearn.API.Controllers
         }
         [HttpGet("mistake-quizzes/user")]
         [SubscriptionAndRoleAuthorize]
-        public async Task<IActionResult> GetMistakeQuizzes(PaginationRequestDto paginationDto)
+        public async Task<IActionResult> GetMistakeQuizzes([FromQuery] PaginationRequestDto paginationDto)
         {
             var userId = (Guid)HttpContext.Items["UserId"]!;
 
