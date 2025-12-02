@@ -51,12 +51,21 @@ namespace Repository.Repositories
             {
                 existingUserMistake.TimesWrong = userMistake.TimesWrong;
             }
-            existingUserMistake.LastAttemptedAt = userMistake.LastAttemptedAt;
-            
             if(userMistake.IsAnalyzed)
             {
                 existingUserMistake.IsAnalyzed = userMistake.IsAnalyzed;
             }
+            if(userMistake.UserWeakPointId != null)
+            {
+                existingUserMistake.UserWeakPointId = userMistake.UserWeakPointId;
+            }
+            if(userMistake.UserAnswer != null)
+            {
+                existingUserMistake.UserAnswer = userMistake.UserAnswer;
+            }
+            existingUserMistake.LastAttemptedAt = userMistake.LastAttemptedAt;
+            existingUserMistake.UpdatedAt = DateTime.UtcNow;
+
             _context.UserMistakes.Update(existingUserMistake);
             await _context.SaveChangesAsync();
         }

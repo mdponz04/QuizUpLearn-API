@@ -750,13 +750,10 @@ namespace BusinessLogic.Services
         
         public async Task<PaginationResponseDto<ResponseUserWeakPointDto>> AnalyzeUserMistakesAndAdviseAsync(Guid userId)
         {
-            var userMistakePage = await _userMistakeService.GetAllByUserIdAsync(userId, null!);
-
-            var userMistakes = userMistakePage.Data.Where(um => !um.IsAnalyzed).ToList();
-
+            var userMistakes = await _userMistakeService.GetAllByUserIdAsync(userId, null!);
             bool samePartMistakeExists = false;
 
-            foreach (var mistake in userMistakes)
+            foreach (var mistake in userMistakes.Data.Where(um => !um.IsAnalyzed) ?? Enumerable.Empty<ResponseUserMistakeDto>())
             {
                 var quiz = await _quizService.GetQuizByIdAsync(mistake.QuizId);
                 if (quiz == null) continue;
@@ -786,7 +783,7 @@ namespace BusinessLogic.Services
                 });
 
                 string answersText = string.Empty;
-                answersText = string.Join("\n", answers.Select(a => $"{a.OptionLabel}. {a.OptionText} (Correct: {a.IsCorrect})"));
+                answersText = string.Join("\n", answers.Select(a => $"{a.OptionLabel}. {a.OptionText} (IsCorrect: {a.IsCorrect})"));
 
                 var prompt = _promptGenerator.GetAnalyzeMistakePrompt(quizSet, quiz, answersText, mistake);
                 var response = await GeminiGenerateContentAsync(prompt);
@@ -812,7 +809,7 @@ namespace BusinessLogic.Services
                     continue;
                 }
 
-                if (await _userWeakPointService.IsWeakPointExistedAsync(analysisResult.WeakPoint))
+                if (await _userWeakPointService.IsWeakPointExistedAsync(analysisResult.WeakPoint, userId))
                 {
                     Console.WriteLine($"Weak point is existed.");
                     continue;
@@ -824,7 +821,13 @@ namespace BusinessLogic.Services
                     WeakPoint = analysisResult.WeakPoint,
                     Advice = analysisResult.Advice,
                     ToeicPart = quiz.TOEICPart,
-                    DifficultyLevel = quizSet.DifficultyLevel
+                    DifficultyLevel = quizSet.DifficultyLevel,
+                    UserMistakeId = mistake.Id
+                });
+
+                await _userMistakeService.UpdateAsync(mistake.Id, new RequestUserMistakeDto
+                {
+                    UserWeakPointId = newUserWeakPoint!.Id
                 });
             }
 
@@ -833,7 +836,7 @@ namespace BusinessLogic.Services
 
         public async Task<PaginationResponseDto<QuizSetResponseDto>> GenerateFixWeakPointQuizSetAsync(Guid userId)
         {
-            //Get all user weak points that are not done yet
+            /*//Get all user weak points that are not done yet
             var userWeakPoints = await _userWeakPointService.GetByUserIdAsync(userId, null!);
             List<QuizSetResponseDto> createdQuizSets = new List<QuizSetResponseDto>();
             foreach (var wp in userWeakPoints.Data)
@@ -934,7 +937,9 @@ And the weak point should be fix with this advice: {wp.Advice}
 
                 createdQuizSets.Add(newQuizSet);
             }
-            return _mapper.Map<PaginationResponseDto<QuizSetResponseDto>>(createdQuizSets);
+            return _mapper.Map<PaginationResponseDto<QuizSetResponseDto>>(createdQuizSets);*/
+
+            throw new NotImplementedException("This service have not implemented yet");
         }
     }
 }

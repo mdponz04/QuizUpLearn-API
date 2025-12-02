@@ -1,7 +1,6 @@
 ﻿using BusinessLogic.DTOs.AiDtos;
 using BusinessLogic.DTOs.QuizSetDtos;
 using BusinessLogic.Interfaces;
-using BusinessLogic.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
@@ -102,7 +101,7 @@ namespace QuizUpLearn.API.Controllers
                 IsAIGenerated = true
             });
             var quizSetId = createdQuizSet.Id;
-            switch (quizPart)
+            /*switch (quizPart)
             {
                 case QuizPartEnum.PART1:
                     await _aiService.GeneratePracticeQuizSetPart1Async(inputData, quizSetId);
@@ -125,7 +124,7 @@ namespace QuizUpLearn.API.Controllers
                 case QuizPartEnum.PART7:
                     await _aiService.GeneratePracticeQuizSetPart7Async(inputData, quizSetId);
                     break;
-            }
+            }*/
 
             _ = _workerService.EnqueueJob(async (sp, token) =>
             {
@@ -238,7 +237,7 @@ namespace QuizUpLearn.API.Controllers
             var result = await _aiService.AnalyzeUserMistakesAndAdviseAsync(userId);
             return Ok(result);
         }
-        [HttpPost("generate-fix-weakpoint-quiz-set")]
+        /*[HttpPost("generate-fix-weakpoint-quiz-set")]
         [SubscriptionAndRoleAuthorize("Moderator", "User", RequireAiFeatures = true, CheckRemainingUsage = true, RequirePremiumContent = true)]
         public async Task<IActionResult> GenerateFixWeakPointQuizSet()
         {
@@ -246,6 +245,6 @@ namespace QuizUpLearn.API.Controllers
 
             var result = await _aiService.GenerateFixWeakPointQuizSetAsync(userId);
             return Ok(result);
-        }
+        }*/
     }
 }

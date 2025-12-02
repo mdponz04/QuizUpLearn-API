@@ -338,7 +338,7 @@ Topic: {quizSet.Title}
 TOIEC part: {quiz.TOEICPart}
 Point range: {quizSet.DifficultyLevel}
 Question: {quiz.QuestionText}
-Correct answer options : {answersText}
+Answer options : {answersText}
 User's wrong answer (maybe user not answer): {mistake.UserAnswer}
 
 Generate ONE single weakpoint(weak area of skill) out of this question and ONE single advice for the user how to improve in this area.

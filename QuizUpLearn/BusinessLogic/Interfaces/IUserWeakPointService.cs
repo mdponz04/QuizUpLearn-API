@@ -9,7 +9,7 @@ namespace BusinessLogic.Interfaces
         Task<ResponseUserWeakPointDto?> GetByIdAsync(Guid id);
         Task<ResponseUserWeakPointDto?> AddAsync(RequestUserWeakPointDto userWeakPoint);
         Task<ResponseUserWeakPointDto?> UpdateAsync(Guid id, RequestUserWeakPointDto userWeakPoint);
-        Task<bool> IsWeakPointExistedAsync(string weakPoint);
+        Task<bool> IsWeakPointExistedAsync(string weakPoint, Guid userId);
         Task<bool> DeleteAsync(Guid userId);
     }
 }
