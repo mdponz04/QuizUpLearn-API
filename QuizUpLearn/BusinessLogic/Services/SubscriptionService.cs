@@ -12,11 +12,13 @@ namespace BusinessLogic.Services
     {
         private readonly ISubscriptionRepo _repo;
         private readonly IMapper _mapper;
+        private readonly ISubscriptionPlanService _subscriptionPlanService;
 
-        public SubscriptionService(ISubscriptionRepo repo, IMapper mapper)
+        public SubscriptionService(ISubscriptionRepo repo, IMapper mapper, ISubscriptionPlanService subscriptionPlanService)
         {
             _repo = repo;
             _mapper = mapper;
+            _subscriptionPlanService = subscriptionPlanService;
         }
 
         public async Task<PaginationResponseDto<ResponseSubscriptionDto>> GetAllAsync(PaginationRequestDto pagination = null!)
@@ -58,7 +60,32 @@ namespace BusinessLogic.Services
         public async Task<ResponseSubscriptionDto?> GetByUserIdAsync(Guid userId)
         {
             var entity = await _repo.GetByUserIdAsync(userId);
-            return entity == null ? null : _mapper.Map<ResponseSubscriptionDto>(entity);
+            if (entity == null) 
+                return null;
+
+            var subscription = _mapper.Map<ResponseSubscriptionDto>(entity);
+
+            // Check if subscription is expired and not already free
+            if (subscription.EndDate.HasValue && 
+                subscription.EndDate.Value < DateTime.UtcNow)
+            {
+                var freePlan = await _subscriptionPlanService.GetFreeSubscriptionPlanAsync();
+                
+                if (freePlan != null && subscription.SubscriptionPlanId != freePlan.Id)
+                {
+                    var updatedSubscription = await UpdateAsync(subscription.Id, new RequestSubscriptionDto
+                    {
+                        UserId = subscription.UserId,
+                        SubscriptionPlanId = freePlan.Id,
+                        AiGenerateQuizSetRemaining = subscription.AiGenerateQuizSetRemaining,//Retain remaining usage
+                        EndDate = DateTime.UtcNow.AddDays(freePlan.DurationDays)
+                    });
+
+                    return updatedSubscription;
+                }
+            }
+
+            return subscription;
         }
 
         public async Task<ResponseSubscriptionDto?> CalculateRemainingUsageByUserId(Guid userId, int usedQuantity)
