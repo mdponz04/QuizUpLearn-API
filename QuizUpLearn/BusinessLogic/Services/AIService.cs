@@ -765,8 +765,8 @@ namespace BusinessLogic.Services
                 if( answers == null || answers.Count() == 0) continue;
 
                 var userWeakPoints = await _userWeakPointService.GetByUserIdAsync(userId, null!);
-                // each user should only have 1 weak point per part + difficulty level
-                foreach (var wp in userWeakPoints.Data)
+                
+                /*foreach (var wp in userWeakPoints.Data)
                 {
                     if(wp.ToeicPart == quiz.TOEICPart
                         && wp.DifficultyLevel == quizSet.DifficultyLevel)
@@ -775,7 +775,7 @@ namespace BusinessLogic.Services
                         break;
                     }
                 }
-                if (samePartMistakeExists) continue;
+                if (samePartMistakeExists) continue;*/
 
                 await _userMistakeService.UpdateAsync(mistake.Id, new RequestUserMistakeDto
                 {
