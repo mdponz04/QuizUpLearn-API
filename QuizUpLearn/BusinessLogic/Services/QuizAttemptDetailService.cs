@@ -367,7 +367,7 @@ namespace BusinessLogic.Services
                 AnswerResults = answerResults
             };
 
-            // Xoá UserMistake cho các câu đã làm đúng (chạy synchronous, không background)
+            // Xoá UserMistake và UserWeakPoint liên quan cho các câu đã làm đúng (chạy synchronous, không background)
             var correctQuestionIds = correctQuestionIdsSet.ToList();
             var userId = attempt.UserId;
 
@@ -376,12 +376,27 @@ namespace BusinessLogic.Services
                 using var scope = _scopeFactory.CreateScope();
                 var userMistakeRepo = scope.ServiceProvider.GetRequiredService<IUserMistakeRepo>();
                 var userMistakeService = scope.ServiceProvider.GetRequiredService<IUserMistakeService>();
+                var userWeakPointService = scope.ServiceProvider.GetRequiredService<IUserWeakPointService>();
 
                 foreach (var quizId in correctQuestionIds)
                 {
                     var existingMistake = await userMistakeRepo.GetByUserIdAndQuizIdAsync(userId, quizId);
                     if (existingMistake != null)
                     {
+                        // Nếu UserMistake có UserWeakPointId, xoá UserWeakPoint trước
+                        if (existingMistake.UserWeakPointId.HasValue)
+                        {
+                            try
+                            {
+                                await userWeakPointService.DeleteAsync(existingMistake.UserWeakPointId.Value);
+                            }
+                            catch (Exception)
+                            {
+                                // Bỏ qua lỗi nếu UserWeakPoint đã bị xoá hoặc không tồn tại
+                            }
+                        }
+
+                        // Sau đó xoá UserMistake
                         await userMistakeService.DeleteAsync(existingMistake.Id);
                     }
                 }

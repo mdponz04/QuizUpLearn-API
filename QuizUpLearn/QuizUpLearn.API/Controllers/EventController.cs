@@ -20,15 +20,18 @@ namespace QuizUpLearn.API.Controllers
     {
         private readonly IEventService _eventService;
         private readonly IUserService _userService;
+        private readonly IEventSchedulerService _schedulerService;
         private readonly ILogger<EventController> _logger;
 
         public EventController(
             IEventService eventService,
             IUserService userService,
+            IEventSchedulerService schedulerService,
             ILogger<EventController> logger)
         {
             _eventService = eventService;
             _userService = userService;
+            _schedulerService = schedulerService;
             _logger = logger;
         }
 
@@ -431,6 +434,65 @@ namespace QuizUpLearn.API.Controllers
                 { 
                     Success = false, 
                     Message = "An error occurred while checking joined status" 
+                });
+            }
+        }
+
+        /// <summary>
+        /// 📊 Lấy statistics của Event Scheduler (Admin only)
+        /// </summary>
+        [HttpGet("scheduler/statistics")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<ApiResponse<SchedulerStatistics>>> GetSchedulerStatistics()
+        {
+            try
+            {
+                var stats = await _schedulerService.GetStatisticsAsync();
+                return Ok(new ApiResponse<SchedulerStatistics>
+                {
+                    Success = true,
+                    Data = stats,
+                    Message = "Scheduler statistics retrieved successfully"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get scheduler statistics");
+                return StatusCode(500, new ApiResponse<SchedulerStatistics>
+                {
+                    Success = false,
+                    Message = "An error occurred while retrieving scheduler statistics"
+                });
+            }
+        }
+
+        /// <summary>
+        /// ⚡ Force trigger scheduler check ngay lập tức (Admin only)
+        /// Useful for testing or manual intervention
+        /// </summary>
+        [HttpPost("scheduler/trigger")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<ApiResponse<object>>> TriggerSchedulerCheck()
+        {
+            try
+            {
+                await _schedulerService.TriggerCheckNowAsync();
+                
+                _logger.LogInformation("Scheduler manual trigger initiated by admin");
+
+                return Ok(new ApiResponse<object>
+                {
+                    Success = true,
+                    Message = "Scheduler check triggered successfully. Check will run shortly."
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to trigger scheduler check");
+                return StatusCode(500, new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "An error occurred while triggering scheduler check"
                 });
             }
         }

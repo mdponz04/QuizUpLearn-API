@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using BusinessLogic.Services;
+using BusinessLogic.Interfaces;
 using BusinessLogic.DTOs;
 using QuizUpLearn.API.Models;
 using Repository.Enums;
@@ -15,10 +15,10 @@ namespace QuizUpLearn.API.Controllers
     [Authorize]
     public class GameController : ControllerBase
     {
-        private readonly RealtimeGameService _gameService;
+        private readonly IRealtimeGameService _gameService;
         private readonly ILogger<GameController> _logger;
 
-        public GameController(RealtimeGameService gameService, ILogger<GameController> logger)
+        public GameController(IRealtimeGameService gameService, ILogger<GameController> logger)
         {
             _gameService = gameService;
             _logger = logger;

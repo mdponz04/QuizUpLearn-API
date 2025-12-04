@@ -13,5 +13,6 @@ namespace BusinessLogic.Interfaces
         Task AddAsync(RequestUserMistakeDto requestDto);
         Task UpdateAsync(Guid id, RequestUserMistakeDto requestDto);
         Task DeleteAsync(Guid id);
+        Task CleanupOrphanWeakPointsAsync(Guid userId);
     }
 }

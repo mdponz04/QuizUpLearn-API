@@ -11,6 +11,7 @@ namespace Repository.Interfaces
         Task<IEnumerable<Event>> GetActiveEventsAsync();
         Task<IEnumerable<Event>> GetUpcomingEventsAsync();
         Task<IEnumerable<Event>> GetEventsByCreatorAsync(Guid creatorId);
+        Task<IEnumerable<Event>> GetEventsNeedEndingAsync();
         Task<Event> UpdateAsync(Event entity);
         Task<bool> DeleteAsync(Guid id);
         Task<bool> ExistsAsync(Guid id);

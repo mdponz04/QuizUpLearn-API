@@ -1,4 +1,5 @@
 using BusinessLogic.DTOs;
+using BusinessLogic.Interfaces;
 using Repository.Interfaces;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
@@ -14,7 +15,7 @@ namespace BusinessLogic.Services
     /// State được lưu trong Redis (Distributed Cache) 
     /// Hỗ trợ scale-out multiple servers
     /// </summary>
-    public class RealtimeGameService
+    public class RealtimeGameService : BusinessLogic.Interfaces.IRealtimeGameService
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly IDistributedCache _cache; // ✨ Redis Cache

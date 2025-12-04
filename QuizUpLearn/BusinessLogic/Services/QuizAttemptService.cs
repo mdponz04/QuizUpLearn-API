@@ -13,6 +13,7 @@ namespace BusinessLogic.Services
         private readonly IQuizAttemptDetailRepo _detailRepo;
         private readonly IQuizRepo _quizRepo;
         private readonly IUserMistakeRepo _userMistakeRepo;
+        private readonly IUserMistakeService _userMistakeService;
         private readonly IQuizSetRepo _quizSetRepo;
         private readonly IAnswerOptionRepo _answerOptionRepo;
         private readonly IMapper _mapper;
@@ -22,6 +23,7 @@ namespace BusinessLogic.Services
             IQuizAttemptDetailRepo detailRepo,
             IQuizRepo quizRepo,
             IUserMistakeRepo userMistakeRepo,
+            IUserMistakeService userMistakeService,
             IQuizSetRepo quizSetRepo,
             IAnswerOptionRepo answerOptionRepo,
             IMapper mapper)
@@ -30,6 +32,7 @@ namespace BusinessLogic.Services
             _detailRepo = detailRepo;
             _quizRepo = quizRepo;
             _userMistakeRepo = userMistakeRepo;
+            _userMistakeService = userMistakeService;
             _quizSetRepo = quizSetRepo;
             _answerOptionRepo = answerOptionRepo;
             _mapper = mapper;
@@ -99,6 +102,9 @@ namespace BusinessLogic.Services
             {
                 throw new InvalidOperationException("UserId is required");
             }
+
+            // Cleanup WeakPoint orphan (không còn UserMistake liên quan) trước khi start
+            await _userMistakeService.CleanupOrphanWeakPointsAsync(dto.UserId);
 
             // Lấy danh sách UserMistake của user
             var userMistakes = await _userMistakeRepo.GetAlByUserIdAsync(dto.UserId);

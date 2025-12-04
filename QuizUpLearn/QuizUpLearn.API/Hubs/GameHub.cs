@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
-using BusinessLogic.Services;
+using BusinessLogic.Interfaces;
 using BusinessLogic.DTOs;
 using System.Security.Claims;
 
@@ -11,10 +11,10 @@ namespace QuizUpLearn.API.Hubs
     /// </summary>
     public class GameHub : Hub
     {
-        private readonly RealtimeGameService _gameService;
+        private readonly IRealtimeGameService _gameService;
         private readonly ILogger<GameHub> _logger;
 
-        public GameHub(RealtimeGameService gameService, ILogger<GameHub> logger)
+        public GameHub(IRealtimeGameService gameService, ILogger<GameHub> logger)
         {
             _gameService = gameService;
             _logger = logger;
