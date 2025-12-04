@@ -12,7 +12,14 @@ namespace BusinessLogic.Interfaces
         Task<ResponseQuizAttemptDetailDto?> UpdateAsync(Guid id, RequestQuizAttemptDetailDto dto);
         Task<bool> SoftDeleteAsync(Guid id);
         Task<bool> RestoreAsync(Guid id);
+        /// <summary>
+        /// Chấm điểm bài làm thông thường (không phải flow làm lại MistakeQuiz)
+        /// </summary>
         Task<ResponseSubmitAnswersDto> SubmitAnswersAsync(RequestSubmitAnswersDto dto);
+        /// <summary>
+        /// Chấm điểm bài làm lại các câu sai (MistakeQuiz) và xoá UserMistake cho những câu đã làm đúng
+        /// </summary>
+        Task<ResponseSubmitAnswersDto> SubmitMistakeQuizAnswersAsync(RequestSubmitAnswersDto dto);
         Task<ResponsePlacementTestDto> SubmitPlacementTestAsync(RequestSubmitAnswersDto dto);
     }
 }

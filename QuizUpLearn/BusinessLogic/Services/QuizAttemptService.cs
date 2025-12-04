@@ -12,15 +12,24 @@ namespace BusinessLogic.Services
         private readonly IQuizAttemptRepo _repo;
         private readonly IQuizAttemptDetailRepo _detailRepo;
         private readonly IQuizRepo _quizRepo;
+        private readonly IUserMistakeRepo _userMistakeRepo;
         private readonly IQuizSetRepo _quizSetRepo;
         private readonly IAnswerOptionRepo _answerOptionRepo;
         private readonly IMapper _mapper;
 
-        public QuizAttemptService(IQuizAttemptRepo repo, IQuizAttemptDetailRepo detailRepo, IQuizRepo quizRepo, IQuizSetRepo quizSetRepo, IAnswerOptionRepo answerOptionRepo, IMapper mapper)
+        public QuizAttemptService(
+            IQuizAttemptRepo repo,
+            IQuizAttemptDetailRepo detailRepo,
+            IQuizRepo quizRepo,
+            IUserMistakeRepo userMistakeRepo,
+            IQuizSetRepo quizSetRepo,
+            IAnswerOptionRepo answerOptionRepo,
+            IMapper mapper)
         {
             _repo = repo;
             _detailRepo = detailRepo;
             _quizRepo = quizRepo;
+            _userMistakeRepo = userMistakeRepo;
             _quizSetRepo = quizSetRepo;
             _answerOptionRepo = answerOptionRepo;
             _mapper = mapper;
@@ -81,6 +90,76 @@ namespace BusinessLogic.Services
                 TotalQuestions = created.TotalQuestions,
                 Questions = quizDtos,
                 QuizGroupItems = quizGroupItemDtos
+            };
+        }
+
+        public async Task<ResponseSingleStartDto> StartMistakeQuizzesAsync(RequestStartMistakeQuizzesDto dto)
+        {
+            if (dto.UserId == Guid.Empty)
+            {
+                throw new InvalidOperationException("UserId is required");
+            }
+
+            // Lấy danh sách UserMistake của user
+            var userMistakes = await _userMistakeRepo.GetAlByUserIdAsync(dto.UserId);
+
+            // Lấy các QuizId distinct từ UserMistake
+            var quizIds = userMistakes
+                .Select(um => um.QuizId)
+                .Distinct()
+                .ToList();
+
+            if (!quizIds.Any())
+            {
+                throw new InvalidOperationException("No mistake quizzes found for this user");
+            }
+
+            // Lấy quiz đầy đủ thông tin (bao gồm AnswerOptions) từ QuizRepo
+            var quizzes = await _quizRepo.GetQuizzesByIdsAsync(quizIds);
+            var selected = quizzes
+                .Where(q => q.DeletedAt == null && q.IsActive)
+                .OrderBy(q => q.OrderIndex ?? int.MaxValue)
+                .ThenBy(q => q.CreatedAt)
+                .ToList();
+
+            if (!selected.Any())
+            {
+                throw new InvalidOperationException("No valid quizzes found for this user");
+            }
+
+            // Lấy QuizSetId từ quiz đầu tiên (nếu cần track theo set)
+            var firstQuiz = selected.First();
+            var quizSetId = firstQuiz.QuizSetId;
+
+            // Tạo attempt với AttemptType = "mistake_quiz"
+            var attempt = new QuizAttempt
+            {
+                UserId = dto.UserId,
+                QuizSetId = quizSetId,
+                AttemptType = "mistake_quiz",
+                TotalQuestions = selected.Count,
+                CorrectAnswers = 0,
+                WrongAnswers = 0,
+                Score = 0,
+                Accuracy = 0,
+                TimeSpent = null,
+                OpponentId = null,
+                IsWinner = null,
+                Status = "in_progress"
+            };
+
+            var created = await _repo.CreateAsync(attempt);
+
+            // Map sang QuizStartResponseDto để client hiển thị câu hỏi + đáp án
+            var quizDtos = _mapper.Map<IEnumerable<BusinessLogic.DTOs.QuizDtos.QuizStartResponseDto>>(selected).ToList();
+
+            return new ResponseSingleStartDto
+            {
+                AttemptId = created.Id,
+                TotalQuestions = created.TotalQuestions,
+                Questions = quizDtos,
+                // Không cần QuizGroupItems cho flow làm lại câu sai
+                QuizGroupItems = new List<BusinessLogic.DTOs.QuizGroupItemDtos.ResponseQuizGroupItemDto>()
             };
         }
 

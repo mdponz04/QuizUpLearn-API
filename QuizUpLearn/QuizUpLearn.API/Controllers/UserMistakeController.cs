@@ -13,10 +13,17 @@ namespace QuizUpLearn.API.Controllers
     public class UserMistakeController : ControllerBase
     {
         private readonly IUserMistakeService _userMistakeService;
+        private readonly IQuizAttemptService _quizAttemptService;
+        private readonly IQuizAttemptDetailService _quizAttemptDetailService;
 
-        public UserMistakeController(IUserMistakeService userMistakeService)
+        public UserMistakeController(
+            IUserMistakeService userMistakeService,
+            IQuizAttemptService quizAttemptService,
+            IQuizAttemptDetailService quizAttemptDetailService)
         {
             _userMistakeService = userMistakeService;
+            _quizAttemptService = quizAttemptService;
+            _quizAttemptDetailService = quizAttemptDetailService;
         }
         [HttpGet]
         [SubscriptionAndRoleAuthorize("Administrator", "Mod")]
@@ -87,6 +94,40 @@ namespace QuizUpLearn.API.Controllers
 
             var mistakeQuizzes = await _userMistakeService.GetMistakeQuizzesByUserId(userId, paginationDto);
             return Ok(mistakeQuizzes);
+        }
+
+        /// <summary>
+        /// Bắt đầu làm lại các câu hỏi sai (mistake quizzes) của user hiện tại
+        /// </summary>
+        [HttpPost("mistake-quizzes/start")]
+        [SubscriptionAndRoleAuthorize]
+        public async Task<IActionResult> StartMistakeQuizzes()
+        {
+            var userId = (Guid)HttpContext.Items["UserId"]!;
+
+            var dto = new RequestStartMistakeQuizzesDto
+            {
+                UserId = userId
+            };
+
+            var result = await _quizAttemptService.StartMistakeQuizzesAsync(dto);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Submit và chấm điểm quiz từ mistake quizzes
+        /// </summary>
+        [HttpPost("mistake-quizzes/submit")]
+        [SubscriptionAndRoleAuthorize]
+        public async Task<IActionResult> SubmitMistakeQuizzes([FromBody] RequestSubmitAnswersDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var result = await _quizAttemptDetailService.SubmitMistakeQuizAnswersAsync(dto);
+            return Ok(result);
         }
     }
 }

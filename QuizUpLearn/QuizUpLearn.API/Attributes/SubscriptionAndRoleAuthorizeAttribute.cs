@@ -104,6 +104,7 @@ namespace QuizUpLearn.API.Attributes
                 context.HttpContext.Items["UserRole"] = role.RoleName;
                 context.HttpContext.Items["UserPermissions"] = role.Permissions;
                 context.HttpContext.Items["IsAdmin"] = isAdmin;
+                context.HttpContext.Items["IsMod"] = isMod;
 
                 // Skip subscription check for admin if bypass is enabled
                 if (!skipSubscriptionCheck)

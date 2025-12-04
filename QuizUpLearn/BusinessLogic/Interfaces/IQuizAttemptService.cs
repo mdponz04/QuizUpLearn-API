@@ -6,6 +6,7 @@ namespace BusinessLogic.Interfaces
     {
         Task<ResponseQuizAttemptDto> CreateAsync(RequestQuizAttemptDto dto);
         Task<ResponseSingleStartDto> StartSingleAsync(RequestSingleStartDto dto);
+        Task<ResponseSingleStartDto> StartMistakeQuizzesAsync(RequestStartMistakeQuizzesDto dto);
         Task<ResponseQuizAttemptDto?> GetByIdAsync(Guid id);
         Task<IEnumerable<ResponseQuizAttemptDto>> GetAllAsync(bool includeDeleted = false);
         Task<IEnumerable<ResponseQuizAttemptDto>> GetByUserIdAsync(Guid userId, bool includeDeleted = false);

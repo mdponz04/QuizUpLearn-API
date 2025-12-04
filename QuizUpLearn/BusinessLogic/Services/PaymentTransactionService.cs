@@ -1,6 +1,5 @@
 ﻿using AutoMapper;
 using BusinessLogic.DTOs.PaymentTransactionDtos;
-using BusinessLogic.DTOs.PaymentTransactionDtos;
 using BusinessLogic.DTOs;
 using BusinessLogic.Interfaces;
 using BusinessLogic.Extensions;

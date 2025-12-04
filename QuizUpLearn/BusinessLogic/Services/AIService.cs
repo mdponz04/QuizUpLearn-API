@@ -422,35 +422,42 @@ namespace BusinessLogic.Services
 
             foreach (var quiz in quizzes.Data)
             {
-                //Take group items
-                if (quiz.QuizGroupItemId != null)
+                try
                 {
-                    var groupItems = await _quizGroupItemService.GetByIdAsync(quiz.QuizGroupItemId.Value);
-                    if(groupItems != null)
+                    if (quiz.QuizGroupItemId != null)
                     {
-                        groupPassage = groupItems.PassageText ?? string.Empty;
-                        groupAudioScript = groupItems.AudioScript ?? string.Empty;
-                        groupImageDescription = groupItems.ImageDescription ?? string.Empty;
+                        var groupItems = await _quizGroupItemService.GetByIdAsync(quiz.QuizGroupItemId.Value);
+                        if (groupItems != null)
+                        {
+                            groupPassage = groupItems.PassageText ?? string.Empty;
+                            groupAudioScript = groupItems.AudioScript ?? string.Empty;
+                            groupImageDescription = groupItems.ImageDescription ?? string.Empty;
+                        }
                     }
-                }
-                var options = await _answerOptionService.GetByQuizIdAsync(quiz.Id);
-                // Prepare validation prompt
-                var validationPrompt = _promptGenerator.GetValidationPromptAsync(quizSet, quiz, quiz.AnswerOptions, groupPassage, groupAudioScript, groupImageDescription);
-                var response = await OpenRouterGenerateContentAsync(validationPrompt);
-                
-                var validation = JsonSerializer.Deserialize<AiValidationResponseDto>(response ?? string.Empty);
+                    var options = await _answerOptionService.GetByQuizIdAsync(quiz.Id);
 
-                if (validation == null)
+                    var validationPrompt = _promptGenerator.GetValidationPromptAsync(quizSet, quiz, quiz.AnswerOptions, groupPassage, groupAudioScript, groupImageDescription);
+                    var response = await OpenRouterGenerateContentAsync(validationPrompt);
+
+                    var validation = JsonSerializer.Deserialize<AiValidationResponseDto>(response ?? string.Empty);
+
+                    if (validation == null)
+                    {
+                        feedbackBuilder.AppendLine($"Quiz {quiz.Id}: Validation failed (null response).");
+                        allValid = false;
+                        continue;
+                    }
+
+                    feedbackBuilder.AppendLine($"Quiz {quiz.QuestionText}: {validation.Feedback}");
+
+                    if (!validation.IsValid)
+                        allValid = false;
+                }
+                catch(Exception ex)
                 {
-                    feedbackBuilder.AppendLine($"Quiz {quiz.Id}: Validation failed (null response).");
+                    feedbackBuilder.AppendLine($"Quiz {quiz.Id}: Validation error - {ex.Message}");
                     allValid = false;
-                    continue;
                 }
-
-                feedbackBuilder.AppendLine($"Quiz {quiz.QuestionText}: {validation.Feedback}");
-
-                if (!validation.IsValid)
-                    allValid = false;
             }
 
             if (!allValid)

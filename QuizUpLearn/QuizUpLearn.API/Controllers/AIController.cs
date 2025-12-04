@@ -65,6 +65,7 @@ namespace QuizUpLearn.API.Controllers
             // Get user role and check permissions for specific quiz set types
             var userRole = HttpContext.Items["UserRole"]?.ToString();
             var isAdmin = (bool)(HttpContext.Items["IsAdmin"] ?? false);
+            var isMod = (bool)(HttpContext.Items["IsMod"] ?? false);
 
             // Role-based quiz set type restrictions
             switch (quizSetType)
@@ -72,7 +73,7 @@ namespace QuizUpLearn.API.Controllers
                 case QuizSetTypeEnum.Tournament:
                 case QuizSetTypeEnum.Placement:
                 case QuizSetTypeEnum.Event:
-                    if (!isAdmin && !userRole.Equals("Moderator", StringComparison.OrdinalIgnoreCase))
+                    if (!isAdmin && !isMod)
                     {
                         return Forbid($"Only Admin and Mod can generate {quizSetType} quiz sets.");
                     }
@@ -101,37 +102,14 @@ namespace QuizUpLearn.API.Controllers
                 IsAIGenerated = true
             });
             var quizSetId = createdQuizSet.Id;
-            /*switch (quizPart)
-            {
-                case QuizPartEnum.PART1:
-                    await _aiService.GeneratePracticeQuizSetPart1Async(inputData, quizSetId);
-                    break;
-                case QuizPartEnum.PART2:
-                    await _aiService.GeneratePracticeQuizSetPart2Async(inputData, quizSetId);
-                    break;
-                case QuizPartEnum.PART3:
-                    await _aiService.GeneratePracticeQuizSetPart3Async(inputData, quizSetId);
-                    break;
-                case QuizPartEnum.PART4:
-                    await _aiService.GeneratePracticeQuizSetPart4Async(inputData, quizSetId);
-                    break;
-                case QuizPartEnum.PART5:
-                    await _aiService.GeneratePracticeQuizSetPart5Async(inputData, quizSetId);
-                    break;
-                case QuizPartEnum.PART6:
-                    await _aiService.GeneratePracticeQuizSetPart6Async(inputData, quizSetId);
-                    break;
-                case QuizPartEnum.PART7:
-                    await _aiService.GeneratePracticeQuizSetPart7Async(inputData, quizSetId);
-                    break;
-            }*/
 
             _ = _workerService.EnqueueJob(async (sp, token) =>
             {
                 var subscriptionService = sp.GetRequiredService<ISubscriptionService>();
                 var aiService = sp.GetRequiredService<IAIService>();
                 var hubContext = sp.GetRequiredService<IHubContext<BackgroundJobHub>>();
-                
+
+                (bool, string) validateResult = (false, "Not validate yet");
                 try
                 {
                     var result = false;
@@ -177,43 +155,44 @@ namespace QuizUpLearn.API.Controllers
                         QuizSetId = quizSetId
                     });
 
-                    var validateResult = await aiService.ValidateQuizSetAsync(quizSetId);
-
-                    if (!validateResult.Item1)
-                    {
-                        await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobFailed", new
-                        {
-                            JobId = jobId,
-                            Result = "Invalid quiz set: " + validateResult.Item2,
-                            Status = "Failed",
-                            QuizSetId = Guid.Empty
-                        });
-                    }
-                    else
-                    {
-                        // Only deduct usage for non-admin users
-                        if (!isAdmin)
-                        {
-                            await subscriptionService.CalculateRemainingUsageByUserId(userId, inputData.QuestionQuantity);
-                        }
-
-                        await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
-                        {
-                            JobId = jobId,
-                            Result = "Completed",
-                            Status = "Completed",
-                            QuizSetId = quizSetId
-                        });
-                    }
+                    validateResult = await aiService.ValidateQuizSetAsync(quizSetId);
                 }
                 catch (Exception ex)
                 {
                     await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobFailed", new
                     {
                         JobId = jobId,
-                        Result = ex.Message,
+                        Result = "Failed at generate quiz: " + ex.Message,
                         Status = "Failed",
                         QuizSetId = Guid.Empty
+                    });
+
+                    return;
+                }
+
+                if (!validateResult.Item1)
+                {
+                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobFailed", new
+                    {
+                        JobId = jobId,
+                        Result = "Invalid quiz set: " + validateResult.Item2,
+                        Status = "Failed",
+                        QuizSetId = Guid.Empty
+                    });
+                }
+                else
+                {
+                    if (!isAdmin || !isMod)
+                    {
+                        await subscriptionService.CalculateRemainingUsageByUserId(userId, inputData.QuestionQuantity);
+                    }
+
+                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
+                    {
+                        JobId = jobId,
+                        Result = "Completed",
+                        Status = "Completed",
+                        QuizSetId = quizSetId
                     });
                 }
             });

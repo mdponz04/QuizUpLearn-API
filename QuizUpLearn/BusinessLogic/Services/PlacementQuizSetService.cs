@@ -47,7 +47,7 @@ namespace BusinessLogic.Services
                 {
                     QuestionText = quiz.Prompt,
                     OrderIndex = quiz.GlobalIndex,
-                    TOEICPart = $"Part {quiz.Part}",
+                    TOEICPart = $"PART{quiz.Part}",
                     QuizSetId = quizSet.Id,
                     CorrectAnswer = quiz.CorrectAnswer
                 });
