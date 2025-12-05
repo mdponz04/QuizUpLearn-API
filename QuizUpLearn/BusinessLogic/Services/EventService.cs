@@ -17,7 +17,7 @@ namespace BusinessLogic.Services
         private readonly IQuizSetRepo _quizSetRepo;
         private readonly IUserRepo _userRepo;
         private readonly IAccountRepo _accountRepo;
-        private readonly RealtimeGameService _realtimeGameService;
+        private readonly IRealtimeGameService _realtimeGameService;
         private readonly IMailerSendService _mailerSendService;
         private readonly IConfiguration _configuration;
         private readonly ILogger<EventService> _logger;
@@ -28,7 +28,7 @@ namespace BusinessLogic.Services
             IQuizSetRepo quizSetRepo,
             IUserRepo userRepo,
             IAccountRepo accountRepo,
-            RealtimeGameService realtimeGameService,
+            IRealtimeGameService realtimeGameService,
             IMailerSendService mailerSendService,
             IConfiguration configuration,
             ILogger<EventService> logger)
