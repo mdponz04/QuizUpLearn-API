@@ -116,14 +116,19 @@ namespace QuizUpLearn.API.DI
             services.AddScoped<ISubscriptionUsageService, SubscriptionUsageService>();
             services.AddScoped<IAppSettingService, AppSettingService>();
 
-            // RealtimeGameService phải là Singleton vì dùng static state
-            services.AddSingleton<BusinessLogic.Services.RealtimeGameService>();
+            // RealtimeGameService - Singleton để dùng Redis state
+            services.AddSingleton<BusinessLogic.Interfaces.IRealtimeGameService, BusinessLogic.Services.RealtimeGameService>();
             
             // OneVsOneGameService - Singleton để dùng Redis state
             services.AddSingleton<BusinessLogic.Interfaces.IOneVsOneGameService, BusinessLogic.Services.OneVsOneGameService>();
-            //Singleton worker service
+            
+            // Worker Service
             services.AddSingleton<IWorkerService, WorkerService>();
             services.AddHostedService(sp => (WorkerService)sp.GetRequiredService<IWorkerService>());
+            
+            // Background Schedulers with interfaces for loose coupling
+            services.AddSingleton<IEventSchedulerService, EventSchedulerService>();
+            services.AddHostedService(sp => (EventSchedulerService)sp.GetRequiredService<IEventSchedulerService>());
             services.AddHostedService<TournamentSchedulerService>();
         }
     }

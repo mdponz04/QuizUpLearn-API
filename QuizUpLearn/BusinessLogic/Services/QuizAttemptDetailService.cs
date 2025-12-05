@@ -263,6 +263,12 @@ namespace BusinessLogic.Services
                 throw new InvalidOperationException("Attempt not found");
             }
 
+            // Validate AttemptType phải là "mistake_quiz"
+            if (attempt.AttemptType != "mistake_quiz")
+            {
+                throw new InvalidOperationException($"This attempt is not a mistake quiz. AttemptType: {attempt.AttemptType}");
+            }
+
             int correctCount = 0;
             int wrongCount = 0;
             int totalTimeSpent = 0;
@@ -345,12 +351,14 @@ namespace BusinessLogic.Services
                 });
             }
 
-            // Cập nhật QuizAttempt với kết quả
+            // Cập nhật QuizAttempt với kết quả (đảm bảo AttemptType vẫn là "mistake_quiz")
+            attempt.AttemptType = "mistake_quiz"; // Đảm bảo không bị thay đổi thành "placement" hoặc type khác
             attempt.CorrectAnswers = correctCount;
             attempt.WrongAnswers = wrongCount;
             attempt.Score = correctCount;
             attempt.Accuracy = attempt.TotalQuestions > 0 ? (decimal)correctCount / attempt.TotalQuestions : 0;
             attempt.Status = "completed";
+            attempt.IsCompleted = true;
             attempt.TimeSpent = totalTimeSpent > 0 ? totalTimeSpent : (int?)null;
 
             await _attemptRepo.UpdateAsync(dto.AttemptId, attempt);
@@ -367,7 +375,7 @@ namespace BusinessLogic.Services
                 AnswerResults = answerResults
             };
 
-            // Xoá UserMistake cho các câu đã làm đúng (chạy synchronous, không background)
+            // Xoá UserMistake và UserWeakPoint liên quan cho các câu đã làm đúng (chạy synchronous, không background)
             var correctQuestionIds = correctQuestionIdsSet.ToList();
             var userId = attempt.UserId;
 
@@ -376,12 +384,27 @@ namespace BusinessLogic.Services
                 using var scope = _scopeFactory.CreateScope();
                 var userMistakeRepo = scope.ServiceProvider.GetRequiredService<IUserMistakeRepo>();
                 var userMistakeService = scope.ServiceProvider.GetRequiredService<IUserMistakeService>();
+                var userWeakPointService = scope.ServiceProvider.GetRequiredService<IUserWeakPointService>();
 
                 foreach (var quizId in correctQuestionIds)
                 {
                     var existingMistake = await userMistakeRepo.GetByUserIdAndQuizIdAsync(userId, quizId);
                     if (existingMistake != null)
                     {
+                        // Nếu UserMistake có UserWeakPointId, xoá UserWeakPoint trước
+                        if (existingMistake.UserWeakPointId.HasValue)
+                        {
+                            try
+                            {
+                                await userWeakPointService.DeleteAsync(existingMistake.UserWeakPointId.Value);
+                            }
+                            catch (Exception)
+                            {
+                                // Bỏ qua lỗi nếu UserWeakPoint đã bị xoá hoặc không tồn tại
+                            }
+                        }
+
+                        // Sau đó xoá UserMistake
                         await userMistakeService.DeleteAsync(existingMistake.Id);
                     }
                 }

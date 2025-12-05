@@ -82,6 +82,16 @@ namespace Repository.Repositories
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<Event>> GetEventsNeedEndingAsync()
+        {
+            var now = DateTime.UtcNow;
+            return await _context.Events
+                .Where(e => e.DeletedAt == null 
+                    && e.Status == "Active" 
+                    && e.EndDate < now)
+                .ToListAsync();
+        }
+
         public async Task<Event> UpdateAsync(Event entity)
         {
             entity.UpdatedAt = DateTime.UtcNow;
