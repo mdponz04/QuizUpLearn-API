@@ -53,10 +53,11 @@ namespace BusinessLogic.Services
 		}
 
 		// Kiểm tra nếu đã có tournament "Started" trong tháng thì không cho tạo mới
-		var startDate = dto.StartDate.Date;
-		if (await _tournamentRepo.ExistsStartedInMonthAsync(startDate.Year, startDate.Month))
+		// Use EndDate to determine the target month, as StartDate might shift to previous month due to timezone (e.g. 00:00 Local -> 17:00 Prev Day UTC)
+		var checkDate = dto.EndDate.Date;
+		if (await _tournamentRepo.ExistsStartedInMonthAsync(checkDate.Year, checkDate.Month))
 		{
-			throw new ArgumentException($"Đã tồn tại tournament đang 'Started' trong tháng {startDate.Month}/{startDate.Year}. Không thể tạo tournament mới khi đã có tournament đang chạy.");
+			throw new ArgumentException($"Đã tồn tại tournament đang 'Started' trong tháng {checkDate.Month}/{checkDate.Year}. Không thể tạo tournament mới khi đã có tournament đang chạy.");
 		}			var entity = new Tournament
 			{
 				Name = dto.Name,
@@ -241,14 +242,28 @@ namespace BusinessLogic.Services
 		}
 
 		var startDate = tournament.StartDate.Date;
+		var endDate = tournament.EndDate.Date;
 		var today = DateTime.UtcNow.Date;
 		
-		// Use the later date between StartDate and today
-		var effectiveStartDate = startDate > today ? startDate : today;
+		// Determine effective start date
+		var effectiveStartDate = startDate;
 		
-		// Calculate days from effective start date to end of month
-		var lastDayOfMonth = new DateTime(startDate.Year, startDate.Month, DateTime.DaysInMonth(startDate.Year, startDate.Month));
-		var days = (int)(lastDayOfMonth.Date - effectiveStartDate).TotalDays + 1;
+		// Fix for timezone shift: If startDate is in the previous month of endDate, bump it to 1st of endDate's month.
+		// This handles cases where 00:00 Local becomes 17:00 Previous Day UTC (e.g., Jan 1 00:00 Local -> Dec 31 17:00 UTC)
+		if (effectiveStartDate.Month != endDate.Month || effectiveStartDate.Year != endDate.Year)
+		{
+			var firstDayOfEndMonth = new DateTime(endDate.Year, endDate.Month, 1);
+			if (effectiveStartDate < firstDayOfEndMonth) effectiveStartDate = firstDayOfEndMonth;
+		}
+		
+		// For current month tournaments, use today as the effective start if startDate is in the past
+		if (effectiveStartDate < today && effectiveStartDate.Month == endDate.Month && effectiveStartDate.Year == endDate.Year)
+		{
+			effectiveStartDate = today;
+		}
+		
+		// Calculate days from effective start date to end date
+		var days = (int)(endDate - effectiveStartDate).TotalDays + 1;
 
 		if (days <= 0)
 		{
