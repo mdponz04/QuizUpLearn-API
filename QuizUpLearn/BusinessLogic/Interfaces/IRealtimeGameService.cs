@@ -14,7 +14,7 @@ namespace BusinessLogic.Interfaces
         Task<bool> HostConnectAsync(string gamePin, string connectionId);
         
         // ==================== LOBBY ====================
-        Task<PlayerInfo?> PlayerJoinAsync(string gamePin, string playerName, string connectionId);
+        Task<PlayerInfo?> PlayerJoinAsync(string gamePin, string playerName, string connectionId, Guid? userId = null);
         Task<bool> PlayerLeaveAsync(string gamePin, string connectionId);
         Task<GameSessionDto?> GetGameSessionAsync(string gamePin);
         

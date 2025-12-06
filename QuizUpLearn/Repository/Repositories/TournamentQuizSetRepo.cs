@@ -27,6 +27,14 @@ namespace Repository.Repositories
 				.ToListAsync();
 		}
 
+		public async Task<IEnumerable<TournamentQuizSet>> GetAllByTournamentAsync(Guid tournamentId, bool includeDeleted = false)
+		{
+			return await _context.TournamentQuizSets
+				.Where(x => x.TournamentId == tournamentId && (includeDeleted || x.DeletedAt == null))
+				.OrderBy(x => x.DateNumber)
+				.ToListAsync();
+		}
+
 		public async Task<IEnumerable<TournamentQuizSet>> GetForDateAsync(Guid tournamentId, DateTime dateUtc)
 		{
 			var date = dateUtc.Date;

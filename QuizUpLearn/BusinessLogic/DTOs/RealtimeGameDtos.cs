@@ -17,6 +17,8 @@ namespace BusinessLogic.DTOs
         
         [Required]
         public Guid QuizSetId { get; set; }
+        
+        public Guid? EventId { get; set; } // EventId nếu game này là Event
     }
 
     /// <summary>
@@ -37,6 +39,7 @@ namespace BusinessLogic.DTOs
     {
         public string ConnectionId { get; set; } = string.Empty;
         public string PlayerName { get; set; } = string.Empty;
+        public Guid? UserId { get; set; } // UserId của player (cần để sync điểm vào EventParticipant)
         public int Score { get; set; } = 0;
         public DateTime JoinedAt { get; set; }
 
@@ -64,6 +67,7 @@ namespace BusinessLogic.DTOs
         public string HostUserName { get; set; } = string.Empty;
         public string HostConnectionId { get; set; } = string.Empty;
         public Guid QuizSetId { get; set; }
+        public Guid? EventId { get; set; } // EventId nếu game này là Event (cần để sync điểm vào EventParticipant)
         public GameStatus Status { get; set; }
         public List<PlayerInfo> Players { get; set; } = new();
         public List<QuestionDto> Questions { get; set; } = new();

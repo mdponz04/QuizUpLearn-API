@@ -1,10 +1,13 @@
-﻿using BusinessLogic.DTOs;
+﻿using AutoMapper;
+using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.PlacementQuizSetDtos;
 using BusinessLogic.DTOs.QuizDtos;
 using BusinessLogic.DTOs.QuizSetDtos;
 using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Http;
 using OfficeOpenXml;
+using Repository.Entities;
+using Repository.Interfaces;
 
 
 namespace BusinessLogic.Services
@@ -12,23 +15,26 @@ namespace BusinessLogic.Services
     public class PlacementQuizSetService : IPlacementQuizSetService
     {
         private readonly IQuizSetService _quizSetService;
-        private readonly IQuizService _quizService;
-        private readonly IAnswerOptionService _answerOptionService;
+        private readonly IQuizRepo _quizRepo;
+        private readonly IAnswerOptionRepo _answerOptionRepo;
+        private readonly IMapper _mapper;
 
         public PlacementQuizSetService(IQuizSetService quizSetService, 
-            IQuizService quizService, 
-            IAnswerOptionService answerOptionService)
+            IQuizRepo quizRepo,
+            IAnswerOptionRepo answerOptionRepo,
+            IMapper mapper)
         {
             _quizSetService = quizSetService;
-            _quizService = quizService;
-            _answerOptionService = answerOptionService;
+            _quizRepo = quizRepo;
+            _answerOptionRepo = answerOptionRepo;
+            _mapper = mapper;
         }
 
 
         public async Task<QuizSetResponseDto> ImportExcelQuizSetFile(IFormFile file, Guid userId)
         {
             await using var stream = file.OpenReadStream();
-            var quizzes = ExtractQuestions(stream);
+            var quizzesData = ExtractQuestions(stream);
 
             var quizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto 
             {
@@ -41,28 +47,49 @@ namespace BusinessLogic.Services
                 CreatedBy = userId
             });
             
-            foreach(var quiz in quizzes)
+            // Tạo tất cả quizzes trước (batch insert)
+            var quizzesToInsert = new List<Quiz>();
+            foreach(var quizData in quizzesData)
             {
-                var newQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
+                var quiz = _mapper.Map<Quiz>(new QuizRequestDto
                 {
-                    QuestionText = quiz.Prompt,
-                    OrderIndex = quiz.GlobalIndex,
-                    TOEICPart = $"PART{quiz.Part}",
+                    QuestionText = quizData.Prompt,
+                    OrderIndex = quizData.GlobalIndex,
+                    TOEICPart = $"PART{quizData.Part}",
                     QuizSetId = quizSet.Id,
-                    CorrectAnswer = quiz.CorrectAnswer
+                    CorrectAnswer = quizData.CorrectAnswer
                 });
+                quizzesToInsert.Add(quiz);
+            }
 
-                foreach(var choice in quiz.Choices)
+            // Batch insert tất cả quizzes cùng lúc
+            var createdQuizzes = await _quizRepo.CreateQuizzesBatchAsync(quizzesToInsert);
+
+            // Tạo tất cả answer options (batch insert)
+            var answerOptionsToInsert = new List<AnswerOption>();
+            var quizList = createdQuizzes.ToList();
+            for (int i = 0; i < quizList.Count; i++)
+            {
+                var quiz = quizList[i];
+                var quizData = quizzesData[i];
+                
+                int orderIndex = 0;
+                foreach(var choice in quizData.Choices)
                 {
-                    await _answerOptionService.CreateAsync(new RequestAnswerOptionDto
+                    var answerOption = _mapper.Map<AnswerOption>(new RequestAnswerOptionDto
                     {
-                        QuizId = newQuiz.Id,
+                        QuizId = quiz.Id,
                         OptionText = choice.Text,
-                        IsCorrect = choice.Label == quiz.CorrectAnswer,
-                        OptionLabel = choice.Label
+                        IsCorrect = choice.Label == quizData.CorrectAnswer,
+                        OptionLabel = choice.Label,
+                        OrderIndex = orderIndex++
                     });
+                    answerOptionsToInsert.Add(answerOption);
                 }
             }
+
+            // Batch insert tất cả answer options cùng lúc
+            await _answerOptionRepo.CreateBatchAsync(answerOptionsToInsert);
 
             return quizSet;
         }

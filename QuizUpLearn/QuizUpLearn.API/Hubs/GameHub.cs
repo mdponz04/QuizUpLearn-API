@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.SignalR;
 using BusinessLogic.Interfaces;
 using BusinessLogic.DTOs;
 using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace QuizUpLearn.API.Hubs
 {
@@ -12,11 +13,19 @@ namespace QuizUpLearn.API.Hubs
     public class GameHub : Hub
     {
         private readonly IRealtimeGameService _gameService;
+        private readonly IUserService _userService;
+        private readonly IEventService _eventService;
         private readonly ILogger<GameHub> _logger;
 
-        public GameHub(IRealtimeGameService gameService, ILogger<GameHub> logger)
+        public GameHub(
+            IRealtimeGameService gameService,
+            IUserService userService,
+            IEventService eventService,
+            ILogger<GameHub> logger)
         {
             _gameService = gameService;
+            _userService = userService;
+            _eventService = eventService;
             _logger = logger;
         }
 
@@ -167,7 +176,20 @@ namespace QuizUpLearn.API.Hubs
                     return;
                 }
 
-                var player = await _gameService.PlayerJoinAsync(gamePin, playerName.Trim(), Context.ConnectionId);
+                // ✨ Lấy UserId từ JWT token (nếu có) để sync điểm vào EventParticipant
+                Guid? userId = null;
+                try
+                {
+                    var user = await GetAuthenticatedUserAsync();
+                    userId = user?.Id;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, $"Could not get authenticated user for JoinGame - continuing without UserId");
+                    // Continue without UserId - game vẫn có thể chơi được
+                }
+
+                var player = await _gameService.PlayerJoinAsync(gamePin, playerName.Trim(), Context.ConnectionId, userId);
                 if (player == null)
                 {
                     await Clients.Caller.SendAsync("Error", "Failed to join game. Game not found, already started, or name taken.");
@@ -540,7 +562,18 @@ namespace QuizUpLearn.API.Hubs
                 // Gửi kết quả cuối cùng cho tất cả
                 await Clients.Group($"Game_{gamePin}").SendAsync("GameEnded", finalResult);
 
-                // TODO: Lưu kết quả vào database (QuizAttempt, QuizAttemptDetail)
+                // ✨ SYNC ĐIỂM VÀO EVENT PARTICIPANT (nếu là Event game)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await SyncEventScoresAsync(gamePin, finalResult);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Failed to sync event scores for game {gamePin}");
+                    }
+                });
 
                 // Cleanup game session sau 1 phút
                 _ = Task.Run(async () =>
@@ -1080,6 +1113,108 @@ namespace QuizUpLearn.API.Hubs
             {
                 _logger.LogError(ex, $"Error in ForceEndGame for game {gamePin}");
                 await Clients.Caller.SendAsync("Error", "An error occurred while ending game");
+            }
+        }
+
+        /// <summary>
+        /// Lấy authenticated user từ JWT token
+        /// </summary>
+        private async Task<BusinessLogic.DTOs.ResponseUserDto?> GetAuthenticatedUserAsync()
+        {
+            try
+            {
+                var accountIdClaim = Context.User?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+                    ?? Context.User?.FindFirst("sub")?.Value
+                    ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? Context.User?.FindFirst("UserId")?.Value;
+
+                if (string.IsNullOrEmpty(accountIdClaim) || !Guid.TryParse(accountIdClaim, out var accountId))
+                {
+                    return null;
+                }
+
+                var user = await _userService.GetByAccountIdAsync(accountId);
+                return user;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Could not get authenticated user from token");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Sync điểm từ GameSession (Redis) vào EventParticipant (Database)
+        /// Chỉ sync nếu game này là Event game (có EventId)
+        /// </summary>
+        private async Task SyncEventScoresAsync(string gamePin, FinalResultDto finalResult)
+        {
+            try
+            {
+                _logger.LogInformation($"🔄 Starting score sync for game {gamePin}");
+
+                // Lấy game session để check EventId
+                var session = await _gameService.GetGameSessionAsync(gamePin);
+                if (session == null)
+                {
+                    _logger.LogWarning($"⚠️ Game session not found for {gamePin}");
+                    return;
+                }
+
+                // Chỉ sync nếu là Event game
+                if (!session.EventId.HasValue)
+                {
+                    _logger.LogDebug($"Game {gamePin} is not an Event game - skipping score sync");
+                    return;
+                }
+
+                var eventId = session.EventId.Value;
+                _logger.LogInformation($"📊 Syncing scores for Event {eventId}, GamePin: {gamePin}");
+
+                // Sync điểm cho từng player
+                int syncedCount = 0;
+                int skippedCount = 0;
+
+                foreach (var ranking in finalResult.FinalRankings)
+                {
+                    try
+                    {
+                        // Tìm player trong session để lấy UserId
+                        var player = session.Players.FirstOrDefault(p => p.PlayerName == ranking.PlayerName);
+                        if (player == null || !player.UserId.HasValue)
+                        {
+                            _logger.LogWarning($"⚠️ Player '{ranking.PlayerName}' has no UserId - skipping score sync");
+                            skippedCount++;
+                            continue;
+                        }
+
+                        // Tính accuracy
+                        var accuracy = finalResult.TotalQuestions > 0
+                            ? (double)ranking.CorrectAnswers / finalResult.TotalQuestions * 100
+                            : 0;
+
+                        // Sync vào EventParticipant
+                        await _eventService.SyncPlayerScoreAsync(
+                            eventId,
+                            player.UserId.Value,
+                            ranking.TotalScore,
+                            accuracy);
+
+                        syncedCount++;
+                        _logger.LogInformation($"✅ Synced score for User {player.UserId}: Score={ranking.TotalScore}, Accuracy={accuracy:F2}%");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"❌ Failed to sync score for player '{ranking.PlayerName}'");
+                        skippedCount++;
+                    }
+                }
+
+                _logger.LogInformation($"🎉 Score sync completed: {syncedCount} synced, {skippedCount} skipped for Event {eventId}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"❌ Error in SyncEventScoresAsync for game {gamePin}");
             }
         }
     }

@@ -21,6 +21,14 @@ namespace Repository.Repositories
             return answerOption;
         }
 
+        public async Task<IEnumerable<AnswerOption>> CreateBatchAsync(IEnumerable<AnswerOption> answerOptions)
+        {
+            var answerOptionsList = answerOptions.ToList();
+            await _context.AnswerOptions.AddRangeAsync(answerOptionsList);
+            await _context.SaveChangesAsync();
+            return answerOptionsList;
+        }
+
         public async Task<IEnumerable<AnswerOption>> GetAllAsync(bool includeDeleted = false)
         {
             return await _context.AnswerOptions

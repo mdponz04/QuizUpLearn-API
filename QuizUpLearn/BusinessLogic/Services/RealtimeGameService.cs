@@ -231,6 +231,7 @@ namespace BusinessLogic.Services
                 HostUserId = dto.HostUserId,
                 HostUserName = dto.HostUserName,
                 QuizSetId = dto.QuizSetId,
+                EventId = dto.EventId, // Lưu EventId nếu có
                 Status = GameStatus.Lobby,
                 Questions = questionsList,
                 QuizGroupItems = quizGroupItemsMap, // Store group items for TOEIC-style questions
@@ -269,7 +270,7 @@ namespace BusinessLogic.Services
         /// <summary>
         /// Player join vào lobby bằng Game PIN
         /// </summary>
-        public async Task<PlayerInfo?> PlayerJoinAsync(string gamePin, string playerName, string connectionId)
+        public async Task<PlayerInfo?> PlayerJoinAsync(string gamePin, string playerName, string connectionId, Guid? userId = null)
         {
             var session = await GetGameSessionFromRedisAsync(gamePin);
             if (session == null)
@@ -286,6 +287,7 @@ namespace BusinessLogic.Services
             {
                 ConnectionId = connectionId,
                 PlayerName = playerName,
+                UserId = userId, // ✨ Lưu UserId để sync điểm vào EventParticipant
                 Score = 0,
                 JoinedAt = DateTime.UtcNow
             };
@@ -293,7 +295,7 @@ namespace BusinessLogic.Services
             session.Players.Add(player);
             await SaveGameSessionToRedisAsync(gamePin, session);
             
-            _logger.LogInformation($"✅ Player '{playerName}' joined game {gamePin}. Total players: {session.Players.Count}");
+            _logger.LogInformation($"✅ Player '{playerName}' (UserId: {userId?.ToString() ?? "N/A"}) joined game {gamePin}. Total players: {session.Players.Count}");
 
             return player;
         }

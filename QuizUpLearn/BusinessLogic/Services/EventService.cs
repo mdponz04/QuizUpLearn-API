@@ -238,7 +238,8 @@ namespace BusinessLogic.Services
             {
                 QuizSetId = eventEntity.QuizSetId,
                 HostUserId = userId,
-                HostUserName = dto.HostUserName
+                HostUserName = dto.HostUserName,
+                EventId = eventEntity.Id // ✨ Lưu EventId để sync điểm sau này
             };
 
             CreateGameResponseDto gameResponse;
@@ -441,6 +442,59 @@ namespace BusinessLogic.Services
         public async Task<bool> IsUserJoinedAsync(Guid eventId, Guid userId)
         {
             return await _eventParticipantRepo.IsParticipantInEventAsync(eventId, userId);
+        }
+
+        /// <summary>
+        /// Sync điểm từ GameSession (Redis) vào EventParticipant (Database)
+        /// Được gọi khi game kết thúc để lưu điểm vào database
+        /// </summary>
+        public async Task SyncPlayerScoreAsync(Guid eventId, Guid userId, long score, double accuracy)
+        {
+            try
+            {
+                _logger.LogInformation($"🔄 Syncing score for Event {eventId}, User {userId}: Score={score}, Accuracy={accuracy:F2}%");
+
+                // Tìm hoặc tạo EventParticipant
+                var participant = await _eventParticipantRepo.GetByEventAndParticipantAsync(eventId, userId);
+
+                if (participant == null)
+                {
+                    // Tạo mới nếu chưa có (trường hợp user join game nhưng chưa join event)
+                    _logger.LogInformation($"Creating new EventParticipant for Event {eventId}, User {userId}");
+                    
+                    participant = new EventParticipant
+                    {
+                        Id = Guid.NewGuid(),
+                        EventId = eventId,
+                        ParticipantId = userId,
+                        Score = score,
+                        Accuracy = accuracy,
+                        Rank = 0, // Sẽ được update bởi scheduler
+                        JoinAt = DateTime.UtcNow,
+                        FinishAt = DateTime.UtcNow,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    await _eventParticipantRepo.CreateAsync(participant);
+                    _logger.LogInformation($"✅ Created EventParticipant with Score={score}, Accuracy={accuracy:F2}%");
+                }
+                else
+                {
+                    // Update điểm nếu đã có
+                    participant.Score = score;
+                    participant.Accuracy = accuracy;
+                    participant.FinishAt = DateTime.UtcNow;
+                    participant.UpdatedAt = DateTime.UtcNow;
+
+                    await _eventParticipantRepo.UpdateAsync(participant);
+                    _logger.LogInformation($"✅ Updated EventParticipant with Score={score}, Accuracy={accuracy:F2}%");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"❌ Failed to sync player score for Event {eventId}, User {userId}");
+                throw;
+            }
         }
 
         private async Task<EventResponseDto> MapToResponseDto(Event entity)

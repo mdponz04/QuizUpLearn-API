@@ -17,6 +17,7 @@ namespace BusinessLogic.Interfaces
         Task<EventLeaderboardResponseDto> GetEventLeaderboardAsync(Guid eventId);
         Task<bool> JoinEventAsync(Guid eventId, Guid userId);
         Task<bool> IsUserJoinedAsync(Guid eventId, Guid userId);
+        Task SyncPlayerScoreAsync(Guid eventId, Guid userId, long score, double accuracy);
     }
 }
 

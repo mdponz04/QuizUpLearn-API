@@ -5,6 +5,7 @@ namespace Repository.Interfaces
     public interface IQuizRepo
     {
         Task<Quiz> CreateQuizAsync(Quiz quiz);
+        Task<IEnumerable<Quiz>> CreateQuizzesBatchAsync(IEnumerable<Quiz> quizzes);
         Task<Quiz> GetQuizByIdAsync(Guid id);
         Task<IEnumerable<Quiz>> GetQuizzesByIdsAsync(IEnumerable<Guid> ids);
         Task<IEnumerable<Quiz>> GetAllQuizzesAsync();

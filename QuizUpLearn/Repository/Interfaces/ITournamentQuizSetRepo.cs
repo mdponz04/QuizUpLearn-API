@@ -6,6 +6,7 @@ namespace Repository.Interfaces
 	{
 		Task AddRangeAsync(IEnumerable<TournamentQuizSet> entities);
 		Task<IEnumerable<TournamentQuizSet>> GetByTournamentAsync(Guid tournamentId);
+		Task<IEnumerable<TournamentQuizSet>> GetAllByTournamentAsync(Guid tournamentId, bool includeDeleted = false);
 		Task<IEnumerable<TournamentQuizSet>> GetForDateAsync(Guid tournamentId, DateTime dateUtc);
 		Task UpdateRangeAsync(IEnumerable<TournamentQuizSet> entities);
 		Task RemoveOlderThanAsync(Guid tournamentId, DateTime dateUtc);

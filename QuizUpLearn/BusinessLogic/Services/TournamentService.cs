@@ -314,9 +314,39 @@ namespace BusinessLogic.Services
 				return new List<TournamentLeaderboardItemDto>();
 			}
 
-			// Lấy tất cả quiz sets của tournament
-			var tournamentQuizSets = await _tournamentQuizSetRepo.GetByTournamentAsync(tournamentId);
-			var quizSetIds = tournamentQuizSets.Select(tqs => tqs.QuizSetId).ToList();
+			// Lấy tất cả quiz sets của tournament (bao gồm cả đã bị soft delete để tính điểm từ quiz attempts cũ)
+			var tournamentQuizSets = await _tournamentQuizSetRepo.GetAllByTournamentAsync(tournamentId, includeDeleted: true);
+			var quizSetIds = tournamentQuizSets.Select(tqs => tqs.QuizSetId).Distinct().ToList();
+
+			// Khai báo result ở đây để dùng cho cả 2 trường hợp
+			var result = new List<TournamentLeaderboardItemDto>();
+
+			if (!quizSetIds.Any())
+			{
+				// Nếu không có quiz set nào, trả về leaderboard với điểm 0 cho tất cả participants
+				foreach (var participant in participantList)
+				{
+					var user = await _userRepo.GetByIdAsync(participant.ParticipantId);
+					if (user == null) continue;
+
+					result.Add(new TournamentLeaderboardItemDto
+					{
+						UserId = participant.ParticipantId,
+						Username = user.Username,
+						FullName = user.FullName,
+						AvatarUrl = user.AvatarUrl,
+						Score = 0,
+						Date = participant.JoinAt
+					});
+				}
+
+				for (int i = 0; i < result.Count; i++)
+				{
+					result[i].Rank = i + 1;
+				}
+
+				return result;
+			}
 
 			// Lấy tất cả quiz attempts của các quiz set trong tournament (chỉ completed)
 			var allAttempts = new List<Repository.Entities.QuizAttempt>();
@@ -338,7 +368,6 @@ namespace BusinessLogic.Services
 				.ToDictionary(x => x.UserId, x => x.TotalScore);
 
 			// Tạo leaderboard items từ participants
-			var result = new List<TournamentLeaderboardItemDto>();
 			foreach (var participant in participantList)
 			{
 				var user = await _userRepo.GetByIdAsync(participant.ParticipantId);

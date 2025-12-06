@@ -21,6 +21,14 @@ namespace Repository.Repositories
             return quiz;
         }
 
+        public async Task<IEnumerable<Quiz>> CreateQuizzesBatchAsync(IEnumerable<Quiz> quizzes)
+        {
+            var quizzesList = quizzes.ToList();
+            await _context.Quizzes.AddRangeAsync(quizzesList);
+            await _context.SaveChangesAsync();
+            return quizzesList;
+        }
+
         public async Task<Quiz> GetQuizByIdAsync(Guid id)
         {
             return await _context.Quizzes
