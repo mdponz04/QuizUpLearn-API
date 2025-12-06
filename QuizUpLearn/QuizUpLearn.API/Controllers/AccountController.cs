@@ -17,7 +17,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpGet]
-        [SubscriptionAndRoleAuthorize("Administrator", AllowAdminBypass = true)]
+        [SubscriptionAndRoleAuthorize("Administrator")]
         public async Task<IActionResult> GetAll([FromQuery] bool isDeleted = false)
         {
             var accounts = await _service.GetAllAsync(isDeleted);
@@ -33,7 +33,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost]
-        [SubscriptionAndRoleAuthorize("Administrator", AllowAdminBypass = true)]
+        [SubscriptionAndRoleAuthorize("Administrator")]
         public async Task<IActionResult> Create([FromBody] RequestAccountDto dto)
         {
             var created = await _service.CreateAsync(dto);
@@ -49,7 +49,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpDelete("{id}")]
-        [SubscriptionAndRoleAuthorize("Administrator", AllowAdminBypass = true)]
+        [SubscriptionAndRoleAuthorize("Administrator")]
         public async Task<IActionResult> SoftDelete([FromRoute] Guid id)
         {
             var ok = await _service.SoftDeleteAsync(id);
@@ -58,7 +58,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost("{id}/restore")]
-        [SubscriptionAndRoleAuthorize("Administrator", AllowAdminBypass = true)]
+        [SubscriptionAndRoleAuthorize("Administrator")]
         public async Task<IActionResult> Restore([FromRoute] Guid id)
         {
             var ok = await _service.RestoreAsync(id);

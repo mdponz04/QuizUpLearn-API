@@ -21,7 +21,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost("send")]
-        [SubscriptionAndRoleAuthorize("Moderator", AllowAdminBypass = true)]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<IActionResult> Send()
         {
             var fromEmail = _configuration["MailerSend:FromEmail"];

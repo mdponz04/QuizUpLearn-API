@@ -40,7 +40,7 @@ namespace QuizUpLearn.API.Controllers
         /// Tạo Event mới (chỉ với QuizSet có QuizSetType = Event)
         /// </summary>
         [HttpPost("create")]
-        [SubscriptionAndRoleAuthorize("Moderator", AllowAdminBypass = true)]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult<ApiResponse<EventResponseDto>>> CreateEvent([FromBody] CreateEventRequestDto dto)
         {
             try
@@ -198,7 +198,7 @@ namespace QuizUpLearn.API.Controllers
         /// Cập nhật Event
         /// </summary>
         [HttpPut("{id:guid}")]
-        [SubscriptionAndRoleAuthorize("Moderator", AllowAdminBypass = true)]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult<ApiResponse<EventResponseDto>>> UpdateEvent([FromRoute] Guid id, [FromBody] UpdateEventRequestDto dto)
         {
             try
@@ -239,7 +239,7 @@ namespace QuizUpLearn.API.Controllers
         /// Xóa Event
         /// </summary>
         [HttpDelete("{id:guid}")]
-        [SubscriptionAndRoleAuthorize("Moderator", AllowAdminBypass = true)]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult<ApiResponse<object>>> DeleteEvent([FromRoute] Guid id)
         {
             try
@@ -271,7 +271,7 @@ namespace QuizUpLearn.API.Controllers
         /// Trả về GamePin để participants có thể join
         /// </summary>
         [HttpPost("start")]
-        [SubscriptionAndRoleAuthorize("Moderator", AllowAdminBypass = true)]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult<ApiResponse<StartEventResponseDto>>> StartEvent([FromBody] StartEventRequestDto dto)
         {
             try
@@ -447,7 +447,7 @@ namespace QuizUpLearn.API.Controllers
         /// 📊 Lấy statistics của Event Scheduler (Admin only)
         /// </summary>
         [HttpGet("scheduler/statistics")]
-        [SubscriptionAndRoleAuthorize("Administrator", AllowAdminBypass = true)]
+        [SubscriptionAndRoleAuthorize("Administrator")]
         public async Task<ActionResult<ApiResponse<SchedulerStatistics>>> GetSchedulerStatistics()
         {
             try
@@ -476,7 +476,7 @@ namespace QuizUpLearn.API.Controllers
         /// Useful for testing or manual intervention
         /// </summary>
         [HttpPost("scheduler/trigger")]
-        [SubscriptionAndRoleAuthorize("Administrator", AllowAdminBypass = true)]
+        [SubscriptionAndRoleAuthorize("Administrator")]
         public async Task<ActionResult<ApiResponse<object>>> TriggerSchedulerCheck()
         {
             try

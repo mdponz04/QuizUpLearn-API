@@ -20,7 +20,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpGet]
-        [SubscriptionAndRoleAuthorize("Moderator", AllowAdminBypass = true)]
+        [SubscriptionAndRoleAuthorize("Administrator")]
         public async Task<ActionResult<PaginationResponseDto<ResponsePaymentTransactionDto>>> GetPaged([FromQuery] PaginationRequestDto pagination)
         {
             var result = await _service.GetAllAsync(pagination);
@@ -28,7 +28,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpGet("{id:guid}")]
-        [SubscriptionAndRoleAuthorize("Moderator", AllowAdminBypass = true)]
+        [SubscriptionAndRoleAuthorize("Administrator")]
         public async Task<ActionResult<ResponsePaymentTransactionDto>> GetById(Guid id)
         {
             var result = await _service.GetByIdAsync(id);
@@ -36,7 +36,7 @@ namespace QuizUpLearn.API.Controllers
             return Ok(result);
         }
         [HttpGet("by-ordercode/{orderCode:long}")]
-        [SubscriptionAndRoleAuthorize("Moderator", AllowAdminBypass = true)]
+        [SubscriptionAndRoleAuthorize("Administrator")]
         public async Task<ActionResult<ResponsePaymentTransactionDto>> GetByOrderCode(long orderCode)
         {
             var result = await _service.GetByPaymentGatewayTransactionOrderCodeAsync(orderCode.ToString());
@@ -44,7 +44,7 @@ namespace QuizUpLearn.API.Controllers
             return Ok(result);
         }
         [HttpPost]
-        [SubscriptionAndRoleAuthorize("Moderator", AllowAdminBypass = true)]
+        [SubscriptionAndRoleAuthorize("Administrator")]
         public async Task<ActionResult<ResponsePaymentTransactionDto>> Create([FromBody] RequestPaymentTransactionDto dto)
         {
             var created = await _service.CreateAsync(dto);
@@ -52,7 +52,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPut("{id:guid}")]
-        [SubscriptionAndRoleAuthorize("Moderator", AllowAdminBypass = true)]
+        [SubscriptionAndRoleAuthorize("Administrator")]
         public async Task<ActionResult<ResponsePaymentTransactionDto>> Update(Guid id, [FromBody] RequestPaymentTransactionDto dto)
         {
             var updated = await _service.UpdateAsync(id, dto);
@@ -61,7 +61,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpDelete("{id:guid}")]
-        [SubscriptionAndRoleAuthorize("Moderator", AllowAdminBypass = true)]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult> Delete(Guid id)
         {
             var deleted = await _service.DeleteAsync(id);

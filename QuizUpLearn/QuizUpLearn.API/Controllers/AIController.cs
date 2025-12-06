@@ -27,7 +27,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost("validate-quiz-set/{quizSetId}")]
-        [SubscriptionAndRoleAuthorize("Moderator", "User", RequireAiFeatures = true)]
+        [SubscriptionAndRoleAuthorize("Moderator", "User", RequireAiFeatures = true, AllowAdminBypass = true)]
         public async Task<IActionResult> ValidateQuizSet(Guid quizSetId)
         {
             if (quizSetId == Guid.Empty)
@@ -54,7 +54,7 @@ namespace QuizUpLearn.API.Controllers
         /// <param name="quizSetType"></param>
         /// <returns></returns>
         [HttpPost("generate-quiz-set")]
-        [SubscriptionAndRoleAuthorize("Moderator", "User", RequireAiFeatures = true, CheckRemainingUsage = true)]
+        [SubscriptionAndRoleAuthorize("Moderator", "User", RequireAiFeatures = true, CheckRemainingUsage = true, AllowAdminBypass = true)]
         public async Task<IActionResult> GeneratePracticeQuizSet([FromBody] AiGenerateQuizSetRequestDto inputData, QuizPartEnum quizPart, QuizSetTypeEnum quizSetType)
         {
             if (inputData == null)
@@ -215,7 +215,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpGet("active-job")]
-        [SubscriptionAndRoleAuthorize("Moderator", "User", RequireAiFeatures = true)]
+        [SubscriptionAndRoleAuthorize("Moderator", "User", RequireAiFeatures = true, AllowAdminBypass = true)]
         public IActionResult GetActiveJob()
         {
             var userId = (Guid)HttpContext.Items["UserId"]!;

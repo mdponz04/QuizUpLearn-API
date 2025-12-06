@@ -21,7 +21,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpGet]
-        [SubscriptionAndRoleAuthorize("Moderator", AllowAdminBypass = true)]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<IActionResult> GetAll([FromQuery] bool isDeleted = false)
         {
             var quizAttemptDetails = await _service.GetAllAsync(isDeleted);
