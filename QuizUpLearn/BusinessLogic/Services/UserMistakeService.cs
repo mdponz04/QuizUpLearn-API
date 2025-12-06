@@ -72,8 +72,9 @@ namespace BusinessLogic.Services
             await CleanupOrphanWeakPointsAsync(userId);
 
             var userMistakes = await _repo.GetAlByUserIdAsync(userId);
+
             var quizzes = userMistakes
-                .Where(um => um.Quiz != null)
+                .Where(um => um.Quiz != null && um.UserWeakPoint != null)
                 .Select(um => um.Quiz)
                 .Distinct()
                 .ToList();

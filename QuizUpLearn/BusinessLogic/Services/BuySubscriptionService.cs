@@ -60,13 +60,14 @@ namespace BusinessLogic.Services
                 CompletedDate = DateTime.UtcNow
             });
 
+            var freePlan = await _subscriptionPlanService.GetFreeSubscriptionPlanAsync();
             var plan = await _subscriptionPlanService.GetByIdAsync(transaction.SubscriptionPlanId);
             
             if (plan == null)
                 throw new Exception("Subscription plan not found");
             
             var subscription = await _subscriptionService.GetByUserIdAsync(transaction.UserId);
-
+            
             DateTime? startDate = DateTime.UtcNow;
 
             // If subscription does not exist, create a new one
@@ -82,7 +83,9 @@ namespace BusinessLogic.Services
             }
             else
             {
-                if (subscription.EndDate != null && subscription.EndDate > DateTime.UtcNow)
+                if (subscription.EndDate != null 
+                    && subscription.EndDate > DateTime.UtcNow
+                    && subscription.SubscriptionPlanId != freePlan.Id)
                 {
                     startDate = subscription.EndDate;
                 }

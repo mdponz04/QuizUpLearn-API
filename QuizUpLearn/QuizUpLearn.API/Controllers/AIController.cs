@@ -66,7 +66,7 @@ namespace QuizUpLearn.API.Controllers
             var userRole = HttpContext.Items["UserRole"]?.ToString();
             var isAdmin = (bool)(HttpContext.Items["IsAdmin"] ?? false);
             var isMod = (bool)(HttpContext.Items["IsMod"] ?? false);
-
+            var remainingUsage = (int) (HttpContext.Items["RemainingUsage"] ?? 0);
             // Role-based quiz set type restrictions
             switch (quizSetType)
             {
@@ -84,7 +84,11 @@ namespace QuizUpLearn.API.Controllers
                 default:
                     return BadRequest("Invalid quiz set type.");
             }
-
+            //Check if user has enough remaining usage
+            if(inputData.QuestionQuantity > remainingUsage && (!isAdmin || !isMod))
+            {
+                return BadRequest("Insufficient remaining usage to generate the requested number of questions.");
+            }
             // Get user ID from HttpContext (set by SubscriptionAndRoleAuthorizeAttribute)
             var userId = (Guid)HttpContext.Items["UserId"]!;
 

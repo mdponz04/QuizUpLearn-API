@@ -119,6 +119,8 @@ namespace QuizUpLearn.API.Attributes
 
                     // Get user's subscription
                     var subscription = await subscriptionService.GetByUserIdAsync(user.Id);
+                    context.HttpContext.Items["RemainingUsage"] = subscription!.AiGenerateQuizSetRemaining;
+
                     if (subscription == null)
                     {
                         context.Result = new JsonResult(new
