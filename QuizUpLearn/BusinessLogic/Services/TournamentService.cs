@@ -30,19 +30,34 @@ namespace BusinessLogic.Services
 			_userRepo = userRepo;
 		}
 
-		public async Task<TournamentResponseDto> CreateAsync(CreateTournamentRequestDto dto)
+	public async Task<TournamentResponseDto> CreateAsync(CreateTournamentRequestDto dto)
+	{
+		if (dto.StartDate.Kind != DateTimeKind.Utc) dto.StartDate = DateTime.SpecifyKind(dto.StartDate, DateTimeKind.Utc);
+		if (dto.EndDate.Kind != DateTimeKind.Utc) dto.EndDate = DateTime.SpecifyKind(dto.EndDate, DateTimeKind.Utc);
+
+		// Validate dates are not in the past
+		var today = DateTime.UtcNow.Date;
+		if (dto.StartDate.Date < today)
 		{
-			if (dto.StartDate.Kind != DateTimeKind.Utc) dto.StartDate = DateTime.SpecifyKind(dto.StartDate, DateTimeKind.Utc);
-			if (dto.EndDate.Kind != DateTimeKind.Utc) dto.EndDate = DateTime.SpecifyKind(dto.EndDate, DateTimeKind.Utc);
+			throw new ArgumentException("Không thể tạo giải đấu với ngày bắt đầu trong quá khứ.");
+		}
+		
+		if (dto.EndDate.Date < today)
+		{
+			throw new ArgumentException("Không thể tạo giải đấu với ngày kết thúc trong quá khứ.");
+		}
+		
+		if (dto.StartDate.Date > dto.EndDate.Date)
+		{
+			throw new ArgumentException("Ngày bắt đầu phải trước ngày kết thúc.");
+		}
 
-			// Kiểm tra nếu đã có tournament "Started" trong tháng thì không cho tạo mới
-			var startDate = dto.StartDate.Date;
-			if (await _tournamentRepo.ExistsStartedInMonthAsync(startDate.Year, startDate.Month))
-			{
-				throw new ArgumentException($"Đã tồn tại tournament đang 'Started' trong tháng {startDate.Month}/{startDate.Year}. Không thể tạo tournament mới khi đã có tournament đang chạy.");
-			}
-
-			var entity = new Tournament
+		// Kiểm tra nếu đã có tournament "Started" trong tháng thì không cho tạo mới
+		var startDate = dto.StartDate.Date;
+		if (await _tournamentRepo.ExistsStartedInMonthAsync(startDate.Year, startDate.Month))
+		{
+			throw new ArgumentException($"Đã tồn tại tournament đang 'Started' trong tháng {startDate.Month}/{startDate.Year}. Không thể tạo tournament mới khi đã có tournament đang chạy.");
+		}			var entity = new Tournament
 			{
 				Name = dto.Name,
 				Description = dto.Description,
@@ -220,32 +235,35 @@ namespace BusinessLogic.Services
 				throw new ArgumentException($"Các quiz set sau không phải loại Tournament hoặc không tồn tại: {string.Join(", ", invalidIds)}");
 			}
 
-			if (!validIds.Any())
+		if (!validIds.Any())
+		{
+			throw new ArgumentException("Không có quiz set hợp lệ để thêm vào tournament");
+		}
+
+		var startDate = tournament.StartDate.Date;
+		var today = DateTime.UtcNow.Date;
+		
+		// Use the later date between StartDate and today
+		var effectiveStartDate = startDate > today ? startDate : today;
+		
+		// Calculate days from effective start date to end of month
+		var lastDayOfMonth = new DateTime(startDate.Year, startDate.Month, DateTime.DaysInMonth(startDate.Year, startDate.Month));
+		var days = (int)(lastDayOfMonth.Date - effectiveStartDate).TotalDays + 1;
+
+		if (days <= 0)
+		{
+			throw new ArgumentException("Không còn ngày nào trong tháng để thêm quiz set");
+		}
+
+		if (validIds.Count != days)
+		{
+			if (validIds.Count > days)
 			{
-				throw new ArgumentException("Không có quiz set hợp lệ để thêm vào tournament");
+				throw new ArgumentException($"Chỉ có thể thêm được tối đa {days} quiz set(s) (số ngày còn lại trong tháng từ {effectiveStartDate:dd/MM/yyyy} đến cuối tháng). Bạn đang cố thêm {validIds.Count} quiz set(s).");
 			}
 
-			var startDate = tournament.StartDate.Date;
-			var daysInMonth = DateTime.DaysInMonth(startDate.Year, startDate.Month);
-			// Tính số ngày từ StartDate đến cuối tháng (bao gồm cả ngày StartDate)
-			var days = daysInMonth - startDate.Day + 1;
-
-			if (days <= 0)
-			{
-				throw new ArgumentException("Không còn ngày nào trong tháng để thêm quiz set");
-			}
-
-			if (validIds.Count != days)
-			{
-				if (validIds.Count > days)
-				{
-					throw new ArgumentException($"Chỉ có thể thêm được tối đa {days} quiz set(s) (số ngày còn lại trong tháng từ ngày tạo tournament đến cuối tháng). Bạn đang cố thêm {validIds.Count} quiz set(s).");
-				}
-
-				throw new ArgumentException($"Cần truyền đúng {days} quiz set(s) tương ứng số ngày còn lại trong tháng (từ ngày tạo tournament đến cuối tháng). Bạn hiện chỉ truyền {validIds.Count} quiz set(s).");
-			}
-
-			var rnd = new Random();
+			throw new ArgumentException($"Cần truyền đúng {days} quiz set(s) tương ứng số ngày còn lại trong tháng (từ {effectiveStartDate:dd/MM/yyyy} đến cuối tháng). Bạn hiện chỉ truyền {validIds.Count} quiz set(s).");
+		}			var rnd = new Random();
 			return validIds.OrderBy(_ => rnd.Next()).ToList();
 		}
 
