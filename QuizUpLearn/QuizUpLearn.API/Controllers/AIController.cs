@@ -107,11 +107,15 @@ namespace QuizUpLearn.API.Controllers
             });
             var quizSetId = createdQuizSet.Id;
 
+            // Register this job as active for the user
+            _workerService.RegisterActiveJob(userId, jobId, quizSetId);
+
             _ = _workerService.EnqueueJob(async (sp, token) =>
             {
                 var subscriptionService = sp.GetRequiredService<ISubscriptionService>();
                 var aiService = sp.GetRequiredService<IAIService>();
                 var hubContext = sp.GetRequiredService<IHubContext<BackgroundJobHub>>();
+                var workerService = sp.GetRequiredService<IWorkerService>();
 
                 (bool, string) validateResult = (false, "Not validate yet");
                 try
@@ -163,6 +167,8 @@ namespace QuizUpLearn.API.Controllers
                 }
                 catch (Exception ex)
                 {
+                    workerService.RemoveActiveJob(jobId);
+                    
                     await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobFailed", new
                     {
                         JobId = jobId,
@@ -176,6 +182,8 @@ namespace QuizUpLearn.API.Controllers
 
                 if (!validateResult.Item1)
                 {
+                    workerService.RemoveActiveJob(jobId);
+                    
                     await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobFailed", new
                     {
                         JobId = jobId,
@@ -191,6 +199,8 @@ namespace QuizUpLearn.API.Controllers
                         await subscriptionService.CalculateRemainingUsageByUserId(userId, inputData.QuestionQuantity);
                     }
 
+                    workerService.RemoveActiveJob(jobId);
+
                     await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
                     {
                         JobId = jobId,
@@ -202,6 +212,26 @@ namespace QuizUpLearn.API.Controllers
             });
 
             return Ok(new { JobId = jobId, Message = "Quiz set generation started in background.", Status = "Processing", QuizSetId = quizSetId });
+        }
+
+        [HttpGet("active-job")]
+        [SubscriptionAndRoleAuthorize("Moderator", "User", RequireAiFeatures = true)]
+        public IActionResult GetActiveJob()
+        {
+            var userId = (Guid)HttpContext.Items["UserId"]!;
+            var activeJob = _workerService.GetActiveJobForUser(userId);
+            
+            if (activeJob.HasValue)
+            {
+                return Ok(new 
+                { 
+                    HasActiveJob = true,
+                    JobId = activeJob.Value.jobId, 
+                    QuizSetId = activeJob.Value.quizSetId 
+                });
+            }
+            
+            return Ok(new { HasActiveJob = false });
         }
 
         [HttpPost("ai-analyze-user-mistakes")]
