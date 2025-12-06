@@ -108,9 +108,18 @@ namespace BusinessLogic.Services
 
             // Lấy danh sách UserMistake của user
             var userMistakes = await _userMistakeRepo.GetAlByUserIdAsync(dto.UserId);
+            var mistakeList = userMistakes.ToList();
 
-            // Lấy các QuizId distinct từ UserMistake
-            var quizIds = userMistakes
+
+            var unanalyzedMistakes = mistakeList.Where(um => !um.IsAnalyzed).ToList();
+            if (unanalyzedMistakes.Any())
+            {
+                throw new InvalidOperationException(
+                    $"Vui lòng đợi AI phân tích xong TẤT CẢ các câu sai trước khi làm lại. " +
+                    $"Còn {unanalyzedMistakes.Count} câu chưa được phân tích.");
+            }
+
+            var quizIds = mistakeList
                 .Select(um => um.QuizId)
                 .Distinct()
                 .ToList();
@@ -120,7 +129,6 @@ namespace BusinessLogic.Services
                 throw new InvalidOperationException("No mistake quizzes found for this user");
             }
 
-            // Lấy quiz đầy đủ thông tin (bao gồm AnswerOptions) từ QuizRepo
             var quizzes = await _quizRepo.GetQuizzesByIdsAsync(quizIds);
             var selected = quizzes
                 .Where(q => q.DeletedAt == null && q.IsActive)
@@ -133,11 +141,9 @@ namespace BusinessLogic.Services
                 throw new InvalidOperationException("No valid quizzes found for this user");
             }
 
-            // Lấy QuizSetId từ quiz đầu tiên (nếu cần track theo set)
             var firstQuiz = selected.First();
             var quizSetId = firstQuiz.QuizSetId;
 
-            // Tạo attempt với AttemptType = "mistake_quiz"
             var attempt = new QuizAttempt
             {
                 UserId = dto.UserId,
@@ -164,7 +170,6 @@ namespace BusinessLogic.Services
                 AttemptId = created.Id,
                 TotalQuestions = created.TotalQuestions,
                 Questions = quizDtos,
-                // Không cần QuizGroupItems cho flow làm lại câu sai
                 QuizGroupItems = new List<BusinessLogic.DTOs.QuizGroupItemDtos.ResponseQuizGroupItemDto>()
             };
         }

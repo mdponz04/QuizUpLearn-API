@@ -71,8 +71,20 @@ namespace BusinessLogic.Services
             await CleanupOrphanWeakPointsAsync(userId);
 
             var userMistakes = await _repo.GetAlByUserIdAsync(userId);
-            
-            var quizzes = userMistakes
+            var mistakeList = userMistakes.ToList();
+
+            // Kiểm tra xem có UserMistake nào chưa được AI phân tích không
+            // Phải đợi TẤT CẢ câu đều được phân tích mới được làm lại
+            var unanalyzedMistakes = mistakeList.Where(um => !um.IsAnalyzed).ToList();
+            if (unanalyzedMistakes.Any())
+            {
+                throw new InvalidOperationException(
+                    $"Vui lòng đợi AI phân tích xong TẤT CẢ các câu sai trước khi làm lại. " +
+                    $"Còn {unanalyzedMistakes.Count} câu chưa được phân tích.");
+            }
+
+            // Chỉ lấy các quiz từ UserMistake đã được phân tích (tất cả đều IsAnalyzed = true)
+            var quizzes = mistakeList
                 .Where(um => um.Quiz != null)
                 .Select(um => um.Quiz)
                 .Distinct()
