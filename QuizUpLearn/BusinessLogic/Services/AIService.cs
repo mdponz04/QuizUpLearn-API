@@ -285,13 +285,15 @@ namespace BusinessLogic.Services
             return combinedStream.ToArray();
         }
 
-        private async Task<AiGenerateResponseDto> GenerateWithRetryAsync(List<string> purposes, string prompt)
+        private async Task<AiGenerateResponseDto> GenerateWithRetryAsync(List<string> purposes, string prompt, Guid? quizSetId)
         {
             int retryCount = 0;
             while (true)
             {
                 if (retryCount >= 3)
                 {
+                    if (quizSetId != null)
+                        await _quizSetService.HardDeleteQuizSetAsync(quizSetId.Value);
                     // Log the failure and throw an exception
                     throw new Exception("Maximum retry attempts reached for AI generation.");
                 }
@@ -486,7 +488,7 @@ namespace BusinessLogic.Services
             {
                 var prompt = _promptGenerator.GetQuizSetPart1Prompt(inputData, previousImageDescription, previousQuestionText);
                 List<string> purposes = new() { GenerationPurpose.QUIZ, GenerationPurpose.IMAGE };
-                AiGenerateResponseDto quiz = await GenerateWithRetryAsync(purposes, prompt);
+                AiGenerateResponseDto quiz = await GenerateWithRetryAsync(purposes, prompt, quizSetId);
 
                 var audioScript = string.Join(Environment.NewLine, quiz.AnswerOptions.Select(o => $"{o.OptionLabel}. {o.OptionText}"));
                 string audioUrl = await CreateAudioAsync(audioScript, null, inputData.CreatorId!.Value, 1);
@@ -524,7 +526,7 @@ namespace BusinessLogic.Services
             {
                 var prompt = _promptGenerator.GetQuizSetPart2Prompt(inputData, previousQuestionText);
                 List<string> purposes = new() { GenerationPurpose.QUIZ };
-                AiGenerateResponseDto quiz = await GenerateWithRetryAsync(purposes, prompt);
+                AiGenerateResponseDto quiz = await GenerateWithRetryAsync(purposes, prompt, quizSetId);
                 
                 var audioScript = "Question: " + quiz.QuestionText + ".\n" + string.Join(Environment.NewLine, quiz.AnswerOptions.Select(o => $"{o.OptionLabel}. {o.OptionText}"));
                 var audioUrl = await CreateAudioAsync(audioScript, null, inputData.CreatorId!.Value, 2);
@@ -559,7 +561,7 @@ namespace BusinessLogic.Services
                 var audioPrompt = _promptGenerator.GetPart3AudioPrompt(inputData, previousAudioScript);
                 List<string> purposes = new() { GenerationPurpose.CONVERSATION_AUDIO };
 
-                AiGenerateResponseDto conversationScripts = await GenerateWithRetryAsync(purposes, audioPrompt);
+                AiGenerateResponseDto conversationScripts = await GenerateWithRetryAsync(purposes, audioPrompt, quizSetId);
 
                 string audioConversationScripts = string.Join(Environment.NewLine, conversationScripts.AudioScripts.Select(auScript => $"{auScript.Role}: {auScript.Text}"));
                 previousAudioScript = string.Join("\n", audioConversationScripts);
@@ -579,7 +581,7 @@ namespace BusinessLogic.Services
                 {
                     var quizPrompt = _promptGenerator.GetPart3QuizPrompt(audioConversationScripts, previousQuizText);
                     List<string> quizPurpose = new() { GenerationPurpose.QUIZ };
-                    AiGenerateResponseDto quiz = await GenerateWithRetryAsync(quizPurpose, quizPrompt);
+                    AiGenerateResponseDto quiz = await GenerateWithRetryAsync(quizPurpose, quizPrompt, quizSetId);
 
                     previousQuizText += quiz.QuestionText + ", ";
                     var createdQuiz = await CreateQuizWithOptionsAsync(quizSetId
@@ -601,7 +603,7 @@ namespace BusinessLogic.Services
                 var audioPrompt = _promptGenerator.GetPart4AudioPrompt(inputData, previousAudioScript);
                 List<string> purposes = new() { GenerationPurpose.AUDIO };
 
-                AiGenerateResponseDto audio = await GenerateWithRetryAsync(purposes, audioPrompt);
+                AiGenerateResponseDto audio = await GenerateWithRetryAsync(purposes, audioPrompt, quizSetId);
                 
                 previousAudioScript = string.Join("\n", audio.AudioScript);
 
@@ -622,7 +624,7 @@ namespace BusinessLogic.Services
                     var quizPrompt = _promptGenerator.GetPart4QuizPrompt(audio.AudioScript, previousQuizText);
                     List<string> quizPurposes = new() { GenerationPurpose.QUIZ };
 
-                    AiGenerateResponseDto quiz = await GenerateWithRetryAsync(quizPurposes, quizPrompt);
+                    AiGenerateResponseDto quiz = await GenerateWithRetryAsync(quizPurposes, quizPrompt, quizSetId);
 
                     previousQuizText += quiz.QuestionText + ", ";
 
@@ -645,7 +647,7 @@ namespace BusinessLogic.Services
                 var prompt = _promptGenerator.GetPart5Prompt(inputData, previousQuestionText);
                 List<string> purposes = new() { GenerationPurpose.QUIZ };
 
-                AiGenerateResponseDto quiz = await GenerateWithRetryAsync(purposes, prompt);
+                AiGenerateResponseDto quiz = await GenerateWithRetryAsync(purposes, prompt, quizSetId);
 
                 var createdQuiz = await CreateQuizWithOptionsAsync(quizSetId
                     , QuizPartEnum.PART5.ToString()
@@ -666,7 +668,7 @@ namespace BusinessLogic.Services
                 var passagePrompt = _promptGenerator.GetPart6PassagePrompt(inputData, previousPassages);
                 List<string> purposes = new() { GenerationPurpose.PASSAGE };
 
-                AiGenerateResponseDto passageResult = await GenerateWithRetryAsync(purposes, passagePrompt);
+                AiGenerateResponseDto passageResult = await GenerateWithRetryAsync(purposes, passagePrompt, quizSetId);
                 
                 previousPassages = string.Join("\n", passageResult.Passage);
 
@@ -686,7 +688,7 @@ namespace BusinessLogic.Services
                     var quizPrompt = _promptGenerator.GetPart6QuizPrompt(passageResult.Passage, j, usedBlanks);
                     List<string> quizPurposes = new() { GenerationPurpose.QUIZ };
                     
-                    AiGenerateResponseDto quiz = await GenerateWithRetryAsync(quizPurposes, quizPrompt);
+                    AiGenerateResponseDto quiz = await GenerateWithRetryAsync(quizPurposes, quizPrompt, quizSetId);
                     
                     var createdQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
                     {
@@ -732,7 +734,7 @@ namespace BusinessLogic.Services
                 var passagePrompt = _promptGenerator.GetPart7PassagePrompt(inputData, previousPassages);
                 List<string> purposes = new() { GenerationPurpose.PASSAGE };
                 
-                AiGenerateResponseDto passageResult = await GenerateWithRetryAsync(purposes, passagePrompt);
+                AiGenerateResponseDto passageResult = await GenerateWithRetryAsync(purposes, passagePrompt, quizSetId);
 
                 previousPassages = passageResult.Passage;
 
@@ -751,7 +753,7 @@ namespace BusinessLogic.Services
                     var quizPrompt = _promptGenerator.GetPart7QuizPrompt(passageResult.Passage, previousQuizText);
                     List<string> quizPurposes = new() { GenerationPurpose.QUIZ };
 
-                    AiGenerateResponseDto quiz = await GenerateWithRetryAsync(quizPurposes, quizPrompt);
+                    AiGenerateResponseDto quiz = await GenerateWithRetryAsync(quizPurposes, quizPrompt, quizSetId);
 
                     previousQuizText += quiz.QuestionText + ", ";
 
@@ -826,7 +828,7 @@ namespace BusinessLogic.Services
                 
                 string prompt = quizzesPrompt + _promptGenerator.GetAnalyzeMistakeGeneratePrompt();
                 List<string> purposes = new() { GenerationPurpose.ANALYZE_MISTAKE };
-                AiGenerateResponseDto? analysisResult = await GenerateWithRetryAsync(purposes, prompt);
+                AiGenerateResponseDto? analysisResult = await GenerateWithRetryAsync(purposes, prompt, null!);
 
                 if (await _userWeakPointService.IsWeakPointExistedAsync(analysisResult.WeakPoint, userId))
                 {
