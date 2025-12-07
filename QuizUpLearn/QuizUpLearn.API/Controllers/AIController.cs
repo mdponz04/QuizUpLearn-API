@@ -127,31 +127,49 @@ namespace QuizUpLearn.API.Controllers
                         Status = "Processing",
                         QuizSetId = quizSetId
                     });
-
-                    switch (quizPart)
+                    try
                     {
-                        case QuizPartEnum.PART1:
-                            result = await aiService.GeneratePracticeQuizSetPart1Async(inputData, quizSetId);
-                            break;
-                        case QuizPartEnum.PART2:
-                            result = await aiService.GeneratePracticeQuizSetPart2Async(inputData, quizSetId);
-                            break;
-                        case QuizPartEnum.PART3:
-                            result = await aiService.GeneratePracticeQuizSetPart3Async(inputData, quizSetId);
-                            break;
-                        case QuizPartEnum.PART4:
-                            result = await aiService.GeneratePracticeQuizSetPart4Async(inputData, quizSetId);
-                            break;
-                        case QuizPartEnum.PART5:
-                            result = await aiService.GeneratePracticeQuizSetPart5Async(inputData, quizSetId);
-                            break;
-                        case QuizPartEnum.PART6:
-                            result = await aiService.GeneratePracticeQuizSetPart6Async(inputData, quizSetId);
-                            break;
-                        case QuizPartEnum.PART7:
-                            result = await aiService.GeneratePracticeQuizSetPart7Async(inputData, quizSetId);
-                            break;
+                        switch (quizPart)
+                        {
+
+                            case QuizPartEnum.PART1:
+                                result = await aiService.GeneratePracticeQuizSetPart1Async(inputData, quizSetId);
+                                break;
+                            case QuizPartEnum.PART2:
+                                result = await aiService.GeneratePracticeQuizSetPart2Async(inputData, quizSetId);
+                                break;
+                            case QuizPartEnum.PART3:
+                                result = await aiService.GeneratePracticeQuizSetPart3Async(inputData, quizSetId);
+                                break;
+                            case QuizPartEnum.PART4:
+                                result = await aiService.GeneratePracticeQuizSetPart4Async(inputData, quizSetId);
+                                break;
+                            case QuizPartEnum.PART5:
+                                result = await aiService.GeneratePracticeQuizSetPart5Async(inputData, quizSetId);
+                                break;
+                            case QuizPartEnum.PART6:
+                                result = await aiService.GeneratePracticeQuizSetPart6Async(inputData, quizSetId);
+                                break;
+                            case QuizPartEnum.PART7:
+                                result = await aiService.GeneratePracticeQuizSetPart7Async(inputData, quizSetId);
+                                break;
+                        }
                     }
+                    catch(Exception ex)
+                    {
+                        workerService.RemoveActiveJob(jobId);
+
+                        await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobFailed", new
+                        {
+                            JobId = jobId,
+                            Result = "Failed at generate quiz: " + ex.Message,
+                            Status = "Failed",
+                            QuizSetId = Guid.Empty
+                        });
+
+                        return;
+                    }
+                    
 
                     await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobValidating", new
                     {
