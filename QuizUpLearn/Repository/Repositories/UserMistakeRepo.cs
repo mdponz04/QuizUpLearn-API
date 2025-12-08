@@ -30,6 +30,13 @@ namespace Repository.Repositories
                 .FirstOrDefaultAsync(um => um.UserId == userId && um.QuizId == quizId);
         }
 
+        public async Task<IEnumerable<UserMistake>> GetByUserWeakPointIdAsync(Guid userWeakPointId)
+        {
+            return await _context.UserMistakes
+                .Where(um => um.UserWeakPointId == userWeakPointId)
+                .ToListAsync();
+        }
+
         public async Task AddAsync(UserMistake userMistake)
         {
             await _context.UserMistakes.AddAsync(userMistake);

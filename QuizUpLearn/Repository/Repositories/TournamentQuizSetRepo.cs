@@ -97,6 +97,18 @@ namespace Repository.Repositories
 			item.IsActive = false;
 			await _context.SaveChangesAsync();
 		}
+
+		public async Task<IEnumerable<TournamentQuizSet>> GetActiveByQuizSetIdAsync(Guid quizSetId)
+		{
+			return await _context.TournamentQuizSets
+				.Include(tqs => tqs.Tournament)
+				.Where(x => x.QuizSetId == quizSetId 
+					&& x.DeletedAt == null 
+					&& x.IsActive 
+					&& x.Tournament.Status == "Started"
+					&& x.Tournament.DeletedAt == null)
+				.ToListAsync();
+		}
 	}
 }
 

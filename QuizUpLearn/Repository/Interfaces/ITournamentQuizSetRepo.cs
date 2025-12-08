@@ -13,6 +13,7 @@ namespace Repository.Interfaces
 		Task RemoveAllByTournamentAsync(Guid tournamentId);
 		Task<IEnumerable<TournamentQuizSet>> GetAvailableAsync(Guid tournamentId);
 		Task DeleteAsync(Guid tournamentQuizSetId);
+		Task<IEnumerable<TournamentQuizSet>> GetActiveByQuizSetIdAsync(Guid quizSetId);
 	}
 }
 
