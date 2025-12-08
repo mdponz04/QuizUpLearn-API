@@ -381,45 +381,50 @@ namespace BusinessLogic.Services
 				return result;
 			}
 
-			// Lấy tất cả quiz attempts của các quiz set trong tournament (chỉ completed)
-			var allAttempts = new List<Repository.Entities.QuizAttempt>();
+		// Tính điểm riêng cho từng tournament
+		// Chỉ tính điểm từ các quiz attempts:
+		// 1. Được tạo SAU KHI user join tournament (CreatedAt >= JoinAt)
+		// 2. Được tạo TRONG thời gian tournament diễn ra (StartDate <= CreatedAt <= EndDate)
+		// 3. Thuộc các quiz sets của tournament này
+		var tournamentStartDate = tournament.StartDate;
+		var tournamentEndDate = tournament.EndDate;
+		var now = DateTime.UtcNow;
+
+		// Tạo leaderboard items từ participants
+		foreach (var participant in participantList)
+		{
+			var user = await _userRepo.GetByIdAsync(participant.ParticipantId);
+			if (user == null) continue;
+
+			// Lấy tất cả quiz attempts của user từ các quiz sets trong tournament
+			var userAttempts = new List<Repository.Entities.QuizAttempt>();
 			foreach (var quizSetId in quizSetIds)
 			{
 				var attempts = await _quizAttemptRepo.GetByQuizSetIdAsync(quizSetId, includeDeleted: false);
-				var completedAttempts = attempts.Where(a => a.Status == "completed" && a.DeletedAt == null);
-				allAttempts.AddRange(completedAttempts);
+				var userQuizAttempts = attempts.Where(a => 
+					a.UserId == participant.ParticipantId 
+					&& a.Status == "completed" 
+					&& a.DeletedAt == null
+					&& a.CreatedAt >= participant.JoinAt // Sau khi join tournament
+					&& a.CreatedAt >= tournamentStartDate // Trong thời gian tournament
+					&& a.CreatedAt <= tournamentEndDate // Không quá thời gian kết thúc
+				);
+				userAttempts.AddRange(userQuizAttempts);
 			}
 
-			// Group by UserId và tính tổng điểm
-			var leaderboardData = allAttempts
-				.GroupBy(a => a.UserId)
-				.Select(g => new
-				{
-					UserId = g.Key,
-					TotalScore = g.Sum(a => a.Score)
-				})
-				.ToDictionary(x => x.UserId, x => x.TotalScore);
+			// Tính tổng điểm cho user này trong tournament này
+			var totalScore = userAttempts.Sum(a => a.Score);
 
-			// Tạo leaderboard items từ participants
-			foreach (var participant in participantList)
+			result.Add(new TournamentLeaderboardItemDto
 			{
-				var user = await _userRepo.GetByIdAsync(participant.ParticipantId);
-				if (user == null) continue;
-
-				var score = leaderboardData.ContainsKey(participant.ParticipantId) 
-					? leaderboardData[participant.ParticipantId] 
-					: 0;
-
-				result.Add(new TournamentLeaderboardItemDto
-				{
-					UserId = participant.ParticipantId,
-					Username = user.Username,
-					FullName = user.FullName,
-					AvatarUrl = user.AvatarUrl,
-					Score = score,
-					Date = participant.JoinAt
-				});
-			}
+				UserId = participant.ParticipantId,
+				Username = user.Username,
+				FullName = user.FullName,
+				AvatarUrl = user.AvatarUrl,
+				Score = totalScore,
+				Date = participant.JoinAt
+			});
+		}
 
 			// Sắp xếp theo điểm giảm dần và gán rank
 			result = result
