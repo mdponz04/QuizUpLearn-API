@@ -60,6 +60,19 @@ namespace Repository.Repositories
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<QuizAttempt>> GetByQuizSetIdsAsync(IEnumerable<Guid> quizSetIds, bool includeDeleted = false)
+        {
+            var ids = quizSetIds.Distinct().ToList();
+            if (!ids.Any()) return new List<QuizAttempt>();
+
+            return await _context.QuizAttempts
+                .AsQueryable()
+                .Where(qa => ids.Contains(qa.QuizSetId) && (includeDeleted || qa.DeletedAt == null))
+                .Include(qa => qa.User)
+                .OrderByDescending(qa => qa.CreatedAt)
+                .ToListAsync();
+        }
+
         public async Task<bool> RestoreAsync(Guid id)
         {
             var quizAttempt = await _context.QuizAttempts.FindAsync(id);
