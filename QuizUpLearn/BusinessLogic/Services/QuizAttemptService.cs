@@ -16,6 +16,8 @@ namespace BusinessLogic.Services
         private readonly IUserMistakeService _userMistakeService;
         private readonly IQuizSetRepo _quizSetRepo;
         private readonly IAnswerOptionRepo _answerOptionRepo;
+        private readonly ITournamentQuizSetRepo _tournamentQuizSetRepo;
+        private readonly ITournamentParticipantRepo _tournamentParticipantRepo;
         private readonly IMapper _mapper;
 
         public QuizAttemptService(
@@ -26,6 +28,8 @@ namespace BusinessLogic.Services
             IUserMistakeService userMistakeService,
             IQuizSetRepo quizSetRepo,
             IAnswerOptionRepo answerOptionRepo,
+            ITournamentQuizSetRepo tournamentQuizSetRepo,
+            ITournamentParticipantRepo tournamentParticipantRepo,
             IMapper mapper)
         {
             _repo = repo;
@@ -35,6 +39,8 @@ namespace BusinessLogic.Services
             _userMistakeService = userMistakeService;
             _quizSetRepo = quizSetRepo;
             _answerOptionRepo = answerOptionRepo;
+            _tournamentQuizSetRepo = tournamentQuizSetRepo;
+            _tournamentParticipantRepo = tournamentParticipantRepo;
             _mapper = mapper;
         }
 
@@ -52,6 +58,50 @@ namespace BusinessLogic.Services
             if (quizSet == null)
             {
                 throw new InvalidOperationException("QuizSet not found");
+            }
+
+            // Kiểm tra xem quiz set này có thuộc tournament đang "Started" không
+            var activeTournamentQuizSets = await _tournamentQuizSetRepo.GetActiveByQuizSetIdAsync(dto.QuizSetId);
+            var activeTournamentQuizSetsList = activeTournamentQuizSets.ToList();
+            
+            if (activeTournamentQuizSetsList.Any())
+            {
+                // Quiz set này thuộc tournament đang "Started"
+                var today = DateTime.UtcNow.Date;
+                
+                foreach (var tournamentQuizSet in activeTournamentQuizSetsList)
+                {
+                    var tournament = tournamentQuizSet.Tournament;
+                    
+                    // Kiểm tra user đã join tournament này chưa
+                    var participant = await _tournamentParticipantRepo.GetByTournamentAndUserAsync(tournament.Id, dto.UserId);
+                    if (participant == null) continue; // User chưa join tournament này, bỏ qua
+                    
+                    // Kiểm tra ngày hiện tại có trong khoảng thời gian tournament không
+                    if (today < tournament.StartDate.Date || today > tournament.EndDate.Date) continue;
+                    
+                    // Kiểm tra quiz set này có active cho ngày hôm nay không
+                    if (tournamentQuizSet.UnlockDate.Date != today) continue;
+                    
+                    // Kiểm tra user đã có attempt completed trong ngày này chưa
+                    var existingAttempts = await _repo.GetByQuizSetIdAsync(dto.QuizSetId, includeDeleted: false);
+                    var todayAttempt = existingAttempts
+                        .Where(a => 
+                            a.UserId == dto.UserId
+                            && a.Status == "completed"
+                            && a.DeletedAt == null
+                            && a.CreatedAt >= participant.JoinAt
+                            && (a.UpdatedAt ?? a.CreatedAt).Date >= tournament.StartDate.Date
+                            && (a.UpdatedAt ?? a.CreatedAt).Date <= tournament.EndDate.Date
+                            && (a.UpdatedAt ?? a.CreatedAt).Date == today
+                        )
+                        .FirstOrDefault();
+                    
+                    if (todayAttempt != null)
+                    {
+                        throw new InvalidOperationException($"Bạn đã hoàn thành quiz của tournament này trong ngày hôm nay ({today:dd/MM/yyyy}). Mỗi ngày chỉ được làm 1 lần.");
+                    }
+                }
             }
 
             // Fetch ALL questions for the quiz set (no subset selection)
@@ -219,6 +269,53 @@ namespace BusinessLogic.Services
         {
             var attempt = await _repo.GetByIdAsync(id);
             if (attempt == null) return null;
+
+            // Kiểm tra validation cho tournament (chỉ áp dụng cho AttemptType = "single" và quiz set thuộc tournament)
+            if (attempt.AttemptType == "single")
+            {
+                var activeTournamentQuizSets = await _tournamentQuizSetRepo.GetActiveByQuizSetIdAsync(attempt.QuizSetId);
+                var activeTournamentQuizSetsList = activeTournamentQuizSets.ToList();
+                
+                if (activeTournamentQuizSetsList.Any())
+                {
+                    var today = DateTime.UtcNow.Date;
+                    
+                    foreach (var tournamentQuizSet in activeTournamentQuizSetsList)
+                    {
+                        var tournament = tournamentQuizSet.Tournament;
+                        
+                        // Kiểm tra user đã join tournament này chưa
+                        var participant = await _tournamentParticipantRepo.GetByTournamentAndUserAsync(tournament.Id, attempt.UserId);
+                        if (participant == null) continue; // User chưa join tournament này, bỏ qua
+                        
+                        // Kiểm tra ngày hiện tại có trong khoảng thời gian tournament không
+                        if (today < tournament.StartDate.Date || today > tournament.EndDate.Date) continue;
+                        
+                        // Kiểm tra quiz set này có active cho ngày hôm nay không
+                        if (tournamentQuizSet.UnlockDate.Date != today) continue;
+                        
+                        // Kiểm tra user đã có attempt completed khác trong ngày này chưa (trừ attempt hiện tại)
+                        var existingAttempts = await _repo.GetByQuizSetIdAsync(attempt.QuizSetId, includeDeleted: false);
+                        var todayAttempt = existingAttempts
+                            .Where(a => 
+                                a.Id != id // Trừ attempt hiện tại
+                                && a.UserId == attempt.UserId
+                                && a.Status == "completed"
+                                && a.DeletedAt == null
+                                && a.CreatedAt >= participant.JoinAt
+                                && (a.UpdatedAt ?? a.CreatedAt).Date >= tournament.StartDate.Date
+                                && (a.UpdatedAt ?? a.CreatedAt).Date <= tournament.EndDate.Date
+                                && (a.UpdatedAt ?? a.CreatedAt).Date == today
+                            )
+                            .FirstOrDefault();
+                        
+                        if (todayAttempt != null)
+                        {
+                            throw new InvalidOperationException($"Bạn đã hoàn thành quiz của tournament này trong ngày hôm nay ({today:dd/MM/yyyy}). Mỗi ngày chỉ được làm 1 lần.");
+                        }
+                    }
+                }
+            }
 
             var details = await _detailRepo.GetByAttemptIdAsync(id, includeDeleted: false);
             var detailList = details.ToList();

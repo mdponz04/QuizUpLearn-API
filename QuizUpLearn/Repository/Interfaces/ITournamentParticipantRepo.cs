@@ -7,6 +7,7 @@ namespace Repository.Interfaces
 		Task<TournamentParticipant> AddAsync(TournamentParticipant entity);
 		Task<bool> ExistsAsync(Guid tournamentId, Guid participantId);
 		Task<IEnumerable<TournamentParticipant>> GetByTournamentAsync(Guid tournamentId);
+		Task<TournamentParticipant?> GetByTournamentAndUserAsync(Guid tournamentId, Guid userId);
 	}
 }
 

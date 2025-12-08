@@ -32,6 +32,12 @@ namespace Repository.Repositories
 				.Where(p => p.TournamentId == tournamentId && p.DeletedAt == null)
 				.ToListAsync();
 		}
+
+		public async Task<TournamentParticipant?> GetByTournamentAndUserAsync(Guid tournamentId, Guid userId)
+		{
+			return await _context.TournamentParticipants
+				.FirstOrDefaultAsync(p => p.TournamentId == tournamentId && p.ParticipantId == userId && p.DeletedAt == null);
+		}
 	}
 }
 

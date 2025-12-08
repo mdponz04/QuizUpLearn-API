@@ -386,26 +386,45 @@ namespace BusinessLogic.Services
                 var userMistakeService = scope.ServiceProvider.GetRequiredService<IUserMistakeService>();
                 var userWeakPointService = scope.ServiceProvider.GetRequiredService<IUserWeakPointService>();
 
+                // Bước 1: Thu thập tất cả UserMistake sẽ bị xóa và các UserWeakPointId liên quan
+                var mistakesToDelete = new List<UserMistake>();
+                var weakPointIdsToCheck = new HashSet<Guid>();
+
                 foreach (var quizId in correctQuestionIds)
                 {
                     var existingMistake = await userMistakeRepo.GetByUserIdAndQuizIdAsync(userId, quizId);
                     if (existingMistake != null)
                     {
-                        // Nếu UserMistake có UserWeakPointId, xoá UserWeakPoint trước
+                        mistakesToDelete.Add(existingMistake);
                         if (existingMistake.UserWeakPointId.HasValue)
                         {
-                            try
-                            {
-                                await userWeakPointService.DeleteAsync(existingMistake.UserWeakPointId.Value);
-                            }
-                            catch (Exception)
-                            {
-                                // Bỏ qua lỗi nếu UserWeakPoint đã bị xoá hoặc không tồn tại
-                            }
+                            weakPointIdsToCheck.Add(existingMistake.UserWeakPointId.Value);
                         }
+                    }
+                }
 
-                        // Sau đó xoá UserMistake
-                        await userMistakeService.DeleteAsync(existingMistake.Id);
+                // Bước 2: Xóa tất cả UserMistake trước
+                foreach (var mistake in mistakesToDelete)
+                {
+                    await userMistakeService.DeleteAsync(mistake.Id);
+                }
+
+                // Bước 3: Kiểm tra và xóa UserWeakPoint chỉ khi không còn UserMistake nào liên kết với nó
+                foreach (var weakPointId in weakPointIdsToCheck)
+                {
+                    // Kiểm tra xem còn UserMistake nào khác có cùng UserWeakPointId không
+                    var remainingMistakes = await userMistakeRepo.GetByUserWeakPointIdAsync(weakPointId);
+                    if (!remainingMistakes.Any())
+                    {
+                        // Không còn UserMistake nào liên kết với UserWeakPoint này → xóa UserWeakPoint
+                        try
+                        {
+                            await userWeakPointService.DeleteAsync(weakPointId);
+                        }
+                        catch (Exception)
+                        {
+                            // Bỏ qua lỗi nếu UserWeakPoint đã bị xoá hoặc không tồn tại
+                        }
                     }
                 }
             }
