@@ -427,8 +427,8 @@ namespace BusinessLogic.Services
 				// 2. Attempt được hoàn thành TRONG thời gian tournament này (UpdatedAt trong khoảng StartDate - EndDate)
 				// 3. Attempt được hoàn thành trong ngày này (UpdatedAt.Date == currentDate)
 				var attempts = await _quizAttemptRepo.GetByQuizSetIdAsync(quizSetForDate.QuizSetId, includeDeleted: false);
-				var attemptFinishTime = tournamentStartDate;
-				var attemptEndTime = effectiveEndDate.AddDays(1).AddTicks(-1); // End of effectiveEndDate
+				var attemptFinishTime = tournament.StartDate;
+				var attemptEndTime = tournament.EndDate.AddDays(1).AddTicks(-1); // End of tournament
 				
 				var userAttempt = attempts
 					.Where(a =>
