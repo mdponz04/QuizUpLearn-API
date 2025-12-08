@@ -98,6 +98,15 @@ namespace BusinessLogic.Services
 			{
 				throw new ArgumentException($"Tournament phải ở trạng thái 'Created' mới có thể start. Trạng thái hiện tại: {tournament.Status}");
 			}
+
+			// Kiểm tra nếu đã có tournament "Started" trong tháng thì không cho start
+			// Mỗi tháng chỉ được 1 tournament có status "Started"
+			var checkDate = tournament.EndDate.Date;
+			if (await _tournamentRepo.ExistsStartedInMonthAsync(checkDate.Year, checkDate.Month))
+			{
+				throw new ArgumentException($"Đã tồn tại tournament đang 'Started' trong tháng {checkDate.Month}/{checkDate.Year}. Mỗi tháng chỉ được có 1 tournament đang chạy.");
+			}
+
 			tournament.Status = "Started";
 			await _tournamentRepo.UpdateAsync(tournament);
 			var all = await _tournamentQuizSetRepo.GetByTournamentAsync(tournamentId);
@@ -381,14 +390,14 @@ namespace BusinessLogic.Services
 				return result;
 			}
 
-		// Tính điểm riêng cho từng tournament
-		// Chỉ tính điểm từ các quiz attempts:
-		// 1. Được tạo SAU KHI user join tournament (CreatedAt >= JoinAt)
-		// 2. Được tạo TRONG thời gian tournament diễn ra (StartDate <= CreatedAt <= EndDate)
-		// 3. Thuộc các quiz sets của tournament này
-		var tournamentStartDate = tournament.StartDate;
-		var tournamentEndDate = tournament.EndDate;
-		var now = DateTime.UtcNow;
+		// Tính điểm theo từng ngày trong tournament
+		// Logic: Mỗi ngày user chỉ được làm 1 lần, lấy attempt mới nhất của ngày đó
+		// Nếu không làm ngày nào thì tính 0 điểm cho ngày đó
+		// Tổng điểm = tổng điểm của tất cả các ngày
+		var tournamentStartDate = tournament.StartDate.Date;
+		var tournamentEndDate = tournament.EndDate.Date;
+		var now = DateTime.UtcNow.Date;
+		var effectiveEndDate = now < tournamentEndDate ? now : tournamentEndDate;
 
 		// Tạo leaderboard items từ participants
 		foreach (var participant in participantList)
@@ -396,24 +405,47 @@ namespace BusinessLogic.Services
 			var user = await _userRepo.GetByIdAsync(participant.ParticipantId);
 			if (user == null) continue;
 
-			// Lấy tất cả quiz attempts của user từ các quiz sets trong tournament
-			var userAttempts = new List<Repository.Entities.QuizAttempt>();
-			foreach (var quizSetId in quizSetIds)
-			{
-				var attempts = await _quizAttemptRepo.GetByQuizSetIdAsync(quizSetId, includeDeleted: false);
-				var userQuizAttempts = attempts.Where(a => 
-					a.UserId == participant.ParticipantId 
-					&& a.Status == "completed" 
-					&& a.DeletedAt == null
-					&& a.CreatedAt >= participant.JoinAt // Sau khi join tournament
-					&& a.CreatedAt >= tournamentStartDate // Trong thời gian tournament
-					&& a.CreatedAt <= tournamentEndDate // Không quá thời gian kết thúc
-				);
-				userAttempts.AddRange(userQuizAttempts);
-			}
+			var totalScore = 0;
+			var participantJoinDate = participant.JoinAt.Date;
+			var startDate = participantJoinDate > tournamentStartDate ? participantJoinDate : tournamentStartDate;
 
-			// Tính tổng điểm cho user này trong tournament này
-			var totalScore = userAttempts.Sum(a => a.Score);
+			// Duyệt qua từng ngày từ khi user join đến khi tournament kết thúc
+			for (var currentDate = startDate; currentDate <= effectiveEndDate; currentDate = currentDate.AddDays(1))
+			{
+				// Tìm quiz set được active cho ngày này
+				var quizSetForDate = tournamentQuizSets
+					.Where(tqs => tqs.UnlockDate.Date == currentDate && !tqs.DeletedAt.HasValue)
+					.OrderByDescending(tqs => tqs.IsActive)
+					.ThenByDescending(tqs => tqs.CreatedAt)
+					.FirstOrDefault();
+
+				if (quizSetForDate == null) continue; // Không có quiz set cho ngày này, bỏ qua (tính 0)
+
+				// Lấy attempt mới nhất của user cho quiz set này trong ngày này
+				// Đảm bảo chỉ tính điểm cho tournament này:
+				// 1. Attempt được tạo SAU KHI join tournament này (CreatedAt >= participant.JoinAt)
+				// 2. Attempt được hoàn thành TRONG thời gian tournament này (UpdatedAt trong khoảng StartDate - EndDate)
+				// 3. Attempt được hoàn thành trong ngày này (UpdatedAt.Date == currentDate)
+				var attempts = await _quizAttemptRepo.GetByQuizSetIdAsync(quizSetForDate.QuizSetId, includeDeleted: false);
+				var attemptFinishTime = tournamentStartDate;
+				var attemptEndTime = effectiveEndDate.AddDays(1).AddTicks(-1); // End of effectiveEndDate
+				
+				var userAttempt = attempts
+					.Where(a =>
+						a.UserId == participant.ParticipantId
+						&& a.Status == "completed"
+						&& a.DeletedAt == null
+						&& a.CreatedAt >= participant.JoinAt // Sau khi join tournament này
+						&& (a.UpdatedAt ?? a.CreatedAt) >= attemptFinishTime // Hoàn thành trong thời gian tournament này
+						&& (a.UpdatedAt ?? a.CreatedAt) <= attemptEndTime // Không quá thời gian kết thúc tournament này
+						&& (a.UpdatedAt ?? a.CreatedAt).Date == currentDate // Hoàn thành trong ngày này
+					)
+					.OrderByDescending(a => a.UpdatedAt ?? a.CreatedAt) // Lấy attempt mới nhất
+					.FirstOrDefault();
+
+				// Tính điểm cho ngày này (nếu có attempt thì lấy điểm, không có thì 0)
+				totalScore += userAttempt?.Score ?? 0;
+			}
 
 			result.Add(new TournamentLeaderboardItemDto
 			{
@@ -438,6 +470,78 @@ namespace BusinessLogic.Services
 			}
 
 			return result;
+		}
+
+		public async Task<TournamentResponseDto?> GetByIdAsync(Guid tournamentId)
+		{
+			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId);
+			if (tournament == null) return null;
+
+			var quizSets = await _tournamentQuizSetRepo.GetByTournamentAsync(tournamentId);
+			return MapResponse(tournament, quizSets.Count());
+		}
+
+		public async Task<List<object>> GetUserDailyScoresAsync(Guid tournamentId, Guid userId, DateTime startDate, DateTime endDate)
+		{
+			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId);
+			if (tournament == null) return new List<object>();
+
+			var participant = (await _participantRepo.GetByTournamentAsync(tournamentId))
+				.FirstOrDefault(p => p.ParticipantId == userId);
+			if (participant == null) return new List<object>();
+
+			var tournamentQuizSets = await _tournamentQuizSetRepo.GetAllByTournamentAsync(tournamentId, includeDeleted: true);
+			var dailyScores = new List<object>();
+			var totalScore = 0;
+			var participantJoinDate = participant.JoinAt.Date;
+			var effectiveStartDate = participantJoinDate > startDate ? participantJoinDate : startDate;
+
+			for (var currentDate = effectiveStartDate; currentDate <= endDate; currentDate = currentDate.AddDays(1))
+			{
+				var quizSetForDate = tournamentQuizSets
+					.Where(tqs => tqs.UnlockDate.Date == currentDate && !tqs.DeletedAt.HasValue)
+					.OrderByDescending(tqs => tqs.IsActive)
+					.ThenByDescending(tqs => tqs.CreatedAt)
+					.FirstOrDefault();
+
+				var dayScore = 0;
+				if (quizSetForDate != null)
+				{
+					// Đảm bảo chỉ tính điểm cho tournament này
+					var tournament = await _tournamentRepo.GetByIdAsync(tournamentId);
+					if (tournament != null)
+					{
+						var attempts = await _quizAttemptRepo.GetByQuizSetIdAsync(quizSetForDate.QuizSetId, includeDeleted: false);
+						var attemptFinishTime = tournament.StartDate;
+						var attemptEndTime = tournament.EndDate.AddDays(1).AddTicks(-1);
+						
+						var userAttempt = attempts
+							.Where(a =>
+								a.UserId == userId
+								&& a.Status == "completed"
+								&& a.DeletedAt == null
+								&& a.CreatedAt >= participant.JoinAt // Sau khi join tournament này
+								&& (a.UpdatedAt ?? a.CreatedAt) >= attemptFinishTime // Hoàn thành trong thời gian tournament này
+								&& (a.UpdatedAt ?? a.CreatedAt) <= attemptEndTime // Không quá thời gian kết thúc tournament này
+								&& (a.UpdatedAt ?? a.CreatedAt).Date == currentDate // Hoàn thành trong ngày này
+							)
+							.OrderByDescending(a => a.UpdatedAt ?? a.CreatedAt)
+							.FirstOrDefault();
+
+						dayScore = userAttempt?.Score ?? 0;
+					}
+				}
+
+				totalScore += dayScore;
+				dailyScores.Add(new
+				{
+					Date = currentDate,
+					DayScore = dayScore,
+					CumulativeScore = totalScore
+				});
+			}
+
+			return dailyScores;
 		}
 
 		private static TournamentResponseDto MapResponse(Tournament t, int totalQuizSets)

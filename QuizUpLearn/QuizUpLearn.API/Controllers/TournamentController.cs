@@ -237,17 +237,51 @@ namespace QuizUpLearn.API.Controllers
 
 		[HttpGet("{id:guid}/leaderboard")]
 		[AllowAnonymous]
-		public async Task<ActionResult<ApiResponse<IEnumerable<TournamentLeaderboardItemDto>>>> GetLeaderboard([FromRoute] Guid id)
+		public async Task<ActionResult<ApiResponse<object>>> GetLeaderboard([FromRoute] Guid id)
 		{
 			try
 			{
-				var res = await _tournamentService.GetLeaderboardAsync(id);
-				return Ok(new ApiResponse<IEnumerable<TournamentLeaderboardItemDto>> { Success = true, Data = res, Message = "OK" });
+				var leaderboardItems = await _tournamentService.GetLeaderboardAsync(id);
+				var tournament = await _tournamentService.GetByIdAsync(id);
+				if (tournament == null)
+				{
+					return BadRequest(new ApiResponse<object> { Success = false, Message = "Tournament not found" });
+				}
+
+				// Tính điểm tích lũy theo từng ngày cho mỗi user
+				var detailedLeaderboard = new List<object>();
+				var tournamentStartDate = tournament.StartDate.Date;
+				var tournamentEndDate = tournament.EndDate.Date;
+				var now = DateTime.UtcNow.Date;
+				var effectiveEndDate = now < tournamentEndDate ? now : tournamentEndDate;
+
+				// leaderboardItems đã được sắp xếp theo điểm giảm dần và có Rank từ service
+				// Chỉ cần thêm dailyScores vào response
+				foreach (var item in leaderboardItems)
+				{
+					var dailyScores = await _tournamentService.GetUserDailyScoresAsync(id, item.UserId, tournamentStartDate, effectiveEndDate);
+					
+					detailedLeaderboard.Add(new
+					{
+						Rank = item.Rank, // Rank đã được tính từ service (sắp xếp theo TotalScore giảm dần)
+						UserId = item.UserId,
+						Username = item.Username,
+						FullName = item.FullName,
+						AvatarUrl = item.AvatarUrl,
+						TotalScore = item.Score, // Tổng điểm (đã được sắp xếp giảm dần)
+						JoinDate = item.Date,
+						DailyScores = dailyScores // Điểm tích lũy theo từng ngày
+					});
+				}
+
+				// Response đã được sắp xếp theo TotalScore giảm dần từ service
+				// Nếu điểm bằng nhau, sắp xếp theo JoinDate (join sớm hơn xếp trước)
+				return Ok(new ApiResponse<object> { Success = true, Data = detailedLeaderboard, Message = "OK" });
 			}
 			catch (Exception ex)
 			{
 				_logger.LogError(ex, "Get leaderboard failed");
-				return BadRequest(new ApiResponse<IEnumerable<TournamentLeaderboardItemDto>> { Success = false, Message = ex.Message });
+				return BadRequest(new ApiResponse<object> { Success = false, Message = ex.Message });
 			}
 		}
 
