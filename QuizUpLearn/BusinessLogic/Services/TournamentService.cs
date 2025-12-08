@@ -399,6 +399,13 @@ namespace BusinessLogic.Services
 		var now = DateTime.UtcNow.Date;
 		var effectiveEndDate = now < tournamentEndDate ? now : tournamentEndDate;
 
+			// Lấy tất cả attempts liên quan đến các quiz set của tournament một lần để giảm số query
+			var allAttempts = await _quizAttemptRepo.GetByQuizSetIdsAsync(quizSetIds, includeDeleted: false);
+			var attemptsByUser = allAttempts
+				.Where(a => a.Status == "completed" && a.DeletedAt == null)
+				.GroupBy(a => a.UserId)
+				.ToDictionary(g => g.Key, g => g.ToList());
+
 		// Tạo leaderboard items từ participants
 		foreach (var participant in participantList)
 		{
@@ -409,44 +416,30 @@ namespace BusinessLogic.Services
 			var participantJoinDate = participant.JoinAt.Date;
 			var startDate = participantJoinDate > tournamentStartDate ? participantJoinDate : tournamentStartDate;
 
-			// Duyệt qua từng ngày từ khi user join đến khi tournament kết thúc
-			for (var currentDate = startDate; currentDate <= effectiveEndDate; currentDate = currentDate.AddDays(1))
-			{
-				// Tìm quiz set được active cho ngày này
-				// Ưu tiên: chưa bị delete > IsActive = true > mới nhất
-				// Bao gồm cả quiz set đã bị soft delete để tính điểm từ attempts cũ
-				var quizSetForDate = tournamentQuizSets
-					.Where(tqs => tqs.UnlockDate.Date == currentDate)
-					.OrderByDescending(tqs => !tqs.DeletedAt.HasValue) // Ưu tiên chưa bị delete
-					.ThenByDescending(tqs => tqs.IsActive) // Sau đó ưu tiên IsActive = true
-					.ThenByDescending(tqs => tqs.CreatedAt) // Cuối cùng ưu tiên mới nhất
-					.FirstOrDefault();
+				if (!attemptsByUser.TryGetValue(participant.ParticipantId, out var userAttempts))
+				{
+					userAttempts = new List<Repository.Entities.QuizAttempt>();
+				}
 
-				if (quizSetForDate == null) continue; // Không có quiz set cho ngày này, bỏ qua (tính 0)
+				// Lọc attempts chỉ tính những attempts được hoàn thành trong thời gian tournament và sau khi join
+				var validAttempts = userAttempts
+				.Where(a =>
+				{
+					var attemptDate = (a.UpdatedAt ?? a.CreatedAt).Date;
+						return attemptDate >= tournamentStartDate
+							&& attemptDate <= tournamentEndDate
+							&& a.CreatedAt >= participant.JoinAt;
+				})
+				.ToList();
 
-				// Lấy attempt mới nhất của user cho quiz set này trong ngày này
-				// Đảm bảo chỉ tính điểm cho tournament này:
-				// 1. Attempt được tạo SAU KHI join tournament này (CreatedAt >= participant.JoinAt)
-				// 2. Attempt được hoàn thành TRONG thời gian tournament này (UpdatedAt.Date trong khoảng StartDate.Date - EndDate.Date)
-				// 3. Attempt được hoàn thành trong ngày này (UpdatedAt.Date == currentDate)
-				var attempts = await _quizAttemptRepo.GetByQuizSetIdAsync(quizSetForDate.QuizSetId, includeDeleted: false);
-				
-				var userAttempt = attempts
-					.Where(a =>
-						a.UserId == participant.ParticipantId
-						&& a.Status == "completed"
-						&& a.DeletedAt == null
-						&& a.CreatedAt >= participant.JoinAt // Sau khi join tournament này
-						&& (a.UpdatedAt ?? a.CreatedAt).Date >= tournamentStartDate // Hoàn thành trong thời gian tournament này (chỉ so sánh ngày)
-						&& (a.UpdatedAt ?? a.CreatedAt).Date <= tournamentEndDate // Không quá thời gian kết thúc tournament này
-						&& (a.UpdatedAt ?? a.CreatedAt).Date == currentDate // Hoàn thành trong ngày này
-					)
-					.OrderByDescending(a => a.UpdatedAt ?? a.CreatedAt) // Lấy attempt mới nhất
-					.FirstOrDefault();
+			// Nhóm attempts theo ngày và lấy attempt mới nhất của mỗi ngày
+			var dailyAttempts = validAttempts
+				.GroupBy(a => (a.UpdatedAt ?? a.CreatedAt).Date)
+				.Select(g => g.OrderByDescending(a => a.UpdatedAt ?? a.CreatedAt).First())
+				.ToList();
 
-				// Tính điểm cho ngày này (nếu có attempt thì lấy điểm, không có thì 0)
-				totalScore += userAttempt?.Score ?? 0;
-			}
+			// Tính tổng điểm từ các attempts đã được nhóm theo ngày
+			totalScore = dailyAttempts.Sum(a => a.Score);
 
 			result.Add(new TournamentLeaderboardItemDto
 			{
@@ -497,40 +490,33 @@ namespace BusinessLogic.Services
 			var participantJoinDate = participant.JoinAt.Date;
 			var effectiveStartDate = participantJoinDate > startDate ? participantJoinDate : startDate;
 
+			var allQuizSetIds = tournamentQuizSets.Select(tqs => tqs.QuizSetId).Distinct().ToList();
+			var attempts = await _quizAttemptRepo.GetByQuizSetIdsAsync(allQuizSetIds, includeDeleted: false);
+			var validAttempts = attempts
+				.Where(a => 
+					a.UserId == userId
+					&& a.Status == "completed"
+					&& a.DeletedAt == null
+					&& a.CreatedAt >= participant.JoinAt
+				)
+				.Where(a =>
+				{
+					var attemptDate = (a.UpdatedAt ?? a.CreatedAt).Date;
+					return attemptDate >= tournament.StartDate.Date && attemptDate <= tournament.EndDate.Date;
+				})
+				.ToList();
+
+			// Nhóm attempts theo ngày và lấy attempt mới nhất của mỗi ngày
+			var dailyAttemptsDict = validAttempts
+				.GroupBy(a => (a.UpdatedAt ?? a.CreatedAt).Date)
+				.ToDictionary(g => g.Key, g => g.OrderByDescending(a => a.UpdatedAt ?? a.CreatedAt).First());
+
 			for (var currentDate = effectiveStartDate; currentDate <= endDate; currentDate = currentDate.AddDays(1))
 			{
-				// Tìm quiz set được active cho ngày này
-				// Ưu tiên: chưa bị delete > IsActive = true > mới nhất
-				// Bao gồm cả quiz set đã bị soft delete để tính điểm từ attempts cũ
-				var quizSetForDate = tournamentQuizSets
-					.Where(tqs => tqs.UnlockDate.Date == currentDate)
-					.OrderByDescending(tqs => !tqs.DeletedAt.HasValue) // Ưu tiên chưa bị delete
-					.ThenByDescending(tqs => tqs.IsActive) // Sau đó ưu tiên IsActive = true
-					.ThenByDescending(tqs => tqs.CreatedAt) // Cuối cùng ưu tiên mới nhất
-					.FirstOrDefault();
-
 				var dayScore = 0;
-				if (quizSetForDate != null && tournament != null)
+				if (dailyAttemptsDict.TryGetValue(currentDate, out var dayAttempt))
 				{
-					// Đảm bảo chỉ tính điểm cho tournament này
-					var attempts = await _quizAttemptRepo.GetByQuizSetIdAsync(quizSetForDate.QuizSetId, includeDeleted: false);
-					var tournamentStartDateOnly = tournament.StartDate.Date;
-					var tournamentEndDateOnly = tournament.EndDate.Date;
-					
-					var userAttempt = attempts
-						.Where(a =>
-							a.UserId == userId
-							&& a.Status == "completed"
-							&& a.DeletedAt == null
-							&& a.CreatedAt >= participant.JoinAt // Sau khi join tournament này
-							&& (a.UpdatedAt ?? a.CreatedAt).Date >= tournamentStartDateOnly // Hoàn thành trong thời gian tournament này (chỉ so sánh ngày)
-							&& (a.UpdatedAt ?? a.CreatedAt).Date <= tournamentEndDateOnly // Không quá thời gian kết thúc tournament này
-							&& (a.UpdatedAt ?? a.CreatedAt).Date == currentDate // Hoàn thành trong ngày này
-						)
-						.OrderByDescending(a => a.UpdatedAt ?? a.CreatedAt)
-						.FirstOrDefault();
-
-					dayScore = userAttempt?.Score ?? 0;
+					dayScore = dayAttempt.Score;
 				}
 
 				totalScore += dayScore;
