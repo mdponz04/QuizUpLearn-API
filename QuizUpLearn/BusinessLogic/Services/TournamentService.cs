@@ -505,31 +505,27 @@ namespace BusinessLogic.Services
 					.FirstOrDefault();
 
 				var dayScore = 0;
-				if (quizSetForDate != null)
+				if (quizSetForDate != null && tournament != null)
 				{
 					// Đảm bảo chỉ tính điểm cho tournament này
-					var tournament = await _tournamentRepo.GetByIdAsync(tournamentId);
-					if (tournament != null)
-					{
-						var attempts = await _quizAttemptRepo.GetByQuizSetIdAsync(quizSetForDate.QuizSetId, includeDeleted: false);
-						var attemptFinishTime = tournament.StartDate;
-						var attemptEndTime = tournament.EndDate.AddDays(1).AddTicks(-1);
-						
-						var userAttempt = attempts
-							.Where(a =>
-								a.UserId == userId
-								&& a.Status == "completed"
-								&& a.DeletedAt == null
-								&& a.CreatedAt >= participant.JoinAt // Sau khi join tournament này
-								&& (a.UpdatedAt ?? a.CreatedAt) >= attemptFinishTime // Hoàn thành trong thời gian tournament này
-								&& (a.UpdatedAt ?? a.CreatedAt) <= attemptEndTime // Không quá thời gian kết thúc tournament này
-								&& (a.UpdatedAt ?? a.CreatedAt).Date == currentDate // Hoàn thành trong ngày này
-							)
-							.OrderByDescending(a => a.UpdatedAt ?? a.CreatedAt)
-							.FirstOrDefault();
+					var attempts = await _quizAttemptRepo.GetByQuizSetIdAsync(quizSetForDate.QuizSetId, includeDeleted: false);
+					var attemptFinishTime = tournament.StartDate;
+					var attemptEndTime = tournament.EndDate.AddDays(1).AddTicks(-1);
+					
+					var userAttempt = attempts
+						.Where(a =>
+							a.UserId == userId
+							&& a.Status == "completed"
+							&& a.DeletedAt == null
+							&& a.CreatedAt >= participant.JoinAt // Sau khi join tournament này
+							&& (a.UpdatedAt ?? a.CreatedAt) >= attemptFinishTime // Hoàn thành trong thời gian tournament này
+							&& (a.UpdatedAt ?? a.CreatedAt) <= attemptEndTime // Không quá thời gian kết thúc tournament này
+							&& (a.UpdatedAt ?? a.CreatedAt).Date == currentDate // Hoàn thành trong ngày này
+						)
+						.OrderByDescending(a => a.UpdatedAt ?? a.CreatedAt)
+						.FirstOrDefault();
 
-						dayScore = userAttempt?.Score ?? 0;
-					}
+					dayScore = userAttempt?.Score ?? 0;
 				}
 
 				totalScore += dayScore;
