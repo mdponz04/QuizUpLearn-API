@@ -30,6 +30,9 @@ namespace Repository.DBContext
         public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<AppSetting> AppSettings { get; set; }
+        public DbSet<Grammar> Grammars { get; set; }
+        public DbSet<Vocabulary> Vocabularies { get; set; }
+        public DbSet<QuizQuizSet> QuizQuizSets { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Account>()

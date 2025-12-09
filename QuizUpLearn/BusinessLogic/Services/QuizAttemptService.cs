@@ -192,12 +192,10 @@ namespace BusinessLogic.Services
             }
 
             var firstQuiz = selected.First();
-            var quizSetId = firstQuiz.QuizSetId;
 
             var attempt = new QuizAttempt
             {
                 UserId = dto.UserId,
-                QuizSetId = quizSetId,
                 AttemptType = "mistake_quiz",
                 TotalQuestions = selected.Count,
                 CorrectAnswers = 0,

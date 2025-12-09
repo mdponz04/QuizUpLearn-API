@@ -57,7 +57,6 @@ namespace Repository.Repositories
         {
             return await _context.Quizzes
                 .Include(q => q.AnswerOptions)
-                .Where(q => q.QuizSetId == quizSetId && q.DeletedAt == null)
                 .ToListAsync();
         }
 
