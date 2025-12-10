@@ -60,6 +60,12 @@ namespace BusinessLogic.MappingProfile
             // QuizGroupItem Mappings
             CreateMap<Repository.Entities.QuizGroupItem, DTOs.QuizGroupItemDtos.RequestQuizGroupItemDto>().ReverseMap();
             CreateMap<Repository.Entities.QuizGroupItem, DTOs.QuizGroupItemDtos.ResponseQuizGroupItemDto>().ReverseMap();
+            // Grammar Mappings
+            CreateMap<Repository.Entities.Grammar, DTOs.GrammarDtos.RequestGrammarDto>().ReverseMap();
+            CreateMap<Repository.Entities.Grammar, DTOs.GrammarDtos.ResponseGrammarDto>().ReverseMap();
+            // Vocabulary Mappings
+            CreateMap<Repository.Entities.Vocabulary, DTOs.VocabularyDtos.RequestVocabularyDto>().ReverseMap();
+            CreateMap<Repository.Entities.Vocabulary, DTOs.VocabularyDtos.ResponseVocabularyDto>().ReverseMap();
 
             // UserWeakPoint Mappings
             CreateMap<Repository.Entities.UserWeakPoint, DTOs.UserWeakPointDtos.ResponseUserWeakPointDto>().ReverseMap();

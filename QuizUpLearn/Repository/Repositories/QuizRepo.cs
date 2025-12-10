@@ -55,8 +55,16 @@ namespace Repository.Repositories
 
         public async Task<IEnumerable<Quiz>> GetQuizzesByQuizSetIdAsync(Guid quizSetId)
         {
-            return await _context.Quizzes
-                .Include(q => q.AnswerOptions)
+            // Lấy quiz thông qua bảng nối QuizQuizSet
+            return await _context.QuizQuizSets
+                .Where(qq => qq.QuizSetId == quizSetId && qq.DeletedAt == null)
+                .Join(
+                    _context.Quizzes.Include(q => q.AnswerOptions),
+                    qq => qq.QuizId,
+                    q => q.Id,
+                    (qq, q) => q)
+                .Where(q => q.DeletedAt == null)
+                .Distinct()
                 .ToListAsync();
         }
 
