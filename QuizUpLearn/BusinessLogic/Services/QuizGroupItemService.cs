@@ -50,11 +50,11 @@ namespace BusinessLogic.Services
             return await _repo.DeleteAsync(id);
         }
 
-        public async Task<PaginationResponseDto<ResponseQuizGroupItemDto>> GetAllByQuizSetIdAsync(Guid quizGroupId, PaginationRequestDto pagination)
+        /*public async Task<PaginationResponseDto<ResponseQuizGroupItemDto>> GetAllByQuizSetIdAsync(Guid quizGroupId, PaginationRequestDto pagination)
         {
-            var quizGroupItems = await _repo.GetAllByQuizSetIdAsync(quizGroupId);
+            //var quizGroupItems = await _repo.GetAllByQuizSetIdAsync(quizGroupId);
             var dtos = _mapper.Map<IEnumerable<ResponseQuizGroupItemDto>>(quizGroupItems);
             return dtos.ToPagedResponse(pagination);
-        }
+        }*/
     }
 }

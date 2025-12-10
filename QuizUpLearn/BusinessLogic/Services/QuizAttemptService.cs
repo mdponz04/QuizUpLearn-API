@@ -112,8 +112,8 @@ namespace BusinessLogic.Services
                 .ToList();
 
             // Lấy QuizGroupItems trực tiếp từ QuizSet (đã include sẵn)
-            var quizGroupItems = quizSet.QuizGroupItems?.Where(qgi => qgi.DeletedAt == null).ToList() ?? new List<Repository.Entities.QuizGroupItem>();
-            var quizGroupItemDtos = _mapper.Map<IEnumerable<BusinessLogic.DTOs.QuizGroupItemDtos.ResponseQuizGroupItemDto>>(quizGroupItems).ToList();
+            /*var quizGroupItems = quizSet.QuizGroupItems?.Where(qgi => qgi.DeletedAt == null).ToList() ?? new List<QuizGroupItem>();*/
+            /*var quizGroupItemDtos = _mapper.Map<IEnumerable<BusinessLogic.DTOs.QuizGroupItemDtos.ResponseQuizGroupItemDto>>(quizGroupItems).ToList();*/
 
             // Create attempt in progress
             var attempt = new QuizAttempt
@@ -142,7 +142,7 @@ namespace BusinessLogic.Services
                 AttemptId = created.Id,
                 TotalQuestions = created.TotalQuestions,
                 Questions = quizDtos,
-                QuizGroupItems = quizGroupItemDtos
+                //QuizGroupItems = quizGroupItemDtos
             };
         }
 

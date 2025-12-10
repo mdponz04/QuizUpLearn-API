@@ -406,7 +406,6 @@ namespace BusinessLogic.Services
         {
             var groupItem = await _quizGroupItemService.CreateAsync(new RequestQuizGroupItemDto
             {
-                QuizSetId = quizSetId,
                 Name = name,
                 AudioUrl = audioUrl,
                 AudioScript = audioScript,

@@ -2,7 +2,6 @@
 {
     public class RequestQuizGroupItemDto
     {
-        public Guid? QuizSetId { get; set; }
         public string? Name { get; set; }
         public string? AudioUrl { get; set; }
         public string? ImageUrl { get; set; }

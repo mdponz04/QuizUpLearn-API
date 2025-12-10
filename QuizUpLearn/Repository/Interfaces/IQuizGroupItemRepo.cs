@@ -5,7 +5,7 @@ namespace Repository.Interfaces
     public interface IQuizGroupItemRepo
     {
         Task<IEnumerable<QuizGroupItem>> GetAllAsync();
-        Task<IEnumerable<QuizGroupItem>> GetAllByQuizSetIdAsync(Guid quizSetId);
+        //Task<IEnumerable<QuizGroupItem>> GetAllByQuizSetIdAsync(Guid quizSetId);
         Task<QuizGroupItem?> GetByIdAsync(Guid id);
         Task<QuizGroupItem?> CreateAsync(QuizGroupItem quizGroupItem);
         Task<QuizGroupItem?> UpdateAsync(Guid id, QuizGroupItem quizGroupItem);

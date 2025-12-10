@@ -145,8 +145,8 @@ namespace BusinessLogic.Services
                 throw new ArgumentException("Quiz set not found");
 
             // Load quiz group items for TOEIC-style grouped questions (Parts 3,4,6,7)
-            var quizGroupItems = await quizGroupItemRepository.GetAllByQuizSetIdAsync(dto.QuizSetId);
-            var quizGroupItemsMap = new Dictionary<Guid, QuizGroupItemDto>();
+            //var quizGroupItems = await quizGroupItemRepository.GetAllByQuizSetIdAsync(dto.QuizSetId);
+            /*var quizGroupItemsMap = new Dictionary<Guid, QuizGroupItemDto>();
             foreach (var groupItem in quizGroupItems)
             {
                 quizGroupItemsMap[groupItem.Id] = new QuizGroupItemDto
@@ -157,7 +157,7 @@ namespace BusinessLogic.Services
                     ImageUrl = groupItem.ImageUrl,
                     PassageText = groupItem.PassageText
                 };
-            }
+            }*/
 
             // Load questions
             var quizzes = await quizRepository.GetQuizzesByQuizSetIdAsync(dto.QuizSetId);
@@ -242,7 +242,7 @@ namespace BusinessLogic.Services
                 Player1 = player1,
                 
                 Questions = questionsList,
-                QuizGroupItems = quizGroupItemsMap, // Store group items for TOEIC-style questions
+                //QuizGroupItems = quizGroupItemsMap, // Store group items for TOEIC-style questions
                 CurrentQuestionIndex = 0,
                 CurrentAnswers = new Dictionary<string, OneVsOneAnswerDto>(),
                 CreatedAt = DateTime.UtcNow
@@ -253,7 +253,7 @@ namespace BusinessLogic.Services
 
             var maxPlayersText = maxPlayers.HasValue ? $"{maxPlayers} players max" : "unlimited players";
             _logger.LogInformation($"✅ {dto.Mode} Room created with PIN: {roomPin} by Player: {dto.Player1Name} ({maxPlayersText})");
-            _logger.LogInformation($"📦 Loaded {quizGroupItemsMap.Count} quiz group items for grouped questions");
+            //_logger.LogInformation($"📦 Loaded {quizGroupItemsMap.Count} quiz group items for grouped questions");
 
             return new CreateOneVsOneRoomResponseDto
             {

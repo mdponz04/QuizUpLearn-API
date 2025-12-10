@@ -3,7 +3,6 @@
     public class ResponseQuizGroupItemDto
     {
         public Guid Id { get; set; }
-        public Guid? QuizSetId { get; set; }
         public string? Name { get; set; }
         public string? AudioUrl { get; set; }
         public string? ImageUrl { get; set; }

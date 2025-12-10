@@ -27,12 +27,12 @@ namespace QuizUpLearn.API.Controllers
             return Ok(quizGroupItems);
         }
 
-        [HttpGet("quizset/{quizSetId:guid}")]
+        /*[HttpGet("quizset/{quizSetId:guid}")]
         public async Task<IActionResult> GetAllByQuizSetId(Guid quizSetId, [FromQuery] PaginationRequestDto pagination)
         {
             var quizGroupItems = await _quizGroupItemService.GetAllByQuizSetIdAsync(quizSetId, pagination);
             return Ok(quizGroupItems);
-        }
+        }*/
 
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
