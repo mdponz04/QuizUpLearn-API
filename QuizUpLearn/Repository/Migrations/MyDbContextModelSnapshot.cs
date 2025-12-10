@@ -1482,6 +1482,8 @@ namespace Repository.Migrations
 
                     b.Navigation("QuizQuizSets");
 
+                    b.Navigation("QuizQuizSets");
+
                     b.Navigation("TournamentQuizSets");
                 });
 
