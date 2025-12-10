@@ -16,6 +16,5 @@ namespace BusinessLogic.DTOs.QuizSetDtos
         public bool? IsPremiumOnly { get; set; }
         // navgation property
         public List<RequestQuizGroupItemDto> QuizGroupItems { get; set; } = new List<RequestQuizGroupItemDto>();
-        public List<QuizRequestDto> Quizzes { get; set; } = new List<QuizRequestDto>();
     }
 }

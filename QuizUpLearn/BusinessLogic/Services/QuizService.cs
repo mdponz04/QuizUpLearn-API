@@ -21,8 +21,8 @@ namespace BusinessLogic.Services
 
         public async Task<QuizResponseDto> CreateQuizAsync(QuizRequestDto quizDto)
         {
-            if(quizDto.QuizSetId == null || quizDto.QuizSetId == Guid.Empty)
-                throw new ArgumentException("QuizSetId cannot be null");
+            /*if(quizDto.QuizSetId == null || quizDto.QuizSetId == Guid.Empty)
+                throw new ArgumentException("QuizSetId cannot be null");*/
 
             var quiz = _mapper.Map<Quiz>(quizDto);
             var createdQuiz = await _quizRepo.CreateQuizAsync(quiz);

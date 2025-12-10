@@ -377,7 +377,6 @@ namespace BusinessLogic.Services
         {
             var quiz = await _quizService.CreateQuizAsync(new QuizRequestDto
             {
-                QuizSetId = quizSetId,
                 TOEICPart = part,
                 QuestionText = questionText,
                 QuizGroupItemId = groupItemId,
@@ -692,7 +691,6 @@ namespace BusinessLogic.Services
                     
                     var createdQuiz = await _quizService.CreateQuizAsync(new QuizRequestDto
                     {
-                        QuizSetId = quizSetId,
                         QuestionText = j.ToString(),
                         TOEICPart = QuizPartEnum.PART6.ToString(),
                         QuizGroupItemId = groupItem.Id
@@ -799,8 +797,8 @@ namespace BusinessLogic.Services
                     var quiz = await _quizService.GetQuizByIdAsync(mistake.QuizId);
                     if (quiz == null) continue;
 
-                    var quizSet = await _quizSetService.GetQuizSetByIdAsync(quiz.QuizSetId);
-                    if (quizSet == null) continue;
+                    //var quizSet = await _quizSetService.GetQuizSetByIdAsync(quiz.QuizSetId);
+                    //if (quizSet == null) continue;
 
                     var answers = await _answerOptionService.GetByQuizIdAsync(quiz.Id);
                     if (answers == null || answers.Count() == 0) continue;
@@ -810,9 +808,9 @@ namespace BusinessLogic.Services
                     string answersText = string.Empty;
                     answersText = string.Join("\n", answers.Select(a => $"{a.OptionLabel}. {a.OptionText} (IsCorrect: {a.IsCorrect})"));
 
-                    var quizPrompt = _promptGenerator.GetAnalyzeMistakeQuizPrompt(j, quizSet, quiz, answersText, mistake);
+                    //var quizPrompt = _promptGenerator.GetAnalyzeMistakeQuizPrompt(j, quizSet, quiz, answersText, mistake);
 
-                    quizzesPrompt += quizPrompt + "\n";
+                    //quizzesPrompt += quizPrompt + "\n";
 
                     await _userMistakeService.UpdateAsync(mistake.Id, new RequestUserMistakeDto
                     {
@@ -822,7 +820,7 @@ namespace BusinessLogic.Services
 
                     if (j == listDataByPart.Count())
                     {
-                        difficultyLevel = quizSet.DifficultyLevel;
+                        //difficultyLevel = quizSet.DifficultyLevel;
                     }
                 }
                 

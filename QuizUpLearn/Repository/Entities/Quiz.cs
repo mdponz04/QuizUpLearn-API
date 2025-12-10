@@ -21,7 +21,7 @@ namespace Repository.Entities
         public virtual Vocabulary? Vocabulary { get; set; }
         public virtual Grammar? Grammar { get; set; }
         public virtual QuizGroupItem? QuizGroupItem { get; set; }
-        public virtual ICollection<QuizSet> QuizSet { get; set; } = new List<QuizSet>();
+        public virtual ICollection<QuizQuizSet> QuizQuizSets { get; set; } = new List<QuizQuizSet>();
         public virtual ICollection<AnswerOption> AnswerOptions { get; set; } = new List<AnswerOption>();
         public virtual ICollection<QuizAttemptDetail> QuizAttemptDetails { get; set; } = new List<QuizAttemptDetail>();
         public virtual ICollection<UserMistake> UserMistakes { get; set; } = new List<UserMistake>();

@@ -225,7 +225,7 @@ namespace BusinessLogic.Services
                     {
                         Period = g.Key.ToString("dd/MM/yyyy"),
                         QueryCount = g.Count(),
-                        QuestionCount = g.Sum(qs => qs.Quizzes.Count),
+                        //QuestionCount = g.Sum(qs => qs.Quizzes.Count),
                         SuccessRate = 100.0
                     })
                     .OrderBy(a => a.Period)
@@ -237,7 +237,7 @@ namespace BusinessLogic.Services
                     {
                         Period = $"Th{g.Key.Month} {g.Key.Year}",
                         QueryCount = g.Count(),
-                        QuestionCount = g.Sum(qs => qs.Quizzes.Count),
+                        //QuestionCount = g.Sum(qs => qs.Quizzes.Count),
                         SuccessRate = 100.0
                     })
                     .OrderBy(a => a.Period)
@@ -249,7 +249,7 @@ namespace BusinessLogic.Services
                     {
                         Period = $"Tuần {g.Key:dd/MM/yyyy}",
                         QueryCount = g.Count(),
-                        QuestionCount = g.Sum(qs => qs.Quizzes.Count),
+                        //QuestionCount = g.Sum(qs => qs.Quizzes.Count),
                         SuccessRate = 100.0
                     })
                     .OrderBy(a => a.Period)
@@ -304,8 +304,8 @@ namespace BusinessLogic.Services
             var aiGenerated = quizSets.Count(qs => qs.IsAIGenerated);
             var manuallyCreated = total - aiGenerated;
 
-            var totalQuestions = quizSets.Sum(qs => qs.Quizzes.Count);
-            var averageQuestions = total > 0 ? (double)totalQuestions / total : 0;
+            //var totalQuestions = quizSets.Sum(qs => qs.Quizzes.Count);
+            //var averageQuestions = total > 0 ? (double)totalQuestions / total : 0;
 
             return new QuizSetStatsDto
             {
@@ -315,7 +315,7 @@ namespace BusinessLogic.Services
                 Draft = draft,
                 AIGenerated = aiGenerated,
                 ManuallyCreated = manuallyCreated,
-                AverageQuestionsPerSet = Math.Round(averageQuestions, 1)
+                //AverageQuestionsPerSet = Math.Round(averageQuestions, 1)
             };
         }
 

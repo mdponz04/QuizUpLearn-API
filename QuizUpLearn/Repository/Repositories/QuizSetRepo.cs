@@ -26,8 +26,6 @@ namespace Repository.Repositories
         {
             return await _context.QuizSets
                 .Include(qs => qs.Creator)
-                .Include(qs => qs.Quizzes)
-                    .ThenInclude(q => q.AnswerOptions)
                 .Include(qs => qs.QuizGroupItems)
                 .FirstOrDefaultAsync(qs => qs.Id == id && qs.DeletedAt == null);
         }

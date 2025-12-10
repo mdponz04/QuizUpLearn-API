@@ -169,7 +169,6 @@ namespace Repository.Repositories
                             qs.DeletedAt == null && 
                             qs.CreatedAt >= startDate && 
                             qs.CreatedAt <= endDate)
-                .Include(qs => qs.Quizzes)
                 .ToListAsync();
         }
 
@@ -195,7 +194,6 @@ namespace Repository.Repositories
         {
             return await _context.QuizSets
                 .Where(qs => qs.DeletedAt == null)
-                .Include(qs => qs.Quizzes)
                 .ToListAsync();
         }
 

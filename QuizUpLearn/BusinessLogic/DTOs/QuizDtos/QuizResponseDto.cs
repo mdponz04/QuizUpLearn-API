@@ -3,7 +3,6 @@
     public class QuizResponseDto
     {
         public Guid Id { get; set; }
-        public Guid QuizSetId { get; set; }
         public Guid? QuizGroupItemId { get; set; }
         public string? QuizGroupItemName { get; set; }
         public string? QuestionText { get; set; }

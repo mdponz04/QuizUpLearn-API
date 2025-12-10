@@ -76,6 +76,10 @@ namespace BusinessLogic.MappingProfile
             CreateMap<Repository.Entities.PaymentTransaction, DTOs.PaymentTransactionDtos.ResponsePaymentTransactionDto>().ReverseMap();
             //App setting mappings
             CreateMap<Repository.Entities.AppSetting, DTOs.AppSettingDto>().ReverseMap();
+            // QuizQuizSet mappings
+            CreateMap<Repository.Entities.QuizQuizSet, DTOs.QuizQuizSetDtos.ResponseQuizQuizSetDto>()
+                .ReverseMap();
+            CreateMap<Repository.Entities.QuizQuizSet, DTOs.QuizQuizSetDtos.RequestQuizQuizSetDto>().ReverseMap();
         }
     }
 }

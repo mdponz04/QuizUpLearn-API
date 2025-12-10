@@ -3,7 +3,6 @@
     public class QuizRequestDto
     {
         public Guid? QuizGroupItemId { get; set; }
-        public Guid? QuizSetId { get; set; }
         public string? QuestionText { get; set; }
         public string? TOEICPart { get; set; }
         public bool IsActive { get; set; } = true;

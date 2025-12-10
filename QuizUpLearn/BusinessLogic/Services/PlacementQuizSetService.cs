@@ -56,7 +56,6 @@ namespace BusinessLogic.Services
                     QuestionText = quizData.Prompt,
                     OrderIndex = quizData.GlobalIndex,
                     TOEICPart = $"PART{quizData.Part}",
-                    QuizSetId = quizSet.Id,
                     CorrectAnswer = quizData.CorrectAnswer
                 });
                 quizzesToInsert.Add(quiz);

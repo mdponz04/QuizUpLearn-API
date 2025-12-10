@@ -20,7 +20,7 @@ namespace Repository.Entities
 
         // Navigation
         public virtual User? Creator { get; set; }
-        public virtual ICollection<Quiz> Quizzes { get; set; } = new List<Quiz>();
+        public virtual ICollection<QuizQuizSet> QuizQuizSets { get; set; } = new List<QuizQuizSet>();
         public virtual ICollection<QuizAttempt> QuizAttempts { get; set; } = new List<QuizAttempt>();
         public virtual ICollection<QuizGroupItem> QuizGroupItems { get; set; } = new List<QuizGroupItem>();
         public virtual ICollection<TournamentQuizSet> TournamentQuizSets { get; set; } = new List<TournamentQuizSet>();
