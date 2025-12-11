@@ -65,6 +65,19 @@ namespace Repository.Repositories
         {
             return await _context.Quizzes.AsNoTracking().AnyAsync(q => q.GrammarId == id);
         }
+
+        public async Task<bool> ExistsByNameAsync(string name, Guid? excludeId = null)
+        {
+            var query = _context.Grammars.AsNoTracking()
+                .Where(g => g.Name.ToLower() == name.ToLower());
+
+            if (excludeId.HasValue)
+            {
+                query = query.Where(g => g.Id != excludeId.Value);
+            }
+
+            return await query.AnyAsync();
+        }
     }
 }
 

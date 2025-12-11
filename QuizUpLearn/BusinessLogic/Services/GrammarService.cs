@@ -34,6 +34,12 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseGrammarDto?> CreateAsync(RequestGrammarDto request)
         {
+            // Validate unique Name
+            if (await _repo.ExistsByNameAsync(request.Name))
+            {
+                throw new InvalidOperationException($"Grammar with name '{request.Name}' already exists.");
+            }
+
             var entity = _mapper.Map<Grammar>(request);
             var created = await _repo.CreateAsync(entity);
             return created != null ? _mapper.Map<ResponseGrammarDto>(created) : null;
@@ -41,6 +47,12 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseGrammarDto?> UpdateAsync(Guid id, RequestGrammarDto request)
         {
+            // Validate unique Name (exclude current record)
+            if (await _repo.ExistsByNameAsync(request.Name, id))
+            {
+                throw new InvalidOperationException($"Grammar with name '{request.Name}' already exists.");
+            }
+
             var updated = await _repo.UpdateAsync(id, _mapper.Map<Grammar>(request));
             return updated != null ? _mapper.Map<ResponseGrammarDto>(updated) : null;
         }
