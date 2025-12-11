@@ -98,9 +98,8 @@ namespace QuizUpLearn.API.Controllers
             var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
             {
                 Title = inputData.Topic,
-                Description = $"AI-generated TOEIC {quizSetType.ToString()} quiz set on {inputData.Topic} focus on TOEIC {quizPart.ToString()}",
+                Description = $"AI-generated TOEIC {quizSetType.ToString()} quiz set on {inputData.Topic} focus on TOEIC {quizPart.ToString()} using {inputData.Vocabulary.KeyWord} keyword & {inputData.Grammar.Name} grammar",
                 QuizSetType = quizSetType,
-                DifficultyLevel = inputData.Difficulty,
                 CreatedBy = inputData.CreatorId,
                 IsAIGenerated = true
             });
@@ -127,30 +126,38 @@ namespace QuizUpLearn.API.Controllers
                         Status = "Processing",
                         QuizSetId = quizSetId
                     });
+
                     try
                     {
                         switch (quizPart)
                         {
-
                             case QuizPartEnum.PART1:
+                                inputData.QuestionQuantity = 1;
                                 result = await aiService.GeneratePracticeQuizSetPart1Async(inputData, quizSetId);
                                 break;
                             case QuizPartEnum.PART2:
+                                inputData.QuestionQuantity = 1;
                                 result = await aiService.GeneratePracticeQuizSetPart2Async(inputData, quizSetId);
                                 break;
                             case QuizPartEnum.PART3:
+                                inputData.QuestionQuantity = 3;
                                 result = await aiService.GeneratePracticeQuizSetPart3Async(inputData, quizSetId);
                                 break;
                             case QuizPartEnum.PART4:
+                                inputData.QuestionQuantity = 3;
                                 result = await aiService.GeneratePracticeQuizSetPart4Async(inputData, quizSetId);
                                 break;
                             case QuizPartEnum.PART5:
+                                inputData.QuestionQuantity = 1;
                                 result = await aiService.GeneratePracticeQuizSetPart5Async(inputData, quizSetId);
                                 break;
                             case QuizPartEnum.PART6:
+                                inputData.QuestionQuantity = 4;
                                 result = await aiService.GeneratePracticeQuizSetPart6Async(inputData, quizSetId);
                                 break;
                             case QuizPartEnum.PART7:
+                                var rnd = new Random();
+                                inputData.QuestionQuantity = rnd.Next(2,5);
                                 result = await aiService.GeneratePracticeQuizSetPart7Async(inputData, quizSetId);
                                 break;
                         }
@@ -170,7 +177,6 @@ namespace QuizUpLearn.API.Controllers
                         return;
                     }
                     
-
                     await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobValidating", new
                     {
                         JobId = jobId,

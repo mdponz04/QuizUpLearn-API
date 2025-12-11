@@ -69,5 +69,13 @@ namespace BusinessLogic.Services
         {
             return await _quizRepo.HardDeleteQuizAsync(id);
         }
+
+        public async Task<PaginationResponseDto<QuizResponseDto>> GetByGrammarIdAndVocabularyIdAsync(Guid grammarId, Guid vocabularyId, PaginationRequestDto pagination = null!)
+        {
+            pagination ??= new PaginationRequestDto();
+            var quizzes = await _quizRepo.GetByGrammarIdAndVocabularyId(grammarId, vocabularyId);
+            var dtos = _mapper.Map<IEnumerable<QuizResponseDto>>(quizzes);
+            return dtos.ToPagedResponse(pagination);
+        }
     }
 }

@@ -15,5 +15,6 @@ namespace Repository.Interfaces
         Task<bool> SoftDeleteQuizAsync(Guid id);
         Task<bool> HardDeleteQuizAsync(Guid id);
         Task<bool> QuizExistsAsync(Guid id);
+        Task<IEnumerable<Quiz>> GetByGrammarIdAndVocabularyId(Guid grammarId, Guid vocabId);
     }
 }

@@ -376,7 +376,7 @@ namespace BusinessLogic.Services
             return result.Url;
         }
 
-        private async Task<QuizResponseDto> CreateQuizWithOptionsAsync(Guid quizSetId, string part, string questionText, List<AiGenerateAnswerOptionResponseDto> options, bool isAssignOptionText = true, Guid? groupItemId = null, string? audioUrl = null, string? imageUrl = null)
+        private async Task<QuizResponseDto> CreateQuizWithOptionsAsync(Guid quizSetId, Guid grammarId, Guid vocabId , string part, string questionText, List<AiGenerateAnswerOptionResponseDto> options, bool isAssignOptionText = true, Guid? groupItemId = null, string? audioUrl = null, string? imageUrl = null)
         {
             var quiz = await _quizService.CreateQuizAsync(new QuizRequestDto
             {
@@ -385,6 +385,8 @@ namespace BusinessLogic.Services
                 QuizGroupItemId = groupItemId,
                 AudioURL = audioUrl,
                 ImageURL = imageUrl,
+                GrammarId = grammarId,
+                VocabularyId = vocabId
             });
             
             await _quizQuizSetService.CreateAsync(new RequestQuizQuizSetDto
@@ -439,9 +441,12 @@ namespace BusinessLogic.Services
             var groupPassage = string.Empty;
             var groupAudioScript = string.Empty;
             var groupImageDescription = string.Empty;
-
+            
             foreach (var quiz in quizzes.Data)
             {
+                var keyword = quiz.Vocabulary.KeyWord;
+                var grammar = quiz.Grammar.Name;
+
                 try
                 {
                     if (quiz.QuizGroupItemId != null)
@@ -456,7 +461,7 @@ namespace BusinessLogic.Services
                     }
                     var options = await _answerOptionService.GetByQuizIdAsync(quiz.Id);
 
-                    var validationPrompt = _promptGenerator.GetValidationPromptAsync(quizSet, quiz, quiz.AnswerOptions, groupPassage, groupAudioScript, groupImageDescription);
+                    var validationPrompt = _promptGenerator.GetValidationPromptAsync(quizSet, quiz, quiz.AnswerOptions, groupPassage, groupAudioScript, groupImageDescription, grammar, keyword);
                     var response = await OpenRouterGenerateContentAsync(validationPrompt);
 
                     var validation = JsonSerializer.Deserialize<AiValidationResponseDto>(response ?? string.Empty);
@@ -511,6 +516,8 @@ namespace BusinessLogic.Services
                 }
 
                 var createdQuiz = await CreateQuizWithOptionsAsync(quizSetId
+                    , inputData.Grammar.Id
+                    , inputData.Vocabulary.Id
                     , QuizPartEnum.PART1.ToString()
                     , ""
                     , quiz.AnswerOptions
@@ -547,6 +554,8 @@ namespace BusinessLogic.Services
                 }
 
                 var createdQuiz = await CreateQuizWithOptionsAsync(quizSetId
+                    , inputData.Grammar.Id
+                    , inputData.Vocabulary.Id
                     , QuizPartEnum.PART2.ToString()
                     , ""
                     , quiz.AnswerOptions
@@ -586,12 +595,18 @@ namespace BusinessLogic.Services
 
                 for (int j = 0; j < 3 && i + j < inputData.QuestionQuantity; j++)
                 {
-                    var quizPrompt = _promptGenerator.GetPart3QuizPrompt(audioConversationScripts, previousQuizText);
+                    var quizPrompt = _promptGenerator.GetPart3QuizPrompt(
+                        audioConversationScripts, 
+                        previousQuizText, 
+                        inputData.Vocabulary.KeyWord, 
+                        inputData.Grammar.Name);
                     List<string> quizPurpose = new() { GenerationPurpose.QUIZ };
                     AiGenerateResponseDto quiz = await GenerateWithRetryAsync(quizPurpose, quizPrompt, quizSetId);
 
                     previousQuizText += quiz.QuestionText + ", ";
                     var createdQuiz = await CreateQuizWithOptionsAsync(quizSetId
+                        , inputData.Grammar.Id
+                        , inputData.Vocabulary.Id
                         , QuizPartEnum.PART3.ToString()
                         , quiz.QuestionText
                         , quiz.AnswerOptions
@@ -628,7 +643,11 @@ namespace BusinessLogic.Services
                 string previousQuizText = string.Empty;
                 for (int j = 0; j < 3 && i + j < inputData.QuestionQuantity; j++)
                 {
-                    var quizPrompt = _promptGenerator.GetPart4QuizPrompt(audio.AudioScript, previousQuizText);
+                    var quizPrompt = _promptGenerator.GetPart4QuizPrompt(
+                        audio.AudioScript, 
+                        previousQuizText, 
+                        inputData.Vocabulary.KeyWord, 
+                        inputData.Grammar.Name);
                     List<string> quizPurposes = new() { GenerationPurpose.QUIZ };
 
                     AiGenerateResponseDto quiz = await GenerateWithRetryAsync(quizPurposes, quizPrompt, quizSetId);
@@ -636,6 +655,8 @@ namespace BusinessLogic.Services
                     previousQuizText += quiz.QuestionText + ", ";
 
                     var createdQuiz = await CreateQuizWithOptionsAsync(quizSetId
+                        , inputData.Grammar.Id
+                        , inputData.Vocabulary.Id
                         , QuizPartEnum.PART4.ToString()
                         , quiz.QuestionText
                         , quiz.AnswerOptions
@@ -657,6 +678,8 @@ namespace BusinessLogic.Services
                 AiGenerateResponseDto quiz = await GenerateWithRetryAsync(purposes, prompt, quizSetId);
 
                 var createdQuiz = await CreateQuizWithOptionsAsync(quizSetId
+                    , inputData.Grammar.Id
+                    , inputData.Vocabulary.Id
                     , QuizPartEnum.PART5.ToString()
                     , quiz.QuestionText
                     , quiz.AnswerOptions);
@@ -692,7 +715,12 @@ namespace BusinessLogic.Services
 
                 for (int j = 1; j <= 4 && i + j <= inputData.QuestionQuantity; j++)
                 {
-                    var quizPrompt = _promptGenerator.GetPart6QuizPrompt(passageResult.Passage, j, usedBlanks);
+                    var quizPrompt = _promptGenerator.GetPart6QuizPrompt(
+                        passageResult.Passage, 
+                        j, 
+                        usedBlanks,
+                        inputData.Vocabulary.KeyWord,
+                        inputData.Grammar.Name);
                     List<string> quizPurposes = new() { GenerationPurpose.QUIZ };
                     
                     AiGenerateResponseDto quiz = await GenerateWithRetryAsync(quizPurposes, quizPrompt, quizSetId);
@@ -762,7 +790,11 @@ namespace BusinessLogic.Services
                 string previousQuizText = string.Empty;
                 for (int j = 1; j <= 3 && i + j <= inputData.QuestionQuantity; j++)
                 {
-                    var quizPrompt = _promptGenerator.GetPart7QuizPrompt(passageResult.Passage, previousQuizText);
+                    var quizPrompt = _promptGenerator.GetPart7QuizPrompt(
+                        passageResult.Passage, 
+                        previousQuizText,
+                        inputData.Vocabulary.KeyWord,
+                        inputData.Grammar.Name);
                     List<string> quizPurposes = new() { GenerationPurpose.QUIZ };
 
                     AiGenerateResponseDto quiz = await GenerateWithRetryAsync(quizPurposes, quizPrompt, quizSetId);
@@ -770,6 +802,8 @@ namespace BusinessLogic.Services
                     previousQuizText += quiz.QuestionText + ", ";
 
                     var createdQuiz = await CreateQuizWithOptionsAsync(quizSetId
+                        , inputData.Grammar.Id
+                        , inputData.Vocabulary.Id
                         , QuizPartEnum.PART7.ToString()
                         , quiz.QuestionText
                         , quiz.AnswerOptions

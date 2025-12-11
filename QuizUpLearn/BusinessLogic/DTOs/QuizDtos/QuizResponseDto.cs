@@ -1,9 +1,13 @@
-﻿namespace BusinessLogic.DTOs.QuizDtos
+﻿using Repository.Entities;
+
+namespace BusinessLogic.DTOs.QuizDtos
 {
     public class QuizResponseDto
     {
         public Guid Id { get; set; }
         public Guid? QuizGroupItemId { get; set; }
+        public Guid? VocabularyId { get; set; }
+        public Guid? GrammarId { get; set; }
         public string? QuizGroupItemName { get; set; }
         public string? QuestionText { get; set; }
         public string? CorrectAnswer { get; set; }
@@ -18,5 +22,8 @@
         public DateTime? UpdatedAt { get; set; }
         public DateTime? DeletedAt { get; set; }
         public List<ResponseAnswerOptionDto> AnswerOptions { get; set; } = new List<ResponseAnswerOptionDto>();
+        public Vocabulary? Vocabulary { get; set; }
+        public Grammar? Grammar { get; set; }
+        public QuizGroupItem? QuizGroupItem { get; set; }
     }
 }

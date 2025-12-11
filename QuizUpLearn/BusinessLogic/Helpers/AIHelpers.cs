@@ -28,7 +28,14 @@ namespace BusinessLogic.Helpers
         {
         }
 
-        public string GetValidationPromptAsync(QuizSetResponseDto quizSet, QuizResponseDto quiz, List<ResponseAnswerOptionDto> options, string groupPassage, string groupAudioScript, string groupImageDescription)
+        public string GetValidationPromptAsync(QuizSetResponseDto quizSet
+            , QuizResponseDto quiz
+            , List<ResponseAnswerOptionDto> options
+            , string groupPassage
+            , string groupAudioScript
+            , string groupImageDescription
+            , string grammar
+            , string vocabKeyword)
         {
             return $@"
 You are an expert TOEIC test validator.
@@ -38,8 +45,8 @@ Review this quiz for correctness and clarity.
 TOEIC practice quiz titled: '{quizSet.Title}'.
 Description: {quizSet.Description}, 
 Toeic part: {quiz.TOEICPart},
-suitable for learners with TOEIC scores around {quizSet.DifficultyLevel}.
-suitable for learners with TOEIC scores around {quizSet.DifficultyLevel}.
+Grammar focus: {grammar},
+Vocabulary keyword: {vocabKeyword}.
 
 ### Quiz to Validate
 Additional info(if any):
@@ -61,6 +68,7 @@ Check the criteria and :
 4. Not duplicating or very similar options.
 5. If it is TOEIC part 2, question text and option text will be null because of that all you need to check the audio script, inside that audio script it will have the question and the answer options.
 6. No need suggestion improvement, only validate correctness, explain shortly at Feedback field if the question is invalid otherwise return feedback with empty string.
+7. Does the question text have grammar or vocabulary keyword if not then it invalid.
 
 Return only these 2 fields as JSON structure:
 {{ 
@@ -69,14 +77,21 @@ Return only these 2 fields as JSON structure:
 }}
 ";
         }
+
+        //updated
         public string GetQuizSetPart1Prompt(AiGenerateQuizSetRequestDto inputData, string previousImageDescription, string previousQuestionText)
         {
             return $@"
 Topic: '{inputData.Topic}'.
-Description: Focus on TOEIC Part 1 , 
-suitable for learners with TOEIC scores around {inputData.Difficulty}.
+Description: Focus on TOEIC Part 1.
+
+Vocabulary keyword: '{inputData.Vocabulary.KeyWord}'
+Grammar: '{inputData.Grammar.Name}'
+
+Content must have vocabulary keyword and grammar.
+
 Question should describe a photo scene with one correct answer among four choices. 
-The image should be described in detail with atleast 50 words.
+The image should be described in detail with atleast 50 words(no need to add vocabulary keyword and grammar in the description).
 
 Avoid previous image description(if any): {previousImageDescription}
 
@@ -86,7 +101,7 @@ Avoid previous question text(if any): {previousQuestionText}
 
 Need to return 3 field:
 - ImageDescription: A detailed description of the image related to the question.
-- QuestionText: The question text.
+- QuestionText: The question text (must using '{inputData.Vocabulary.KeyWord}' vocabulary keyword and '{inputData.Grammar.Name}' grammar).
 - AnswerOptions: List of 4 answer options with labels and correctness. Each option must have option label(A/B/C/D), option text, isCorrect(true/false).
 
 Only return in this structure no need any extended field/infor:
@@ -102,20 +117,26 @@ Only return in this structure no need any extended field/infor:
 }}
 ";
         }
+        //updated
         public string GetQuizSetPart2Prompt(AiGenerateQuizSetRequestDto inputData, string previousQuestionText)
         {
             return $@"
 Topic: '{inputData.Topic}'.
 Description: Focus on TOEIC Part 2, 
-suitable for learners with TOEIC scores around {inputData.Difficulty}.
-Question have 3 answers, each answer should have different context then the correct one is the answer that fit with the topic, you have to generate question text, answer options. 
+
+Vocabulary keyword: '{inputData.Vocabulary.KeyWord}'
+Grammar: '{inputData.Grammar.Name}'
+
+Question have 3 answers, each answer should have different context then the correct one is the answer that fit with the topic, you have to generate question text, answer options.
+
+Question text must use vocabulary keyword and grammar.
 
 Generate ONE question that matches this theme.
 
 Avoid previous question text(if any): {previousQuestionText}
 
 Need to return 2 field:
-- QuestionText: The question text.
+- QuestionText: The question text (must using '{inputData.Vocabulary.KeyWord}' keyword and '{inputData.Grammar.Name}' grammar).
 - AnswerOptions: List of 4 answer options with labels and correctness. Each option must have option label(A/B/C/D), option text, isCorrect(true/false).
 
 Only return in this structure no need any extended field/infor:
@@ -129,16 +150,21 @@ Only return in this structure no need any extended field/infor:
 }}
 ";
         }
+        //updated
         public string GetPart3AudioPrompt(AiGenerateQuizSetRequestDto inputData, string previousAudioScript)
         {
             return $@"
 Generate a TOEIC audio topic: '{inputData.Topic}'.
 Description: Focus on TOEIC Part 3, 
-suitable for learners with TOEIC scores around {inputData.Difficulty}.
+
+Vocabulary keyword: '{inputData.Vocabulary.KeyWord}'
+Grammar: '{inputData.Grammar.Name}'
+
+Content must have vocabulary keyword and grammar.
 
 Avoid the previous audio script(if it is not null): {previousAudioScript}
 
-Generate ONE generate audio script that contain a short conservation between TWO people (different gender) and matches this theme.
+Generate ONE generate audio script that contain a short conservation between TWO people (different gender) and matches this theme (Must using '{inputData.Vocabulary.KeyWord}' Vocabulary keyword and '{inputData.Grammar.Name}' Grammar).
 The audio must have 3-5 exchanges (each person speak 2-3 times) and each exchange should have 15-30 words (must have 2-3 sentences in 1 exchange).
 
 Only return in this structure:
@@ -153,17 +179,24 @@ Only return in this structure:
 }}
 ";
         }
-        public string GetPart3QuizPrompt(string audioScript, string previousQuizText)
+        //updated
+        public string GetPart3QuizPrompt(string audioScript, string previousQuizText, string keyword, string grammarName)
         {
             return $@"
 Based on this audio conversation script: {audioScript}
 
-Generate ONE TOEIC Part 3 question with 3 wrong answers and 1 correct answer.
+Vocabulary keyword: '{keyword}'
+Grammar: '{grammarName}'
+Focus on TOEIC Part 3
+
+Content must have vocabulary keyword and grammar.
+
+Generate ONE question with 3 wrong answers and 1 correct answer.
 
 Avoid the previous question text(if it is not null): {previousQuizText}
 
 Need to return 2 field:
-- QuestionText: The question text.
+- QuestionText: The question text (Must using Vocabulary keyword: '{keyword}' & Grammar: '{grammarName}').
 - AnswerOptions: List of 4 answer options with labels and correctness. Each option must have option label(A/B/C/D), option text, isCorrect(true/false).
 
 Only return in this structure no need any extended field/infor:
@@ -178,16 +211,21 @@ Only return in this structure no need any extended field/infor:
 }}
 ";
         }
+        //updated
         public string GetPart4AudioPrompt(AiGenerateQuizSetRequestDto inputData, string previousAudioScript)
         {
             return $@"
 Generate a TOEIC audio topic: '{inputData.Topic}'.
-Description: Focus on TOEIC Part 4, 
-suitable for learners with TOEIC scores around {inputData.Difficulty}.
+Description: Focus on TOEIC Part 4
+
+Vocabulary keyword: '{inputData.Vocabulary.KeyWord}'
+Grammar: '{inputData.Grammar.Name}'
+
+Content must have vocabulary keyword and grammar.
 
 Avoid the previous audio script(if it is not null): {previousAudioScript}
 
-Generate ONE audio script that contain a short monologue (announcement/speech) matches this theme.
+Generate ONE audio script that contain a short monologue (announcement/speech) matches this theme(must using Vocabulary keyword: '{inputData.Vocabulary.KeyWord}' & Grammar: '{inputData.Grammar.Name}').
 
 Only return in this structure:
 {{
@@ -195,16 +233,25 @@ Only return in this structure:
 }}
 ";
         }
-        public string GetPart4QuizPrompt(string audioScript, string previousQuizText)
+        //updated
+        public string GetPart4QuizPrompt(string audioScript, string previousQuizText, string keyword, string grammarName)
         {
             return $@"
 Based on this audio script: {audioScript}
-Generate ONE TOEIC Part 4 question with 3 wrong answers and 1 correct answer.
+
+
+Vocabulary keyword: '{keyword}'
+Grammar: '{grammarName}'
+Focus on TOEIC Part 4
+
+Content must have vocabulary keyword and grammar.
+
+Generate ONE question with 3 wrong answers and 1 correct answer matches the theme.
 
 Avoid the previous question text(if it is not null): {previousQuizText}
 
 Need to return 2 field:
-- QuestionText: The question text.
+- QuestionText: The question text(Must using Vocabulary keyword: '{keyword}' & Grammar: '{grammarName}').
 - AnswerOptions: List of 4 answer options with labels and correctness. Each option must have option label(A/B/C/D), option text, isCorrect(true/false).
 
 Only return in this structure no need any extended field/infor:
@@ -219,19 +266,24 @@ Only return in this structure no need any extended field/infor:
 }}
 ";
         }
+        //updated
         public string GetPart5Prompt(AiGenerateQuizSetRequestDto inputData, string previousQuestionText)
         {
             return $@"
 Topic: '{inputData.Topic}'.
-Description: Focus on TOEIC Part 5 - in this part the question will be an incomplete sentence with 4 answer to fill in, 
-suitable for learners with TOEIC scores around {inputData.Difficulty}.
+Description: Focus on TOEIC Part 5 - in this part the question will be an incomplete sentence with 4 answer to fill in.
+
+Vocabulary keyword: '{inputData.Vocabulary.KeyWord}'
+Grammar: '{inputData.Grammar.Name}'
+
+Content must have vocabulary keyword and grammar.
 
 Generate ONE question that matches this theme.
 
 Avoid previous question text(if any): {previousQuestionText}
 
 Need to return 2 field:
-- QuestionText: The question text.
+- QuestionText: The question text(Must using Vocabulary keyword: '{inputData.Vocabulary.KeyWord}' & Grammar: '{inputData.Grammar.Name}').
 - AnswerOptions: List of 4 answer options with labels and correctness. Each option must have option label(A/B/C/D), option text, isCorrect(true/false).
 
 Only return in this structure no need any extended field/infor:
@@ -246,16 +298,22 @@ Only return in this structure no need any extended field/infor:
 }}
 ";
         }
+        //updated
         public string GetPart6PassagePrompt(AiGenerateQuizSetRequestDto inputData, string previousPassages)
         {
             return $@"
 Generate a TOEIC passage: 
 - Title: {inputData.Topic}.
-- Description: Focus on TOEIC Part 6, suitable for learners with TOEIC scores around {inputData.Difficulty}.
+- Description: Focus on TOEIC Part 6
+
+Vocabulary keyword: '{inputData.Vocabulary.KeyWord}'
+Grammar: '{inputData.Grammar.Name}'
+
+Content must have vocabulary keyword and grammar.
 
 Avoid the previous passage(if it is not null): {previousPassages}
 
-Generate ONE passage match the theme - generate fully passage without any blanks (at least 75 words with 6 sentences).
+Generate ONE passage match the theme - generate fully passage without any blanks (at least 75 words with 6 sentences and must using Vocabulary keyword: '{inputData.Vocabulary.KeyWord}' & Grammar: '{inputData.Grammar.Name}').
 
 Only return in this structure:
 {{
@@ -263,7 +321,8 @@ Only return in this structure:
 }}
 ";
         }
-        public string GetPart6QuizPrompt(string passage, int blankNumber, string usedBlanks)
+        //updated
+        public string GetPart6QuizPrompt(string passage, int blankNumber, string usedBlanks, string keyword, string grammarName)
         {
             return $@"
 Based on this passage: {passage}
@@ -289,12 +348,18 @@ Only return in this structure no need any extended field/infor:
 }}
 ";
         }
+        //updated
         public string GetPart7PassagePrompt(AiGenerateQuizSetRequestDto inputData, string previousPassages)
         {
             return $@"
 Generate a TOEIC Part 7 reading passage about '{inputData.Topic}' 
-for learners with TOEIC score around {inputData.Difficulty}.
-Avoid repeating previous passages: {previousPassages}.
+
+Vocabulary keyword: '{inputData.Vocabulary.KeyWord}'
+Grammar: '{inputData.Grammar.Name}'
+
+Content must have vocabulary keyword and grammar above.
+
+Avoid repeating previous passages: {previousPassages} (Must use Vocabulary keyword: '{inputData.Vocabulary.KeyWord}' & Grammar: '{inputData.Grammar.Name}').
 Length: around 120-150 words.
 
 Return only JSON:
@@ -303,16 +368,23 @@ Return only JSON:
 }}
 ";
         }
-        public string GetPart7QuizPrompt(string passage, string previousQuizText)
+        //updated
+        public string GetPart7QuizPrompt(string passage, string previousQuizText, string keyword, string grammarName)
         {
             return $@"
 Based on this TOEIC passage: {passage}
-Generate ONE reading comprehension question (like TOEIC Part 7).
+
+Vocabulary keyword: '{keyword}'
+Grammar: '{grammarName}'
+Focus on TOEIC Part 7
+
+Generate ONE reading comprehension question.
+
 Include 4 options (A–D) with 1 correct answer.
 
 Avoid previous question text(if any): {previousQuizText}
 Need to return 2 field:
-- QuestionText: The question text.
+- QuestionText: The question text(Using Vocabulary keyword: '{keyword}' & Grammar: '{grammarName}').
 - AnswerOptions: List of 4 answer options with labels and correctness. Each option must have option label(A/B/C/D), option text, isCorrect(true/false).
 
 Return JSON:
@@ -354,6 +426,8 @@ User's wrong answer (maybe user not answer): ""{mistake.UserAnswer}""
             return $@"
 You are an expert TOEIC tutor.
 Generate ONE single weakpoint out of these questions and ONE single advice for the user how to improve in this area.
+
+You need to translate the weakpoint and advice to Vietnamese language.
 
 Return in JSON:
 {{

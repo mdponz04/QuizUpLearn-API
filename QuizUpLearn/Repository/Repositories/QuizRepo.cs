@@ -34,6 +34,8 @@ namespace Repository.Repositories
             return await _context.Quizzes
                 .Include(q => q.QuizGroupItem)
                 .Include(q => q.AnswerOptions)
+                .Include(q => q.Vocabulary)
+                .Include(q => q.Grammar)
                 .FirstOrDefaultAsync(q => q.Id == id && q.DeletedAt == null);
         }
 
@@ -41,6 +43,8 @@ namespace Repository.Repositories
         {
             var idsList = ids.ToList();
             return await _context.Quizzes
+                .Include(q => q.Vocabulary)
+                .Include(q => q.Grammar)
                 .Include(q => q.QuizGroupItem)
                 .Include(q => q.AnswerOptions)
                 .Where(q => idsList.Contains(q.Id) && q.DeletedAt == null)
@@ -50,6 +54,8 @@ namespace Repository.Repositories
         public async Task<IEnumerable<Quiz>> GetAllQuizzesAsync()
         {
             return await _context.Quizzes
+                .Include(q => q.Vocabulary)
+                .Include(q => q.Grammar)
                 .Include(q => q.QuizGroupItem)
                 .Include(q => q.AnswerOptions)
                 .Where(q => q.DeletedAt == null)
@@ -62,6 +68,8 @@ namespace Repository.Repositories
                 .Where(qq => qq.QuizSetId == quizSetId && qq.DeletedAt == null)
                 .Join(
                     _context.Quizzes
+                    .Include(q => q.Vocabulary)
+                    .Include(q => q.Grammar)
                     .Include(q => q.QuizGroupItem)
                     .Include(q => q.AnswerOptions),
                     qq => qq.QuizId,
@@ -75,6 +83,8 @@ namespace Repository.Repositories
         public async Task<IEnumerable<Quiz>> GetActiveQuizzesAsync()
         {
             return await _context.Quizzes
+                .Include(q => q.Vocabulary)
+                .Include(q => q.Grammar)
                 .Include(q => q.QuizGroupItem)
                 .Include(q => q.AnswerOptions)
                 .Where(q => q.IsActive && q.DeletedAt == null)
@@ -87,7 +97,11 @@ namespace Repository.Repositories
             if (existingQuiz == null || existingQuiz.DeletedAt != null)
                 return null;
 
-            if(!string.IsNullOrEmpty(quiz.QuestionText))
+            if(existingQuiz.GrammarId != quiz.GrammarId)
+                existingQuiz.GrammarId = quiz.GrammarId;
+            if(existingQuiz.VocabularyId != quiz.VocabularyId)
+                existingQuiz.VocabularyId = quiz.VocabularyId;
+            if (!string.IsNullOrEmpty(quiz.QuestionText))
                 existingQuiz.QuestionText = quiz.QuestionText;
             if(!string.IsNullOrEmpty(quiz.CorrectAnswer))
                 existingQuiz.CorrectAnswer = quiz.CorrectAnswer;
@@ -137,6 +151,18 @@ namespace Repository.Repositories
         public async Task<bool> QuizExistsAsync(Guid id)
         {
             return await _context.Quizzes.AnyAsync(q => q.Id == id && q.DeletedAt == null);
+        }
+
+        public async Task<IEnumerable<Quiz>> GetByGrammarIdAndVocabularyId(Guid grammarId, Guid vocabId)
+        {
+            return await _context.Quizzes.
+                Where(q => q.GrammarId == grammarId
+                    && q.VocabularyId == vocabId
+                    && q.DeletedAt == null)
+                .Include(q => q.Vocabulary)
+                .Include(q => q.Grammar)
+                .Include(q => q.QuizGroupItem)
+                .ToListAsync();
         }
     }
 }
