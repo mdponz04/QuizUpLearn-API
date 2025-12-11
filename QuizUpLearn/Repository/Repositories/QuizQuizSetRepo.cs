@@ -122,7 +122,7 @@ namespace Repository.Repositories
             return true;
         }
 
-        public async Task<bool> ExistsAsync(Guid quizId, Guid quizSetId)
+        public async Task<bool> IsExistedAsync(Guid quizId, Guid quizSetId)
         {
             return await _context.QuizQuizSets
                 .AnyAsync(qq => qq.QuizId == quizId && qq.QuizSetId == quizSetId && qq.DeletedAt == null);

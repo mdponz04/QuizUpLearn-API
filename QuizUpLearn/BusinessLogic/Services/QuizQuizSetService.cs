@@ -29,17 +29,18 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseQuizQuizSetDto> CreateAsync(RequestQuizQuizSetDto dto)
         {
-            // Validate that quiz and quiz set exist
-            var quiz = await _quizRepo.GetQuizByIdAsync(dto.QuizId);
+            if(dto.QuizId == null || dto.QuizSetId == null)
+                throw new ArgumentException("QuizId and QuizSetId cannot be null");
+            
+            var quiz = await _quizRepo.GetQuizByIdAsync(dto.QuizId.Value);
             if (quiz == null)
                 throw new ArgumentException($"Quiz with ID {dto.QuizId} not found");
 
-            var quizSet = await _quizSetRepo.GetQuizSetByIdAsync(dto.QuizSetId);
+            var quizSet = await _quizSetRepo.GetQuizSetByIdAsync(dto.QuizSetId.Value);
             if (quizSet == null)
                 throw new ArgumentException($"Quiz set with ID {dto.QuizSetId} not found");
 
-            // Check if relationship already exists
-            var exists = await _quizQuizSetRepo.ExistsAsync(dto.QuizId, dto.QuizSetId);
+            var exists = await _quizQuizSetRepo.IsExistedAsync(dto.QuizId.Value, dto.QuizSetId.Value);
             if (exists)
                 throw new InvalidOperationException($"Quiz {dto.QuizId} is already associated with Quiz Set {dto.QuizSetId}");
 
@@ -54,41 +55,43 @@ namespace BusinessLogic.Services
             return entity == null ? null : _mapper.Map<ResponseQuizQuizSetDto>(entity);
         }
 
-        public async Task<PaginationResponseDto<ResponseQuizQuizSetDto>> GetAllAsync(PaginationRequestDto pagination)
+        public async Task<PaginationResponseDto<ResponseQuizQuizSetDto>> GetAllAsync(PaginationRequestDto pagination, bool includeDeleted = false)
         {
-            var entities = await _quizQuizSetRepo.GetAllAsync();
+            var entities = await _quizQuizSetRepo.GetAllAsync(includeDeleted);
             var dtos = _mapper.Map<IEnumerable<ResponseQuizQuizSetDto>>(entities);
             return dtos.ToPagedResponse(pagination);
         }
 
-        public async Task<PaginationResponseDto<ResponseQuizQuizSetDto>> GetByQuizIdAsync(Guid quizId, PaginationRequestDto pagination)
+        public async Task<PaginationResponseDto<ResponseQuizQuizSetDto>> GetByQuizIdAsync(Guid quizId, PaginationRequestDto pagination, bool includeDeleted = false)
         {
-            var entities = await _quizQuizSetRepo.GetByQuizIdAsync(quizId);
+            var entities = await _quizQuizSetRepo.GetByQuizIdAsync(quizId, includeDeleted);
             var dtos = _mapper.Map<IEnumerable<ResponseQuizQuizSetDto>>(entities);
             return dtos.ToPagedResponse(pagination);
         }
 
-        public async Task<PaginationResponseDto<ResponseQuizQuizSetDto>> GetByQuizSetIdAsync(Guid quizSetId, PaginationRequestDto pagination)
+        public async Task<PaginationResponseDto<ResponseQuizQuizSetDto>> GetByQuizSetIdAsync(Guid quizSetId, PaginationRequestDto pagination, bool includeDeleted = false)
         {
-            var entities = await _quizQuizSetRepo.GetByQuizSetIdAsync(quizSetId);
+            var entities = await _quizQuizSetRepo.GetByQuizSetIdAsync(quizSetId, includeDeleted);
             var dtos = _mapper.Map<IEnumerable<ResponseQuizQuizSetDto>>(entities);
             return dtos.ToPagedResponse(pagination);
         }
 
-        public async Task<ResponseQuizQuizSetDto?> GetByQuizAndQuizSetAsync(Guid quizId, Guid quizSetId)
+        public async Task<ResponseQuizQuizSetDto?> GetByQuizAndQuizSetAsync(Guid quizId, Guid quizSetId, bool includeDeleted = false)
         {
-            var entity = await _quizQuizSetRepo.GetByQuizAndQuizSetAsync(quizId, quizSetId);
+            var entity = await _quizQuizSetRepo.GetByQuizAndQuizSetAsync(quizId, quizSetId, includeDeleted);
             return entity == null ? null : _mapper.Map<ResponseQuizQuizSetDto>(entity);
         }
 
         public async Task<ResponseQuizQuizSetDto?> UpdateAsync(Guid id, RequestQuizQuizSetDto dto)
         {
+            if(dto.QuizId == null || dto.QuizSetId == null)
+                throw new ArgumentException("QuizId and QuizSetId cannot be null");
             // Validate that quiz and quiz set exist
-            var quiz = await _quizRepo.GetQuizByIdAsync(dto.QuizId);
+            var quiz = await _quizRepo.GetQuizByIdAsync(dto.QuizId.Value);
             if (quiz == null)
                 throw new ArgumentException($"Quiz with ID {dto.QuizId} not found");
 
-            var quizSet = await _quizSetRepo.GetQuizSetByIdAsync(dto.QuizSetId);
+            var quizSet = await _quizSetRepo.GetQuizSetByIdAsync(dto.QuizSetId.Value);
             if (quizSet == null)
                 throw new ArgumentException($"Quiz set with ID {dto.QuizSetId} not found");
 
@@ -107,9 +110,9 @@ namespace BusinessLogic.Services
             return await _quizQuizSetRepo.HardDeleteAsync(id);
         }
 
-        public async Task<bool> ExistsAsync(Guid quizId, Guid quizSetId)
+        public async Task<bool> IsExistedAsync(Guid quizId, Guid quizSetId)
         {
-            return await _quizQuizSetRepo.ExistsAsync(quizId, quizSetId);
+            return await _quizQuizSetRepo.IsExistedAsync(quizId, quizSetId);
         }
 
         public async Task<int> GetQuizCountByQuizSetAsync(Guid quizSetId)
@@ -143,38 +146,37 @@ namespace BusinessLogic.Services
         {
             try
             {
-                // Validate that quiz set exists
                 var quizSet = await _quizSetRepo.GetQuizSetByIdAsync(quizSetId);
                 if (quizSet == null)
                     throw new ArgumentException($"Quiz set with ID {quizSetId} not found");
 
-                var entities = new List<QuizQuizSet>();
+                var dtos = new List<RequestQuizQuizSetDto>();
                 foreach (var quizId in quizIds)
                 {
-                    // Check if quiz exists
                     var quiz = await _quizRepo.GetQuizByIdAsync(quizId);
-                    if (quiz == null) continue; // Skip invalid quiz IDs
+                    if (quiz == null) continue;
 
-                    // Check if relationship already exists
-                    var exists = await _quizQuizSetRepo.ExistsAsync(quizId, quizSetId);
-                    if (exists) continue; // Skip existing relationships
+                    var exists = await _quizQuizSetRepo.IsExistedAsync(quizId, quizSetId);
+                    if (exists) continue;
 
-                    entities.Add(new QuizQuizSet
+                    dtos.Add(new RequestQuizQuizSetDto
                     {
                         QuizId = quizId,
                         QuizSetId = quizSetId
                     });
                 }
 
-                if (entities.Any())
+                if (dtos.Any())
                 {
+                    var entities = _mapper.Map<IEnumerable<QuizQuizSet>>(dtos);
                     await _quizQuizSetRepo.AddRangeAsync(entities);
                 }
 
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine("Failed while add quizzes to quiz set: " + ex.Message);
                 return false;
             }
         }

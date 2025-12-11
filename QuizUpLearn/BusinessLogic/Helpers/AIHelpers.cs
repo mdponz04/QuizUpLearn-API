@@ -1,6 +1,7 @@
 ﻿using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.AiDtos;
 using BusinessLogic.DTOs.QuizDtos;
+using BusinessLogic.DTOs.QuizGroupItemDtos;
 using BusinessLogic.DTOs.QuizSetDtos;
 using BusinessLogic.DTOs.UserMistakeDtos;
 
@@ -328,22 +329,19 @@ Return JSON:
         }
         public string GetAnalyzeMistakeQuizPrompt(
             int index
-            , QuizSetResponseDto quizSet
             , QuizResponseDto quiz
             , string answersText
-            , ResponseUserMistakeDto mistake)
+            , ResponseUserMistakeDto mistake
+            , ResponseQuizGroupItemDto quizGroupItem = null!)
         {
             return $@"
 Quiz number {index}:
-Topic: ""{quizSet.Title}""
 TOIEC part: ""{quiz.TOEICPart}""
-Point range: ""{quizSet.DifficultyLevel}""
-
 
 Additional materials context (if any):
-Passage : ""{quizSet.QuizGroupItems.FirstOrDefault(qgi => qgi.Id == quiz.QuizGroupItemId)?.PassageText}""
-Audio Script : ""{quizSet.QuizGroupItems.FirstOrDefault(qgi => qgi.Id == quiz.QuizGroupItemId)?.AudioScript}""
-Image Description : ""{quizSet.QuizGroupItems.FirstOrDefault(qgi => qgi.Id == quiz.QuizGroupItemId)?.ImageDescription}""
+Passage : ""{quizGroupItem?.PassageText ?? string.Empty}""
+Audio Script : ""{quizGroupItem?.AudioScript ?? string.Empty}""
+Image Description : ""{quizGroupItem?.ImageDescription ?? string.Empty}""
 
 Question: ""{quiz.QuestionText}""
 Answer options : ""{answersText}""

@@ -1,8 +1,8 @@
-﻿using AutoMapper;
-using BusinessLogic.DTOs;
+﻿using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.AiDtos;
 using BusinessLogic.DTOs.QuizDtos;
 using BusinessLogic.DTOs.QuizGroupItemDtos;
+using BusinessLogic.DTOs.QuizQuizSetDtos;
 using BusinessLogic.DTOs.QuizSetDtos;
 using BusinessLogic.DTOs.UserMistakeDtos;
 using BusinessLogic.DTOs.UserWeakPointDtos;
@@ -30,6 +30,7 @@ namespace BusinessLogic.Services
         private readonly IQuizGroupItemService _quizGroupItemService;
         private readonly IUserMistakeService _userMistakeService;
         private readonly IUserWeakPointService _userWeakPointService;
+        private readonly IQuizQuizSetService _quizQuizSetService;
         //API keys
         private readonly string _geminiApiKey;
         private readonly string _openRouterApiKey;
@@ -41,7 +42,7 @@ namespace BusinessLogic.Services
         private readonly string _narratorVoiceId;
         //Helpers
         private readonly PromptGenerateQuizSetHelper _promptGenerator;
-        public AIService(HttpClient httpClient, IConfiguration configuration, IQuizSetService quizSetService, IQuizService quizService, IAnswerOptionService answerOptionService, IUploadService uploadService, ILogger<AIService> logger, IQuizGroupItemService quizGroupItemService, IUserMistakeService userMistakeService, IUserWeakPointService userWeakPointService)
+        public AIService(HttpClient httpClient, IConfiguration configuration, IQuizSetService quizSetService, IQuizService quizService, IAnswerOptionService answerOptionService, IUploadService uploadService, ILogger<AIService> logger, IQuizGroupItemService quizGroupItemService, IUserMistakeService userMistakeService, IUserWeakPointService userWeakPointService, IQuizQuizSetService quizQuizSetService)
         {
             _httpClient = httpClient;
             _quizSetService = quizSetService;
@@ -52,6 +53,7 @@ namespace BusinessLogic.Services
             _quizGroupItemService = quizGroupItemService;
             _userMistakeService = userMistakeService;
             _userWeakPointService = userWeakPointService;
+            _quizQuizSetService = quizQuizSetService;
 
             //API keys
             _geminiApiKey = configuration["Gemini:ApiKey"] ?? throw new ArgumentNullException("Gemini API key is not configured.");
@@ -65,6 +67,7 @@ namespace BusinessLogic.Services
             _narratorVoiceId = configuration["AsyncTTS:Voices:Narrator"] ?? throw new ArgumentNullException("Narrator voice id is not configured");
 
             _promptGenerator = new PromptGenerateQuizSetHelper();
+            
         }
 
         private async Task<string> GeminiGenerateContentAsync(string prompt)
@@ -143,7 +146,7 @@ namespace BusinessLogic.Services
 
             var json = JsonSerializer.Serialize(body);
             using var content = new StringContent(json, Encoding.UTF8, "application/json");
-            // Attach the API key per request instead of modifying DefaultRequestHeaders
+            
             using var request = new HttpRequestMessage(HttpMethod.Post, url)
             {
                 Content = content
@@ -155,7 +158,7 @@ namespace BusinessLogic.Services
 
             using var doc = JsonDocument.Parse(result);
             if (!doc.RootElement.TryGetProperty("choices", out var choices))
-                return json; // return raw response if structure unexpected
+                return json;
 
             var returnContent = doc.RootElement
                 .GetProperty("choices")[0]
@@ -294,7 +297,7 @@ namespace BusinessLogic.Services
                 {
                     if (quizSetId != null)
                         await _quizSetService.HardDeleteQuizSetAsync(quizSetId.Value);
-                    // Log the failure and throw an exception
+                    
                     throw new Exception("Maximum retry attempts reached for AI generation.");
                 }
 
@@ -382,6 +385,12 @@ namespace BusinessLogic.Services
                 QuizGroupItemId = groupItemId,
                 AudioURL = audioUrl,
                 ImageURL = imageUrl,
+            });
+            
+            await _quizQuizSetService.CreateAsync(new RequestQuizQuizSetDto
+            {
+                QuizId = quiz.Id,
+                QuizSetId = quizSetId
             });
 
             foreach (var opt in options)
@@ -695,6 +704,12 @@ namespace BusinessLogic.Services
                         QuizGroupItemId = groupItem.Id
                     });
                     
+                    await _quizQuizSetService.CreateAsync(new RequestQuizQuizSetDto
+                    {
+                        QuizId = createdQuiz.Id,
+                        QuizSetId = quizSetId
+                    });
+
                     foreach (var item in quiz.AnswerOptions)
                     {
                         await _answerOptionService.CreateAsync(new RequestAnswerOptionDto
@@ -777,9 +792,8 @@ namespace BusinessLogic.Services
 
                 if(listDataByPart.Count() == 0) continue;
 
-                //Add into 1 prompt 
+                //Add into 1 prompt
                 string quizzesPrompt = string.Empty;
-                var difficultyLevel = string.Empty;
 
                 var newUserWeakPoint = await _userWeakPointService.AddAsync(new RequestUserWeakPointDto
                 {
@@ -796,8 +810,10 @@ namespace BusinessLogic.Services
                     var quiz = await _quizService.GetQuizByIdAsync(mistake.QuizId);
                     if (quiz == null) continue;
 
-                    //var quizSet = await _quizSetService.GetQuizSetByIdAsync(quiz.QuizSetId);
-                    //if (quizSet == null) continue;
+                    if (quiz.QuizGroupItemId != null)
+                    {
+                        var quizGroupItem = await _quizGroupItemService.GetByIdAsync(quiz.QuizGroupItemId.Value);
+                    }
 
                     var answers = await _answerOptionService.GetByQuizIdAsync(quiz.Id);
                     if (answers == null || answers.Count() == 0) continue;
@@ -807,20 +823,15 @@ namespace BusinessLogic.Services
                     string answersText = string.Empty;
                     answersText = string.Join("\n", answers.Select(a => $"{a.OptionLabel}. {a.OptionText} (IsCorrect: {a.IsCorrect})"));
 
-                    //var quizPrompt = _promptGenerator.GetAnalyzeMistakeQuizPrompt(j, quizSet, quiz, answersText, mistake);
+                    var quizPrompt = _promptGenerator.GetAnalyzeMistakeQuizPrompt(j, quiz, answersText, mistake);
 
-                    //quizzesPrompt += quizPrompt + "\n";
+                    quizzesPrompt += quizPrompt + "\n";
 
                     await _userMistakeService.UpdateAsync(mistake.Id, new RequestUserMistakeDto
                     {
                         UserWeakPointId = newUserWeakPoint!.Id,
                         IsAnalyzed = true
                     });
-
-                    if (j == listDataByPart.Count())
-                    {
-                        //difficultyLevel = quizSet.DifficultyLevel;
-                    }
                 }
                 
                 string prompt = quizzesPrompt + _promptGenerator.GetAnalyzeMistakeGeneratePrompt();

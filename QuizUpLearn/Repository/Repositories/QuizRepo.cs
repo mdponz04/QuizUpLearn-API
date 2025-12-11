@@ -29,9 +29,10 @@ namespace Repository.Repositories
             return quizzesList;
         }
 
-        public async Task<Quiz> GetQuizByIdAsync(Guid id)
+        public async Task<Quiz?> GetQuizByIdAsync(Guid id)
         {
             return await _context.Quizzes
+                .Include(q => q.QuizGroupItem)
                 .Include(q => q.AnswerOptions)
                 .FirstOrDefaultAsync(q => q.Id == id && q.DeletedAt == null);
         }
@@ -40,6 +41,7 @@ namespace Repository.Repositories
         {
             var idsList = ids.ToList();
             return await _context.Quizzes
+                .Include(q => q.QuizGroupItem)
                 .Include(q => q.AnswerOptions)
                 .Where(q => idsList.Contains(q.Id) && q.DeletedAt == null)
                 .ToListAsync();
@@ -48,6 +50,7 @@ namespace Repository.Repositories
         public async Task<IEnumerable<Quiz>> GetAllQuizzesAsync()
         {
             return await _context.Quizzes
+                .Include(q => q.QuizGroupItem)
                 .Include(q => q.AnswerOptions)
                 .Where(q => q.DeletedAt == null)
                 .ToListAsync();
@@ -55,11 +58,12 @@ namespace Repository.Repositories
 
         public async Task<IEnumerable<Quiz>> GetQuizzesByQuizSetIdAsync(Guid quizSetId)
         {
-            // Lấy quiz thông qua bảng nối QuizQuizSet
             return await _context.QuizQuizSets
                 .Where(qq => qq.QuizSetId == quizSetId && qq.DeletedAt == null)
                 .Join(
-                    _context.Quizzes.Include(q => q.AnswerOptions),
+                    _context.Quizzes
+                    .Include(q => q.QuizGroupItem)
+                    .Include(q => q.AnswerOptions),
                     qq => qq.QuizId,
                     q => q.Id,
                     (qq, q) => q)
@@ -71,6 +75,7 @@ namespace Repository.Repositories
         public async Task<IEnumerable<Quiz>> GetActiveQuizzesAsync()
         {
             return await _context.Quizzes
+                .Include(q => q.QuizGroupItem)
                 .Include(q => q.AnswerOptions)
                 .Where(q => q.IsActive && q.DeletedAt == null)
                 .ToListAsync();

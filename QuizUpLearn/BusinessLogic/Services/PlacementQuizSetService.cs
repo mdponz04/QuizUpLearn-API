@@ -18,16 +18,19 @@ namespace BusinessLogic.Services
         private readonly IQuizRepo _quizRepo;
         private readonly IAnswerOptionRepo _answerOptionRepo;
         private readonly IMapper _mapper;
+        private readonly IQuizQuizSetService _quizQuizSetService;
 
-        public PlacementQuizSetService(IQuizSetService quizSetService, 
+        public PlacementQuizSetService(IQuizSetService quizSetService,
             IQuizRepo quizRepo,
             IAnswerOptionRepo answerOptionRepo,
-            IMapper mapper)
+            IMapper mapper,
+            IQuizQuizSetService quizQuizSetService)
         {
             _quizSetService = quizSetService;
             _quizRepo = quizRepo;
             _answerOptionRepo = answerOptionRepo;
             _mapper = mapper;
+            _quizQuizSetService = quizQuizSetService;
         }
 
 
@@ -40,14 +43,13 @@ namespace BusinessLogic.Services
             {
                 Title = $"TOEIC Placement Test {file.FileName}",
                 Description = "Imported from Excel file",
-                IsPublished = true,
+                IsPublished = false,
                 IsAIGenerated = false,
                 IsPremiumOnly = false,
                 QuizSetType = Repository.Enums.QuizSetTypeEnum.Placement,
                 CreatedBy = userId
             });
             
-            // Tạo tất cả quizzes trước (batch insert)
             var quizzesToInsert = new List<Quiz>();
             foreach(var quizData in quizzesData)
             {
@@ -59,12 +61,16 @@ namespace BusinessLogic.Services
                     CorrectAnswer = quizData.CorrectAnswer
                 });
                 quizzesToInsert.Add(quiz);
+                //create quiz-quizset relationship
+                await _quizQuizSetService.CreateAsync(new DTOs.QuizQuizSetDtos.RequestQuizQuizSetDto
+                {
+                    QuizId = quiz.Id,
+                    QuizSetId = quizSet.Id
+                });
             }
 
-            // Batch insert tất cả quizzes cùng lúc
             var createdQuizzes = await _quizRepo.CreateQuizzesBatchAsync(quizzesToInsert);
 
-            // Tạo tất cả answer options (batch insert)
             var answerOptionsToInsert = new List<AnswerOption>();
             var quizList = createdQuizzes.ToList();
             for (int i = 0; i < quizList.Count; i++)
@@ -87,7 +93,6 @@ namespace BusinessLogic.Services
                 }
             }
 
-            // Batch insert tất cả answer options cùng lúc
             await _answerOptionRepo.CreateBatchAsync(answerOptionsToInsert);
 
             return quizSet;

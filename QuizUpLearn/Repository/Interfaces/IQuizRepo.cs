@@ -6,7 +6,7 @@ namespace Repository.Interfaces
     {
         Task<Quiz> CreateQuizAsync(Quiz quiz);
         Task<IEnumerable<Quiz>> CreateQuizzesBatchAsync(IEnumerable<Quiz> quizzes);
-        Task<Quiz> GetQuizByIdAsync(Guid id);
+        Task<Quiz?> GetQuizByIdAsync(Guid id);
         Task<IEnumerable<Quiz>> GetQuizzesByIdsAsync(IEnumerable<Guid> ids);
         Task<IEnumerable<Quiz>> GetAllQuizzesAsync();
         Task<IEnumerable<Quiz>> GetQuizzesByQuizSetIdAsync(Guid quizSetId);

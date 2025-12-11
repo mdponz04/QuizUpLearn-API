@@ -13,7 +13,7 @@ namespace Repository.Interfaces
         Task<QuizQuizSet?> UpdateAsync(Guid id, QuizQuizSet entity);
         Task<bool> SoftDeleteAsync(Guid id);
         Task<bool> HardDeleteAsync(Guid id);
-        Task<bool> ExistsAsync(Guid quizId, Guid quizSetId);
+        Task<bool> IsExistedAsync(Guid quizId, Guid quizSetId);
         Task<int> GetQuizCountByQuizSetAsync(Guid quizSetId);
         Task<bool> DeleteByQuizIdAsync(Guid quizId);
         Task<bool> DeleteByQuizSetIdAsync(Guid quizSetId);
