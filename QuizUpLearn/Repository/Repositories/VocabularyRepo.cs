@@ -66,6 +66,29 @@ namespace Repository.Repositories
         {
             return await _context.Quizzes.AsNoTracking().AnyAsync(q => q.VocabularyId == id);
         }
+
+        public async Task<bool> ExistsByKeyWordAndPartAsync(string keyWord, string? toeicPart, Guid? excludeId = null)
+        {
+            var query = _context.Vocabularies.AsNoTracking()
+                .Where(v => v.KeyWord.ToLower() == keyWord.ToLower());
+
+            // Kiểm tra ToeicPart: nếu null thì so sánh null, nếu có giá trị thì so sánh giá trị
+            if (toeicPart == null)
+            {
+                query = query.Where(v => v.ToeicPart == null);
+            }
+            else
+            {
+                query = query.Where(v => v.ToeicPart != null && v.ToeicPart.ToLower() == toeicPart.ToLower());
+            }
+
+            if (excludeId.HasValue)
+            {
+                query = query.Where(v => v.Id != excludeId.Value);
+            }
+
+            return await query.AnyAsync();
+        }
     }
 }
 
