@@ -16,7 +16,10 @@ namespace Repository.Repositories
 
         public async Task<IEnumerable<Vocabulary>> GetAllAsync()
         {
-            return await _context.Vocabularies.AsNoTracking().ToListAsync();
+            return await _context.Vocabularies
+                .AsNoTracking()
+                .Include(v => v.Quizzes)
+                .ToListAsync();
         }
 
         public async Task<Vocabulary?> GetByIdAsync(Guid id)

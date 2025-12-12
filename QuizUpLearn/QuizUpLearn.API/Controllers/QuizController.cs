@@ -143,5 +143,14 @@ namespace QuizUpLearn.API.Controllers
 
             return NoContent();
         }
+        [HttpGet("by-grammar-vocab")]
+        public async Task<IActionResult> GetByGrammarIdAndVocabularyIdAsync(
+            [FromQuery] Guid grammarId,
+            [FromQuery] Guid vocabularyId,
+            [FromQuery] PaginationRequestDto pagination)
+        {
+            var quizzes = await _quizService.GetByGrammarIdAndVocabularyIdAsync(grammarId, vocabularyId, pagination);
+            return Ok(quizzes);
+        }
     }
 }

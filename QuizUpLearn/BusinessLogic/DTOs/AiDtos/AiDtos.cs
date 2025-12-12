@@ -1,14 +1,12 @@
-﻿using BusinessLogic.DTOs.GrammarDtos;
-using BusinessLogic.DTOs.VocabularyDtos;
-using BusinessLogic.Helpers;
+﻿using BusinessLogic.Helpers;
 using System.Text.Json.Serialization;
 
 namespace BusinessLogic.DTOs.AiDtos
 {
     public class AiGenerateQuizSetRequestDto
     {
-        public required ResponseGrammarDto Grammar { get; set; }
-        public required ResponseVocabularyDto Vocabulary { get; set; }
+        public required Guid GrammarId { get; set; }
+        public required Guid VocabularyId { get; set; }
         public int QuestionQuantity { get; set; }
         public required string Topic { get; set; }
         public Guid? CreatorId { get; set; }

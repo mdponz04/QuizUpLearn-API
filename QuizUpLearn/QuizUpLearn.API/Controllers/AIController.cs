@@ -54,7 +54,7 @@ namespace QuizUpLearn.API.Controllers
         /// <param name="quizSetType"></param>
         /// <returns></returns>
         [HttpPost("generate-quiz-set")]
-        [SubscriptionAndRoleAuthorize(RequireAiFeatures = true, CheckRemainingUsage = true, AllowBypass = true)]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<IActionResult> GeneratePracticeQuizSet([FromBody] AiGenerateQuizSetRequestDto inputData, QuizPartEnum quizPart, QuizSetTypeEnum quizSetType)
         {
             if (inputData == null)
@@ -98,7 +98,7 @@ namespace QuizUpLearn.API.Controllers
             var createdQuizSet = await _quizSetService.CreateQuizSetAsync(new QuizSetRequestDto
             {
                 Title = inputData.Topic,
-                Description = $"AI-generated TOEIC {quizSetType.ToString()} quiz set on {inputData.Topic} focus on TOEIC {quizPart.ToString()} using {inputData.Vocabulary.KeyWord} keyword & {inputData.Grammar.Name} grammar",
+                Description = $"AI-generated TOEIC {quizSetType.ToString()} quiz set on {inputData.Topic} focus on TOEIC {quizPart.ToString()}",
                 QuizSetType = quizSetType,
                 CreatedBy = inputData.CreatorId,
                 IsAIGenerated = true

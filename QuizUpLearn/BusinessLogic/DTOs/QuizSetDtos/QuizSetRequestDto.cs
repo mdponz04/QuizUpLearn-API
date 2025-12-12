@@ -1,5 +1,4 @@
-﻿using BusinessLogic.DTOs.QuizDtos;
-using BusinessLogic.DTOs.QuizGroupItemDtos;
+﻿using BusinessLogic.DTOs.QuizGroupItemDtos;
 using Repository.Enums;
 
 namespace BusinessLogic.DTOs.QuizSetDtos
