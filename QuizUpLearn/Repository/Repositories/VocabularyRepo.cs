@@ -72,25 +72,42 @@ namespace Repository.Repositories
 
         public async Task<bool> ExistsByKeyWordAndPartAsync(string keyWord, string? toeicPart, Guid? excludeId = null)
         {
-            var query = _context.Vocabularies.AsNoTracking()
-                .Where(v => v.KeyWord.ToLower() == keyWord.ToLower());
+            // Normalize input: trim và lowercase
+            var normalizedKeyWord = (keyWord?.Trim() ?? string.Empty).ToLower();
+            var normalizedToeicPart = string.IsNullOrWhiteSpace(toeicPart) ? null : toeicPart.Trim().ToLower();
 
-            // Kiểm tra ToeicPart: nếu null thì so sánh null, nếu có giá trị thì so sánh giá trị
-            if (toeicPart == null)
-            {
-                query = query.Where(v => v.ToeicPart == null);
-            }
-            else
-            {
-                query = query.Where(v => v.ToeicPart != null && v.ToeicPart.ToLower() == toeicPart.ToLower());
-            }
+            // Load all và filter in memory để hỗ trợ Trim() (vì EF Core không hỗ trợ Trim trong query)
+            var allVocabularies = await _context.Vocabularies.AsNoTracking().ToListAsync();
 
-            if (excludeId.HasValue)
+            var exists = allVocabularies.Any(v =>
             {
-                query = query.Where(v => v.Id != excludeId.Value);
-            }
+                var vKeyWord = (v.KeyWord?.Trim() ?? string.Empty).ToLower();
+                var vToeicPart = string.IsNullOrWhiteSpace(v.ToeicPart) ? null : v.ToeicPart.Trim().ToLower();
 
-            return await query.AnyAsync();
+                // So sánh KeyWord
+                if (vKeyWord != normalizedKeyWord)
+                    return false;
+
+                // So sánh ToeicPart
+                if (normalizedToeicPart == null)
+                {
+                    if (vToeicPart != null)
+                        return false;
+                }
+                else
+                {
+                    if (vToeicPart != normalizedToeicPart)
+                        return false;
+                }
+
+                // Exclude current record nếu có
+                if (excludeId.HasValue && v.Id == excludeId.Value)
+                    return false;
+
+                return true;
+            });
+
+            return exists;
         }
     }
 }

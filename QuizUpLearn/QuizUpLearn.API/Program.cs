@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using QuizUpLearn.API.DI;
 using QuizUpLearn.API.Hubs;
 using System.Text;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,7 +21,11 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
 
 builder.Services.AddStackExchangeRedisCache(options =>
 {
