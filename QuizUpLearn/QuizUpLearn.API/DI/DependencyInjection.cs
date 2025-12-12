@@ -123,6 +123,7 @@ namespace QuizUpLearn.API.DI
             services.AddScoped<IQuizQuizSetService, QuizQuizSetService>();
             services.AddScoped<IGrammarService, GrammarService>();
             services.AddScoped<IVocabularyService, VocabularyService>();
+            services.AddScoped<IVocabularyGrammarService, VocabularyGrammarService>();
 
             // RealtimeGameService - Singleton để dùng Redis state
             services.AddSingleton<BusinessLogic.Interfaces.IRealtimeGameService, BusinessLogic.Services.RealtimeGameService>();
