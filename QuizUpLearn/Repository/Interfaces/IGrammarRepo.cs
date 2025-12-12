@@ -10,6 +10,7 @@ namespace Repository.Interfaces
         Task<Grammar?> UpdateAsync(Guid id, Grammar grammar);
         Task<bool> DeleteAsync(Guid id);
         Task<bool> HasQuizzesAsync(Guid id);
+        Task<bool> ExistsByNameAsync(string name, Guid? excludeId = null);
     }
 }
 

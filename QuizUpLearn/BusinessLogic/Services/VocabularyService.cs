@@ -34,6 +34,13 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseVocabularyDto?> CreateAsync(RequestVocabularyDto request)
         {
+            // Validate unique KeyWord trong cùng ToeicPart
+            if (await _repo.ExistsByKeyWordAndPartAsync(request.KeyWord, request.ToeicPart))
+            {
+                var partInfo = string.IsNullOrEmpty(request.ToeicPart) ? "no part" : $"part {request.ToeicPart}";
+                throw new InvalidOperationException($"Vocabulary with keyword '{request.KeyWord}' already exists in {partInfo}.");
+            }
+
             var entity = _mapper.Map<Vocabulary>(request);
             var created = await _repo.CreateAsync(entity);
             return created != null ? _mapper.Map<ResponseVocabularyDto>(created) : null;
@@ -41,6 +48,13 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseVocabularyDto?> UpdateAsync(Guid id, RequestVocabularyDto request)
         {
+            // Validate unique KeyWord trong cùng ToeicPart (exclude current record)
+            if (await _repo.ExistsByKeyWordAndPartAsync(request.KeyWord, request.ToeicPart, id))
+            {
+                var partInfo = string.IsNullOrEmpty(request.ToeicPart) ? "no part" : $"part {request.ToeicPart}";
+                throw new InvalidOperationException($"Vocabulary with keyword '{request.KeyWord}' already exists in {partInfo}.");
+            }
+
             var updated = await _repo.UpdateAsync(id, _mapper.Map<Vocabulary>(request));
             return updated != null ? _mapper.Map<ResponseVocabularyDto>(updated) : null;
         }

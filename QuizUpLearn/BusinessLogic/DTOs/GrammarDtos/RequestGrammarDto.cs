@@ -1,9 +1,11 @@
-﻿namespace BusinessLogic.DTOs.GrammarDtos
+﻿using Repository.Enums;
+
+namespace BusinessLogic.DTOs.GrammarDtos
 {
     public class RequestGrammarDto
     {
         public required string Name { get; set; }
         public string? Tense { get; set; }
-        public Repository.Enums.GrammarDifficultyEnum GrammarDifficulty { get; set; }
+        public GrammarDifficultyEnum GrammarDifficulty { get; set; }
     }
 }
