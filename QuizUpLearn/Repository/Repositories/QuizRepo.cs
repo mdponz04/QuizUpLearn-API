@@ -36,6 +36,7 @@ namespace Repository.Repositories
                 .Include(q => q.AnswerOptions)
                 .Include(q => q.Vocabulary)
                 .Include(q => q.Grammar)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(q => q.Id == id && q.DeletedAt == null);
         }
 

@@ -1,4 +1,6 @@
-﻿namespace BusinessLogic.DTOs.QuizGroupItemDtos
+﻿using BusinessLogic.DTOs.QuizDtos;
+
+namespace BusinessLogic.DTOs.QuizGroupItemDtos
 {
     public class ResponseQuizGroupItemDto
     {
@@ -11,5 +13,6 @@
         public string? PassageText { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
+        public List<QuizResponseDto> Quizzes { get; set; } = new List<QuizResponseDto>();
     }
 }

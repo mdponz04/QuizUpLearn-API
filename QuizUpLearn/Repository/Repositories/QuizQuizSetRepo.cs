@@ -25,6 +25,9 @@ namespace Repository.Repositories
         {
             return await _context.QuizQuizSets
                 .Include(qq => qq.Quiz)
+                    .ThenInclude(q => q.AnswerOptions)
+                .Include(qq => qq.Quiz)
+                    .ThenInclude(q => q.QuizGroupItem)
                 .Include(qq => qq.QuizSet)
                 .FirstOrDefaultAsync(qq => qq.Id == id && qq.DeletedAt == null);
         }
@@ -33,6 +36,9 @@ namespace Repository.Repositories
         {
             var query = _context.QuizQuizSets
                 .Include(qq => qq.Quiz)
+                    .ThenInclude(q => q.AnswerOptions)
+                .Include(qq => qq.Quiz)
+                    .ThenInclude(q => q.QuizGroupItem)
                 .Include(qq => qq.QuizSet)
                 .AsQueryable();
 
@@ -48,6 +54,9 @@ namespace Repository.Repositories
         {
             var query = _context.QuizQuizSets
                 .Include(qq => qq.Quiz)
+                    .ThenInclude(q => q.AnswerOptions)
+                .Include(qq => qq.Quiz)
+                    .ThenInclude(q => q.QuizGroupItem)
                 .Include(qq => qq.QuizSet)
                 .Where(qq => qq.QuizId == quizId);
 
@@ -63,6 +72,9 @@ namespace Repository.Repositories
         {
             var query = _context.QuizQuizSets
                 .Include(qq => qq.Quiz)
+                    .ThenInclude(q => q.AnswerOptions)
+                .Include(qq => qq.Quiz)
+                    .ThenInclude(q => q.QuizGroupItem)
                 .Include(qq => qq.QuizSet)
                 .Where(qq => qq.QuizSetId == quizSetId);
 
@@ -78,6 +90,9 @@ namespace Repository.Repositories
         {
             var query = _context.QuizQuizSets
                 .Include(qq => qq.Quiz)
+                    .ThenInclude(q => q.AnswerOptions)
+                .Include(qq => qq.Quiz)
+                    .ThenInclude(q => q.QuizGroupItem)
                 .Include(qq => qq.QuizSet)
                 .Where(qq => qq.QuizId == quizId && qq.QuizSetId == quizSetId);
 
