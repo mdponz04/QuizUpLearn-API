@@ -2,8 +2,8 @@
 {
     public enum VocabularyDifficultyEnum
     {
-        a,
-        b,
-        c
+        easy,
+        medium,
+        hard
     }
 }

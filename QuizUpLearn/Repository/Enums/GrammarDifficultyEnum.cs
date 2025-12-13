@@ -2,8 +2,8 @@
 {
     public enum GrammarDifficultyEnum
     {
-        a,
-        b,
-        c
+        easy,
+        medium,
+        hard
     }
 }
