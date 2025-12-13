@@ -1,4 +1,6 @@
-﻿using Repository.Entities;
+﻿using BusinessLogic.DTOs.GrammarDtos;
+using BusinessLogic.DTOs.QuizGroupItemDtos;
+using BusinessLogic.DTOs.VocabularyDtos;
 
 namespace BusinessLogic.DTOs.QuizDtos
 {
@@ -8,7 +10,6 @@ namespace BusinessLogic.DTOs.QuizDtos
         public Guid? QuizGroupItemId { get; set; }
         public Guid? VocabularyId { get; set; }
         public Guid? GrammarId { get; set; }
-        public string? QuizGroupItemName { get; set; }
         public string? QuestionText { get; set; }
         public string? CorrectAnswer { get; set; }
         public string? AudioURL { get; set; }
@@ -22,8 +23,8 @@ namespace BusinessLogic.DTOs.QuizDtos
         public DateTime? UpdatedAt { get; set; }
         public DateTime? DeletedAt { get; set; }
         public List<ResponseAnswerOptionDto> AnswerOptions { get; set; } = new List<ResponseAnswerOptionDto>();
-        public Vocabulary? Vocabulary { get; set; }
-        public Grammar? Grammar { get; set; }
-        public QuizGroupItem? QuizGroupItem { get; set; }
+        public ResponseGrammarDto? Grammar { get; set; }
+        public ResponseVocabularyDto? Vocabulary { get; set; }
+        public ResponseQuizGroupItemDto? QuizGroupItem { get; set; }
     }
 }

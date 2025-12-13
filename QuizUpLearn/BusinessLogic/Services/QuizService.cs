@@ -29,6 +29,7 @@ namespace BusinessLogic.Services
         public async Task<QuizResponseDto> GetQuizByIdAsync(Guid id)
         {
             var quiz = await _quizRepo.GetQuizByIdAsync(id);
+            if (quiz == null) return null!;
             return _mapper.Map<QuizResponseDto>(quiz);
         }
 
