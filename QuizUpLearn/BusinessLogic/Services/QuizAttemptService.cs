@@ -15,6 +15,7 @@ namespace BusinessLogic.Services
         private readonly IUserMistakeRepo _userMistakeRepo;
         private readonly IUserMistakeService _userMistakeService;
         private readonly IQuizSetRepo _quizSetRepo;
+        private readonly IQuizQuizSetRepo _quizQuizSetRepo;
         private readonly IAnswerOptionRepo _answerOptionRepo;
         private readonly ITournamentQuizSetRepo _tournamentQuizSetRepo;
         private readonly ITournamentParticipantRepo _tournamentParticipantRepo;
@@ -27,6 +28,7 @@ namespace BusinessLogic.Services
             IUserMistakeRepo userMistakeRepo,
             IUserMistakeService userMistakeService,
             IQuizSetRepo quizSetRepo,
+            IQuizQuizSetRepo quizQuizSetRepo,
             IAnswerOptionRepo answerOptionRepo,
             ITournamentQuizSetRepo tournamentQuizSetRepo,
             ITournamentParticipantRepo tournamentParticipantRepo,
@@ -38,6 +40,7 @@ namespace BusinessLogic.Services
             _userMistakeRepo = userMistakeRepo;
             _userMistakeService = userMistakeService;
             _quizSetRepo = quizSetRepo;
+            _quizQuizSetRepo = quizQuizSetRepo;
             _answerOptionRepo = answerOptionRepo;
             _tournamentQuizSetRepo = tournamentQuizSetRepo;
             _tournamentParticipantRepo = tournamentParticipantRepo;
@@ -191,11 +194,28 @@ namespace BusinessLogic.Services
                 throw new InvalidOperationException("No valid quizzes found for this user");
             }
 
+            // Lấy QuizSetId từ quiz đầu tiên (thông qua QuizQuizSet)
             var firstQuiz = selected.First();
+            var quizQuizSets = await _quizQuizSetRepo.GetByQuizIdAsync(firstQuiz.Id, includeDeleted: false);
+            var quizQuizSetList = quizQuizSets.ToList();
+            
+            Guid quizSetId;
+            if (quizQuizSetList.Any())
+            {
+                // Lấy QuizSetId từ QuizQuizSet đầu tiên
+                quizSetId = quizQuizSetList.First().QuizSetId;
+            }
+            else
+            {
+                // Nếu quiz không có QuizSetId, tạo một QuizSet mới cho mistake quizzes
+                // Hoặc có thể throw exception
+                throw new InvalidOperationException($"Quiz {firstQuiz.Id} does not belong to any QuizSet");
+            }
 
             var attempt = new QuizAttempt
             {
                 UserId = dto.UserId,
+                QuizSetId = quizSetId,
                 AttemptType = "mistake_quiz",
                 TotalQuestions = selected.Count,
                 CorrectAnswers = 0,
