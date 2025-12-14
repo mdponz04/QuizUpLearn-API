@@ -1,5 +1,6 @@
 using BusinessLogic.DTOs;
 using BusinessLogic.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -23,6 +24,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost("register")]
+        [AllowAnonymous]
         public async Task<IActionResult> Register([FromBody] RegisterRequestDto dto)
         {
             var result = await _identityService.RegisterAsync(dto);
@@ -30,6 +32,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost("login")]
+        [AllowAnonymous]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto dto)
         {
             var login = await _identityService.LoginAsync(dto);
@@ -45,6 +48,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost("reset-password/initiate")]
+        [AllowAnonymous]
         public async Task<IActionResult> InitiateResetPassword([FromBody] ResetPasswordInitiateRequestDto dto)
         {
             var ok = await _identityService.InitiateResetPasswordAsync(dto);
@@ -52,6 +56,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost("reset-password/verify")]
+        [AllowAnonymous]
         public async Task<IActionResult> VerifyResetPassword([FromBody] ResetPasswordVerifyRequestDto dto)
         {
             var ok = await _identityService.VerifyResetPasswordOtpAsync(dto);
@@ -59,6 +64,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost("reset-password/confirm")]
+        [AllowAnonymous]
         public async Task<IActionResult> ConfirmResetPassword([FromBody] ResetPasswordConfirmRequestDto dto)
         {
             var ok = await _identityService.ConfirmResetPasswordAsync(dto);
@@ -94,14 +100,15 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost("refresh")]
+        [AllowAnonymous]
         public IActionResult Refresh([FromBody] RefreshTokenRequestDto dto)
         {
             if (dto == null || string.IsNullOrWhiteSpace(dto.RefreshToken))
-                return BadRequest();
+                return BadRequest(new { message = "Refresh token is required" });
 
-            var (isValid, principal) = ValidateRefreshToken(dto.RefreshToken);
+            var (isValid, principal, errorMessage) = ValidateRefreshToken(dto.RefreshToken);
             if (!isValid || principal == null)
-                return Unauthorized();
+                return Unauthorized(new { message = errorMessage ?? "Invalid refresh token" });
 
             var accountId = principal.FindFirstValue(JwtRegisteredClaimNames.Sub);
             var email = principal.FindFirstValue(JwtRegisteredClaimNames.Email) ?? string.Empty;
@@ -109,13 +116,19 @@ namespace QuizUpLearn.API.Controllers
             var roleIdStr = principal.FindFirst("roleId")?.Value ?? Guid.Empty.ToString();
             var roleName = principal.FindFirst("roleName")?.Value ?? string.Empty;
 
+            if (string.IsNullOrEmpty(accountId) || !Guid.TryParse(accountId, out var accountIdGuid))
+                return Unauthorized(new { message = "Invalid token claims" });
+
+            if (string.IsNullOrEmpty(roleIdStr) || !Guid.TryParse(roleIdStr, out var roleIdGuid))
+                return Unauthorized(new { message = "Invalid role ID in token" });
+
             var account = new ResponseAccountDto
             {
-                Id = Guid.Parse(accountId),
+                Id = accountIdGuid,
                 Email = email,
                 Username = string.Empty,
                 UserId = Guid.TryParse(userIdStr, out var userId) ? userId : Guid.Empty,
-                RoleId = Guid.Parse(roleIdStr),
+                RoleId = roleIdGuid,
                 RoleName = roleName,
                 IsEmailVerified = false,
                 LastLoginAt = null,
@@ -168,11 +181,17 @@ namespace QuizUpLearn.API.Controllers
             return (new JwtSecurityTokenHandler().WriteToken(token), expires);
         }
 
-        private (bool isValid, ClaimsPrincipal? principal) ValidateRefreshToken(string refreshToken)
+        private (bool isValid, ClaimsPrincipal? principal, string? errorMessage) ValidateRefreshToken(string refreshToken)
         {
             var jwt = _configuration.GetSection("Jwt");
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes(jwt["Key"]!);
+            
+            if (!tokenHandler.CanReadToken(refreshToken))
+            {
+                return (false, null, "Invalid token format");
+            }
+
             try
             {
                 var principal = tokenHandler.ValidateToken(refreshToken, new TokenValidationParameters
@@ -183,13 +202,38 @@ namespace QuizUpLearn.API.Controllers
                     ValidateIssuerSigningKey = true,
                     ValidIssuer = jwt["Issuer"],
                     ValidAudience = jwt["Audience"],
-                    IssuerSigningKey = new SymmetricSecurityKey(key)
-                }, out var _);
-                return (true, principal);
+                    IssuerSigningKey = new SymmetricSecurityKey(key),
+                    ClockSkew = TimeSpan.Zero // Không cho phép clock skew để tránh lỗi timing
+                }, out var validatedToken);
+
+                // Kiểm tra xem token có phải là refresh token không (có JTI claim)
+                var jti = principal.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+                if (string.IsNullOrEmpty(jti))
+                {
+                    return (false, null, "Token is not a valid refresh token");
+                }
+
+                return (true, principal, null);
             }
-            catch
+            catch (SecurityTokenExpiredException)
             {
-                return (false, null);
+                return (false, null, "Refresh token has expired");
+            }
+            catch (SecurityTokenInvalidSignatureException)
+            {
+                return (false, null, "Invalid token signature");
+            }
+            catch (SecurityTokenInvalidIssuerException)
+            {
+                return (false, null, "Invalid token issuer");
+            }
+            catch (SecurityTokenInvalidAudienceException)
+            {
+                return (false, null, "Invalid token audience");
+            }
+            catch (Exception ex)
+            {
+                return (false, null, $"Token validation failed: {ex.Message}");
             }
         }
     }
