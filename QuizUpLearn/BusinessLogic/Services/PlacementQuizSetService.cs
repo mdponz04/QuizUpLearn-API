@@ -2,6 +2,7 @@
 using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.PlacementQuizSetDtos;
 using BusinessLogic.DTOs.QuizDtos;
+using BusinessLogic.DTOs.QuizQuizSetDtos;
 using BusinessLogic.DTOs.QuizSetDtos;
 using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Http;
@@ -51,7 +52,9 @@ namespace BusinessLogic.Services
             });
             
             var quizzesToInsert = new List<Quiz>();
-            foreach(var quizData in quizzesData)
+            
+
+            foreach (var quizData in quizzesData)
             {
                 var quiz = _mapper.Map<Quiz>(new QuizRequestDto
                 {
@@ -61,15 +64,11 @@ namespace BusinessLogic.Services
                     CorrectAnswer = quizData.CorrectAnswer
                 });
                 quizzesToInsert.Add(quiz);
-                //create quiz-quizset relationship
-                await _quizQuizSetService.CreateAsync(new DTOs.QuizQuizSetDtos.RequestQuizQuizSetDto
-                {
-                    QuizId = quiz.Id,
-                    QuizSetId = quizSet.Id
-                });
             }
 
+
             var createdQuizzes = await _quizRepo.CreateQuizzesBatchAsync(quizzesToInsert);
+            var listQuizIds = createdQuizzes.Select(q => q.Id).ToList();
 
             var answerOptionsToInsert = new List<AnswerOption>();
             var quizList = createdQuizzes.ToList();
@@ -94,6 +93,7 @@ namespace BusinessLogic.Services
             }
 
             await _answerOptionRepo.CreateBatchAsync(answerOptionsToInsert);
+            await _quizQuizSetService.AddQuizzesToQuizSetAsync(listQuizIds, quizSet.Id);
 
             return quizSet;
         }
