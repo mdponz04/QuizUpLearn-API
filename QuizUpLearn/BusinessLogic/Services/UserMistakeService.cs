@@ -104,23 +104,37 @@ namespace BusinessLogic.Services
                 if (!weakPointList.Any())
                     return;
 
-                foreach (var wp in weakPointList)
+                // Lấy tất cả UserMistake của user
+                var allMistakes = await _repo.GetAlByUserIdAsync(userId);
+                var mistakeList = allMistakes.ToList();
+
+                // Tạo set các UserWeakPointId đang được sử dụng bởi UserMistake
+                var usedWeakPointIds = new HashSet<Guid>(
+                    mistakeList
+                        .Where(um => um.UserWeakPointId.HasValue)
+                        .Select(um => um.UserWeakPointId!.Value)
+                );
+
+                // Tìm và xoá các WeakPoint orphan (không có UserMistake nào trỏ tới)
+                var orphanWeakPoints = weakPointList
+                    .Where(wp => !usedWeakPointIds.Contains(wp.Id))
+                    .ToList();
+
+                foreach (var orphanWeakPoint in orphanWeakPoints)
                 {
-                    if(wp.UserMistakes == null || wp.UserMistakes.Count == 0)
-                    {
-                        await _userWeakPointService.DeleteAsync(wp.Id);
-                    }
                     try
                     {
-                        await _userWeakPointService.DeleteAsync(wp.Id);
+                        await _userWeakPointService.DeleteAsync(orphanWeakPoint.Id);
                     }
                     catch (Exception)
                     {
+                        // Bỏ qua lỗi nếu không xoá được
                     }
                 }
             }
             catch (Exception)
             {
+                // Bỏ qua lỗi cleanup để không ảnh hưởng flow chính
             }
         }
 
