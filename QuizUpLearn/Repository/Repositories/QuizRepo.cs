@@ -106,10 +106,12 @@ namespace Repository.Repositories
                 existingQuiz.QuestionText = quiz.QuestionText;
             if(!string.IsNullOrEmpty(quiz.CorrectAnswer))
                 existingQuiz.CorrectAnswer = quiz.CorrectAnswer;
-            if(!string.IsNullOrEmpty(quiz.AudioURL))
-                existingQuiz.AudioURL = quiz.AudioURL;
-            if(!string.IsNullOrEmpty(quiz.ImageURL))
-                existingQuiz.ImageURL = quiz.ImageURL;
+            
+            // Always update AudioURL and ImageURL to allow clearing media
+            // Null or empty string will clear the media URL from database
+            existingQuiz.AudioURL = string.IsNullOrEmpty(quiz.AudioURL) ? null : quiz.AudioURL;
+            existingQuiz.ImageURL = string.IsNullOrEmpty(quiz.ImageURL) ? null : quiz.ImageURL;
+            
             if(!string.IsNullOrEmpty(quiz.TOEICPart))
                 existingQuiz.TOEICPart = quiz.TOEICPart;
             if(existingQuiz.TimesAnswered > 0)
@@ -120,6 +122,7 @@ namespace Repository.Repositories
                 existingQuiz.QuizGroupItemId = quiz.QuizGroupItemId;
 
             existingQuiz.OrderIndex = quiz.OrderIndex;
+            existingQuiz.IsActive = quiz.IsActive;
 
             quiz.UpdatedAt = DateTime.UtcNow;
             _context.Quizzes.Update(existingQuiz);
