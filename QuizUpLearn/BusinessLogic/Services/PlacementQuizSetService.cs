@@ -2,7 +2,7 @@
 using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.PlacementQuizSetDtos;
 using BusinessLogic.DTOs.QuizDtos;
-using BusinessLogic.DTOs.QuizQuizSetDtos;
+using BusinessLogic.DTOs.QuizGroupItemDtos;
 using BusinessLogic.DTOs.QuizSetDtos;
 using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Http;
@@ -20,18 +20,21 @@ namespace BusinessLogic.Services
         private readonly IAnswerOptionRepo _answerOptionRepo;
         private readonly IMapper _mapper;
         private readonly IQuizQuizSetService _quizQuizSetService;
+        private readonly IQuizGroupItemService _quizGroupItemService;
 
         public PlacementQuizSetService(IQuizSetService quizSetService,
             IQuizRepo quizRepo,
             IAnswerOptionRepo answerOptionRepo,
             IMapper mapper,
-            IQuizQuizSetService quizQuizSetService)
+            IQuizQuizSetService quizQuizSetService,
+            IQuizGroupItemService quizGroupItemService)
         {
             _quizSetService = quizSetService;
             _quizRepo = quizRepo;
             _answerOptionRepo = answerOptionRepo;
             _mapper = mapper;
             _quizQuizSetService = quizQuizSetService;
+            _quizGroupItemService = quizGroupItemService;
         }
 
 
@@ -53,6 +56,13 @@ namespace BusinessLogic.Services
             
             var quizzesToInsert = new List<Quiz>();
             
+            var quizGroupItemListening = await _quizGroupItemService.CreateAsync(new RequestQuizGroupItemDto
+            {
+                Name = "Listening Section",
+            });
+
+            if (quizSet.QuizGroupItems == null)
+                throw new Exception("Quiz group item listening is null after creating QuizSet.");
 
             foreach (var quizData in quizzesData)
             {
@@ -61,11 +71,11 @@ namespace BusinessLogic.Services
                     QuestionText = quizData.Prompt,
                     OrderIndex = quizData.GlobalIndex,
                     TOEICPart = $"PART{quizData.Part}",
-                    CorrectAnswer = quizData.CorrectAnswer
+                    CorrectAnswer = quizData.CorrectAnswer,
+                    QuizGroupItemId = quizGroupItemListening.Id,
                 });
                 quizzesToInsert.Add(quiz);
             }
-
 
             var createdQuizzes = await _quizRepo.CreateQuizzesBatchAsync(quizzesToInsert);
             var listQuizIds = createdQuizzes.Select(q => q.Id).ToList();
