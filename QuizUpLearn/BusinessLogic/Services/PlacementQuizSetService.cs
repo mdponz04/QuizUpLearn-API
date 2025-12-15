@@ -77,6 +77,7 @@ namespace BusinessLogic.Services
                 quizzesToInsert.Add(quiz);
             }
 
+
             var createdQuizzes = await _quizRepo.CreateQuizzesBatchAsync(quizzesToInsert);
             var listQuizIds = createdQuizzes.Select(q => q.Id).ToList();
 
