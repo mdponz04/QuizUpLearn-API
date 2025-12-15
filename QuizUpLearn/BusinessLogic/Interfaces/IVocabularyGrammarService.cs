@@ -6,6 +6,6 @@ namespace BusinessLogic.Interfaces
 {
     public interface IVocabularyGrammarService
     {
-        Task<PaginationResponseDto<(ResponseGrammarDto, ResponseVocabularyDto, string)>> GetUnusedPairVocabularyGrammar();
+        Task<PaginationResponseDto<GrammarVocabularyResponseDto>> GetUnusedPairVocabularyGrammar();
     }
 }

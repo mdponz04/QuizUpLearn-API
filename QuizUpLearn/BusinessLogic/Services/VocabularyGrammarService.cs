@@ -1,6 +1,7 @@
 ﻿using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.GrammarDtos;
 using BusinessLogic.DTOs.VocabularyDtos;
+using BusinessLogic.Helpers;
 using BusinessLogic.Interfaces;
 using Repository.Enums;
 using Repository.Interfaces;
@@ -18,12 +19,12 @@ namespace BusinessLogic.Services
             _grammarRepo = grammarRepo;
         }
 
-        public async Task<PaginationResponseDto<(ResponseGrammarDto, ResponseVocabularyDto, string)>> GetUnusedPairVocabularyGrammar()
+        public async Task<PaginationResponseDto<GrammarVocabularyResponseDto>> GetUnusedPairVocabularyGrammar()
         {
             var allVocabs = await _vocabularyRepo.GetAllAsync();
             var allGrammars = await _grammarRepo.GetAllAsync();
 
-            List<(ResponseGrammarDto, ResponseVocabularyDto, string)> vocabGrammarUnusedPairs = new();
+            List<GrammarVocabularyResponseDto> vocabGrammarUnusedPairs = new();
             List<string> parts = new() {
                 QuizPartEnum.PART1.ToString(),
                 QuizPartEnum.PART2.ToString(),
@@ -36,15 +37,26 @@ namespace BusinessLogic.Services
 
             for(int i = 1; i <= 7; i++)
             {
+                //Check part
                 string part = $"PART{i}";
+
                 foreach (var vocab in allVocabs)
                 {
+                    // Get any quiz of this vocab (Check vocab) there should be 1 or 0 quiz only
+                    var quiz = vocab.Quizzes.FirstOrDefault();
+                    if(quiz == null || quiz.TOEICPart != part)
+                    {
+                        continue;
+                    }
+
                     foreach (var grammar in allGrammars)
                     {
-                        // Check if used together in THIS part
-                        bool isUsed = vocab.Quizzes.Any(q => q.GrammarId == grammar.Id && q.TOEICPart == part)
-                            ||
-                            grammar.Quizzes.Any(q => q.VocabularyId == vocab.Id && q.TOEICPart == part);
+                        bool isUsed = false;
+                        //Check grammar
+                        if (quiz.GrammarId == grammar.Id)
+                        {
+                            isUsed = true;
+                        }
 
                         if (!isUsed)
                         {
@@ -69,17 +81,22 @@ namespace BusinessLogic.Services
                                 UpdatedAt = vocab.UpdatedAt
                             };
 
-                            vocabGrammarUnusedPairs.Add((grammarDto, vocabularyDto, part));
+                            vocabGrammarUnusedPairs.Add(new GrammarVocabularyResponseDto
+                            {
+                                Grammar = grammarDto,
+                                Vocabulary = vocabularyDto,
+                                Part = part
+                            });
                         }
                     }
                 }
             }
             
-            var paginationRequest = new PaginationRequestDto { Page = 1, PageSize = vocabGrammarUnusedPairs.Count };
-            return PaginationResponseDto<(ResponseGrammarDto, ResponseVocabularyDto, string)>.Create(
-                paginationRequest, 
-                vocabGrammarUnusedPairs.Count, 
-                vocabGrammarUnusedPairs);
+            var paginationResponse = PaginationHelper.CreatePagedResponse(vocabGrammarUnusedPairs, new PaginationRequestDto
+            {
+            });
+
+            return paginationResponse;
         }
     }
 }
