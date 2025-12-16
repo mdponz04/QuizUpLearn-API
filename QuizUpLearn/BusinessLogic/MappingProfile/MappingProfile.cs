@@ -85,6 +85,18 @@ namespace BusinessLogic.MappingProfile
             // QuizQuizSet mappings
             CreateMap<Repository.Entities.QuizQuizSet, DTOs.QuizQuizSetDtos.ResponseQuizQuizSetDto>();
             CreateMap<Repository.Entities.QuizQuizSet, DTOs.QuizQuizSetDtos.RequestQuizQuizSetDto>().ReverseMap();
+            //QuizReport mappings
+            CreateMap<Repository.Entities.QuizReport, DTOs.QuizReportDtos.ResponseQuizReportDto>();
+            CreateMap<Repository.Entities.QuizReport, DTOs.QuizReportDtos.RequestQuizReportDto>().ReverseMap();
+            //QuizSetComment mappings
+            CreateMap<Repository.Entities.QuizSetComment, DTOs.QuizSetCommentDtos.ResponseQuizSetCommentDto>();
+            CreateMap<Repository.Entities.QuizSetComment, DTOs.QuizSetCommentDtos.RequestQuizSetCommentDto>().ReverseMap();
+            //UserQuizSetFavorite mappings
+            CreateMap<Repository.Entities.UserQuizSetFavorite, DTOs.UserQuizSetFavoriteDtos.ResponseUserQuizSetFavoriteDto>();
+            CreateMap<Repository.Entities.UserQuizSetFavorite, DTOs.UserQuizSetFavoriteDtos.RequestUserQuizSetFavoriteDto>().ReverseMap();
+            //UserQuizSetLike mappings
+            CreateMap<Repository.Entities.UserQuizSetLike, DTOs.UserQuizSetLikeDtos.ResponseUserQuizSetLikeDto>();
+            CreateMap<Repository.Entities.UserQuizSetLike, DTOs.UserQuizSetLikeDtos.RequestUserQuizSetLikeDto>().ReverseMap();
         }
     }
 }

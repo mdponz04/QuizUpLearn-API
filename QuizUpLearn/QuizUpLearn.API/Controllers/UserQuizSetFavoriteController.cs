@@ -24,9 +24,6 @@ namespace QuizUpLearn.API.Controllers
         [HttpPost]
         public async Task<ActionResult<ResponseUserQuizSetFavoriteDto>> Create([FromBody] RequestUserQuizSetFavoriteDto dto)
         {
-            if (!ModelState.IsValid)
-                throw new HttpException(HttpStatusCode.BadRequest, "Invalid model state");
-
             try
             {
                 var result = await _userQuizSetFavoriteService.CreateAsync(dto);
@@ -100,10 +97,15 @@ namespace QuizUpLearn.API.Controllers
             return Ok(result);
         }
 
-        [HttpPost("toggle/user/{userId}/quizset/{quizSetId}")]
-        public async Task<ActionResult<bool>> ToggleFavorite(Guid userId, Guid quizSetId)
+        [HttpPost("toggle-favorite/quiz-set-id/{quizSetId:guid}")]
+        [SubscriptionAndRoleAuthorize]
+        public async Task<ActionResult<bool>> ToggleFavorite(Guid? userId, Guid quizSetId)
         {
-            var result = await _userQuizSetFavoriteService.ToggleFavoriteAsync(userId, quizSetId);
+            if (userId == null)
+            {
+                userId = (Guid)HttpContext.Items["UserId"]!;
+            }
+            var result = await _userQuizSetFavoriteService.ToggleFavoriteAsync(userId.Value, quizSetId);
             return Ok(result);
         }
 

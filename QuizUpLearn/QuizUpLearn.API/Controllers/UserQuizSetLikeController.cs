@@ -24,9 +24,6 @@ namespace QuizUpLearn.API.Controllers
         [HttpPost]
         public async Task<ActionResult<ResponseUserQuizSetLikeDto>> Create([FromBody] RequestUserQuizSetLikeDto dto)
         {
-            if (!ModelState.IsValid)
-                throw new HttpException(HttpStatusCode.BadRequest, "Invalid model state");
-
             try
             {
                 var result = await _userQuizSetLikeService.CreateAsync(dto);
@@ -88,22 +85,32 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpGet("user/{userId}/quizset/{quizSetId}")]
+        [SubscriptionAndRoleAuthorize]
         public async Task<ActionResult<ResponseUserQuizSetLikeDto>> GetByUserAndQuizSet(
-            Guid userId, 
+            Guid? userId, 
             Guid quizSetId, 
             [FromQuery] bool includeDeleted = false)
         {
-            var result = await _userQuizSetLikeService.GetByUserAndQuizSetAsync(userId, quizSetId, includeDeleted);
+            if (userId == null)
+            {
+                userId = (Guid)HttpContext.Items["UserId"]!;
+            }
+            var result = await _userQuizSetLikeService.GetByUserAndQuizSetAsync(userId.Value, quizSetId, includeDeleted);
             if (result == null)
                 throw new HttpException(HttpStatusCode.NotFound, "Like not found");
 
             return Ok(result);
         }
 
-        [HttpPost("toggle/user/{userId}/quizset/{quizSetId}")]
-        public async Task<ActionResult<bool>> ToggleLike(Guid userId, Guid quizSetId)
+        [HttpPost("toggle-like/quiz-set-id/{quizSetId:guid}")]
+        [SubscriptionAndRoleAuthorize]
+        public async Task<ActionResult<bool>> ToggleLike(Guid? userId, Guid quizSetId)
         {
-            var result = await _userQuizSetLikeService.ToggleLikeAsync(userId, quizSetId);
+            if (userId == null)
+            {
+                userId = (Guid)HttpContext.Items["UserId"]!;
+            }
+            var result = await _userQuizSetLikeService.ToggleLikeAsync(userId.Value, quizSetId);
             return Ok(result);
         }
 

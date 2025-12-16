@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QuizUpLearn.API.Attributes;
 using QuizUpLearn.API.Models;
+using Repository.Entities;
 using System.Net;
 
 namespace QuizUpLearn.API.Controllers
@@ -22,11 +23,13 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost]
+        [SubscriptionAndRoleAuthorize]
         public async Task<ActionResult<ResponseQuizSetCommentDto>> Create([FromBody] RequestQuizSetCommentDto dto)
         {
-            if (!ModelState.IsValid)
-                throw new HttpException(HttpStatusCode.BadRequest, "Invalid model state");
-
+            if (dto.UserId == Guid.Empty)
+            {
+                dto.UserId = (Guid)HttpContext.Items["UserId"]!;
+            }
             try
             {
                 var result = await _quizSetCommentService.CreateAsync(dto);
