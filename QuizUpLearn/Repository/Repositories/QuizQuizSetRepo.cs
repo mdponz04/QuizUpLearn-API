@@ -117,16 +117,6 @@ namespace Repository.Repositories
             return existing;
         }
 
-        public async Task<bool> SoftDeleteAsync(Guid id)
-        {
-            var entity = await _context.QuizQuizSets.FirstOrDefaultAsync(qq => qq.Id == id && qq.DeletedAt == null);
-            if (entity == null) return false;
-
-            entity.DeletedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-            return true;
-        }
-
         public async Task<bool> HardDeleteAsync(Guid id)
         {
             var entity = await _context.QuizQuizSets.FirstOrDefaultAsync(qq => qq.Id == id);

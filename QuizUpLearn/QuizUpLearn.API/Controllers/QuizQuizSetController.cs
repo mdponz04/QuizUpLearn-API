@@ -116,17 +116,6 @@ namespace QuizUpLearn.API.Controllers
             }
         }
 
-        [HttpDelete("{id}")]
-        [SubscriptionAndRoleAuthorize("Administrator", "Moderator")]
-        public async Task<IActionResult> SoftDelete(Guid id)
-        {
-            var result = await _quizQuizSetService.SoftDeleteAsync(id);
-            if (!result)
-                throw new HttpException(HttpStatusCode.NotFound, "Quiz-QuizSet association not found");
-
-            return NoContent();
-        }
-
         [HttpDelete("{id}/permanent")]
         [SubscriptionAndRoleAuthorize("Administrator")]
         public async Task<IActionResult> HardDelete(Guid id)
@@ -161,17 +150,6 @@ namespace QuizUpLearn.API.Controllers
                 throw new HttpException(HttpStatusCode.BadRequest, "Failed to add quiz to quiz set");
 
             return Ok(new { message = "Quiz successfully added to quiz set" });
-        }
-
-        [HttpDelete("quiz/{quizId}/quizset/{quizSetId}")]
-        [SubscriptionAndRoleAuthorize("Administrator", "Moderator")]
-        public async Task<IActionResult> RemoveQuizFromQuizSet(Guid quizId, Guid quizSetId)
-        {
-            var result = await _quizQuizSetService.RemoveQuizFromQuizSetAsync(quizId, quizSetId);
-            if (!result)
-                throw new HttpException(HttpStatusCode.NotFound, "Quiz-QuizSet association not found");
-
-            return Ok(new { message = "Quiz successfully removed from quiz set" });
         }
 
         [HttpPost("quizset/{quizSetId}/add-quizzes")]
