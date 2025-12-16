@@ -12,7 +12,6 @@ namespace BusinessLogic.Interfaces
         Task<PaginationResponseDto<ResponseUserQuizSetFavoriteDto>> GetByQuizSetIdAsync(Guid quizSetId, PaginationRequestDto pagination, bool includeDeleted = false);
         Task<ResponseUserQuizSetFavoriteDto?> GetByUserAndQuizSetAsync(Guid userId, Guid quizSetId, bool includeDeleted = false);
         Task<bool> ToggleFavoriteAsync(Guid userId, Guid quizSetId);
-        Task<bool> SoftDeleteAsync(Guid id);
         Task<bool> HardDeleteAsync(Guid id);
         Task<bool> IsExistAsync(Guid userId, Guid quizSetId);
         Task<int> GetFavoriteCountByQuizSetAsync(Guid quizSetId);

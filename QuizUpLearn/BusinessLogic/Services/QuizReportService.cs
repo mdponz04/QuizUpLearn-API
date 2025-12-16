@@ -59,11 +59,6 @@ namespace BusinessLogic.Services
             return entity == null ? null : _mapper.Map<ResponseQuizReportDto>(entity);
         }
 
-        public async Task<bool> SoftDeleteAsync(Guid id)
-        {
-            return await _quizReportRepo.SoftDeleteAsync(id);
-        }
-
         public async Task<bool> HardDeleteAsync(Guid id)
         {
             return await _quizReportRepo.HardDeleteAsync(id);

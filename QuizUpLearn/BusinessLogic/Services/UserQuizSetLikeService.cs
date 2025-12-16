@@ -69,7 +69,7 @@ namespace BusinessLogic.Services
             if (existing != null)
             {
                 // Remove like
-                return await _userQuizSetLikeRepo.SoftDeleteAsync(existing.Id);
+                return await _userQuizSetLikeRepo.HardDeleteAsync(existing.Id);
             }
             else
             {
@@ -82,11 +82,6 @@ namespace BusinessLogic.Services
                 await _userQuizSetLikeRepo.CreateAsync(entity);
                 return true;
             }
-        }
-
-        public async Task<bool> SoftDeleteAsync(Guid id)
-        {
-            return await _userQuizSetLikeRepo.SoftDeleteAsync(id);
         }
 
         public async Task<bool> HardDeleteAsync(Guid id)

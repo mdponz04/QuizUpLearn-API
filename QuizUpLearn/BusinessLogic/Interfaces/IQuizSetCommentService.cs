@@ -11,7 +11,6 @@ namespace BusinessLogic.Interfaces
         Task<PaginationResponseDto<ResponseQuizSetCommentDto>> GetByUserIdAsync(Guid userId, PaginationRequestDto pagination, bool includeDeleted = false);
         Task<PaginationResponseDto<ResponseQuizSetCommentDto>> GetByQuizSetIdAsync(Guid quizSetId, PaginationRequestDto pagination, bool includeDeleted = false);
         Task<ResponseQuizSetCommentDto?> UpdateAsync(Guid id, RequestQuizSetCommentDto dto);
-        Task<bool> SoftDeleteAsync(Guid id);
         Task<bool> HardDeleteAsync(Guid id);
         Task<int> GetCommentCountByQuizSetAsync(Guid quizSetId);
     }

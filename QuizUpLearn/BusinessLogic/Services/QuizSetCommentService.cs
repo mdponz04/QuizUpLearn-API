@@ -60,11 +60,6 @@ namespace BusinessLogic.Services
             return updated == null ? null : _mapper.Map<ResponseQuizSetCommentDto>(updated);
         }
 
-        public async Task<bool> SoftDeleteAsync(Guid id)
-        {
-            return await _quizSetCommentRepo.SoftDeleteAsync(id);
-        }
-
         public async Task<bool> HardDeleteAsync(Guid id)
         {
             return await _quizSetCommentRepo.HardDeleteAsync(id);

@@ -69,7 +69,7 @@ namespace BusinessLogic.Services
             if (existing != null)
             {
                 // Remove favorite
-                return await _userQuizSetFavoriteRepo.SoftDeleteAsync(existing.Id);
+                return await _userQuizSetFavoriteRepo.HardDeleteAsync(existing.Id);
             }
             else
             {
@@ -82,11 +82,6 @@ namespace BusinessLogic.Services
                 await _userQuizSetFavoriteRepo.CreateAsync(entity);
                 return true;
             }
-        }
-
-        public async Task<bool> SoftDeleteAsync(Guid id)
-        {
-            return await _userQuizSetFavoriteRepo.SoftDeleteAsync(id);
         }
 
         public async Task<bool> HardDeleteAsync(Guid id)
