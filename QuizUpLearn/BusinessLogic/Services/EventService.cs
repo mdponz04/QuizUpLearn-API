@@ -286,7 +286,7 @@ namespace BusinessLogic.Services
                     // Small delay to ensure room is fully initialized
                     await Task.Delay(500);
                     
-                    await SendGamePinEmailToAllUsersAsync(
+                    await SendGamePinEmailToEventParticipantsAsync(
                         eventEntity, 
                         gameResponse.GamePin, 
                         gameResponse.GameSessionId);
@@ -563,12 +563,12 @@ namespace BusinessLogic.Services
         }
 
         /// <summary>
-        /// Gửi email với GamePin cho TẤT CẢ active users trong hệ thống
+        /// Gửi email với GamePin cho TẤT CẢ users đã ĐĂNG KÝ tham gia Event (EventParticipants)
         /// Method này CHỈ được gọi SAU KHI game room đã được tạo và verified thành công
         /// </summary>
-        private async Task SendGamePinEmailToAllUsersAsync(
-            Event eventEntity, 
-            string gamePin, 
+        private async Task SendGamePinEmailToEventParticipantsAsync(
+            Event eventEntity,
+            string gamePin,
             Guid gameSessionId)
         {
             var startTime = DateTime.UtcNow;
@@ -576,32 +576,70 @@ namespace BusinessLogic.Services
 
             try
             {
-                // ✅ STEP 1: LẤY DANH SÁCH ACTIVE USERS
-                _logger.LogInformation($"📋 Fetching active accounts from database...");
-                var allAccounts = await _accountRepo.GetAllAsync(includeDeleted: false);
-                var activeAccounts = allAccounts
-                    .Where(a => a.IsActive 
-                        && a.IsEmailVerified 
-                        && !string.IsNullOrWhiteSpace(a.Email))
-                    .ToList();
+                // ✅ STEP 1: LẤY DANH SÁCH USERS ĐÃ ĐĂNG KÝ THAM GIA EVENT
+                _logger.LogInformation($"📋 Fetching event participants from database for Event {eventEntity.Id}...");
 
-                if (!activeAccounts.Any())
+                var participants = await _eventParticipantRepo.GetByEventIdAsync(eventEntity.Id);
+                var participantList = participants.ToList();
+
+                if (!participantList.Any())
                 {
-                    _logger.LogWarning($"⚠️ No active accounts found for Event {eventEntity.Id} notification");
+                    _logger.LogWarning($"⚠️ No participants found for Event {eventEntity.Id}. Skipping GamePin email sending.");
                     return;
                 }
 
-                _logger.LogInformation($"✅ Found {activeAccounts.Count} active users to notify");
+                // Lấy User và Account tương ứng
+                var accounts = new List<Account>();
+                foreach (var participant in participantList)
+                {
+                    try
+                    {
+                        var user = await _userRepo.GetByIdAsync(participant.ParticipantId);
+                        if (user == null)
+                        {
+                            _logger.LogWarning($"⚠️ User {participant.ParticipantId} not found for Event {eventEntity.Id}");
+                            continue;
+                        }
+
+                        var account = await _accountRepo.GetByIdAsync(user.AccountId);
+                        if (account == null)
+                        {
+                            _logger.LogWarning($"⚠️ Account for User {user.Id} (AccountId={user.AccountId}) not found. Skipping.");
+                            continue;
+                        }
+
+                        // Chỉ gửi cho account active, email verified và có email hợp lệ
+                        if (!account.IsActive || !account.IsEmailVerified || string.IsNullOrWhiteSpace(account.Email))
+                        {
+                            _logger.LogInformation($"ℹ️ Skipping Account {account.Id} (Active={account.IsActive}, Verified={account.IsEmailVerified}, Email='{account.Email}')");
+                            continue;
+                        }
+
+                        accounts.Add(account);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"❌ Error while resolving Account for participant {participant.ParticipantId} in Event {eventEntity.Id}");
+                    }
+                }
+
+                if (!accounts.Any())
+                {
+                    _logger.LogWarning($"⚠️ No valid accounts found to notify for Event {eventEntity.Id}. Skipping GamePin email sending.");
+                    return;
+                }
+
+                _logger.LogInformation($"✅ Found {accounts.Count} registered participants with valid email to notify for Event {eventEntity.Id}");
 
                 // ✅ STEP 2: PREPARE EMAIL CONTENT
                 var emailConfig = PrepareEmailConfiguration(eventEntity, gamePin);
                 _logger.LogInformation($"✅ Email content prepared");
 
                 // ✅ STEP 3: GỬI EMAILS THEO BATCH
-                await SendEmailsInBatchesAsync(activeAccounts, emailConfig, eventEntity.Id);
+                await SendEmailsInBatchesAsync(accounts, emailConfig, eventEntity.Id);
 
                 var duration = (DateTime.UtcNow - startTime).TotalSeconds;
-                _logger.LogInformation($"🎉 Successfully sent GamePin emails to {activeAccounts.Count} users in {duration:F2}s");
+                _logger.LogInformation($"🎉 Successfully sent GamePin emails to {accounts.Count} registered participants in {duration:F2}s");
             }
             catch (Exception ex)
             {
