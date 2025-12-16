@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace BusinessLogic.DTOs.QuizQuizSetDtos
 {
     public class RequestQuizQuizSetDto

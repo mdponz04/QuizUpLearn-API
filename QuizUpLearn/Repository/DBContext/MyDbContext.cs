@@ -33,6 +33,10 @@ namespace Repository.DBContext
         public DbSet<Grammar> Grammars { get; set; }
         public DbSet<Vocabulary> Vocabularies { get; set; }
         public DbSet<QuizQuizSet> QuizQuizSets { get; set; }
+        public DbSet<QuizReport> QuizReports { get; set; }
+        public DbSet<QuizSetComment> QuizSetComments { get; set; }
+        public DbSet<UserQuizSetFavorite> UserQuizSetFavorites { get; set; }
+        public DbSet<UserQuizSetLike> UserQuizSetLikes { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Account>()

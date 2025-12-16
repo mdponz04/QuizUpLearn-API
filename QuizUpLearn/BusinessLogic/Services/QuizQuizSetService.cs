@@ -100,11 +100,6 @@ namespace BusinessLogic.Services
             return updated == null ? null : _mapper.Map<ResponseQuizQuizSetDto>(updated);
         }
 
-        public async Task<bool> SoftDeleteAsync(Guid id)
-        {
-            return await _quizQuizSetRepo.SoftDeleteAsync(id);
-        }
-
         public async Task<bool> HardDeleteAsync(Guid id)
         {
             return await _quizQuizSetRepo.HardDeleteAsync(id);
@@ -119,7 +114,6 @@ namespace BusinessLogic.Services
         {
             return await _quizQuizSetRepo.GetQuizCountByQuizSetAsync(quizSetId);
         }
-
         public async Task<bool> AddQuizToQuizSetAsync(Guid quizId, Guid quizSetId)
         {
             try
@@ -133,15 +127,6 @@ namespace BusinessLogic.Services
                 return false;
             }
         }
-
-        public async Task<bool> RemoveQuizFromQuizSetAsync(Guid quizId, Guid quizSetId)
-        {
-            var entity = await _quizQuizSetRepo.GetByQuizAndQuizSetAsync(quizId, quizSetId);
-            if (entity == null) return false;
-
-            return await _quizQuizSetRepo.SoftDeleteAsync(entity.Id);
-        }
-
         public async Task<bool> AddQuizzesToQuizSetAsync(List<Guid> quizIds, Guid quizSetId)
         {
             try
