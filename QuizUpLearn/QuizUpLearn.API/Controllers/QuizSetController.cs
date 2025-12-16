@@ -80,6 +80,11 @@ namespace QuizUpLearn.API.Controllers
         {
             var userId = (Guid)HttpContext.Items["UserId"]!;
 
+            if (creatorId != null)
+            {
+                userId = creatorId.Value;
+            }
+            
             var quizSets = await _quizSetService.GetQuizSetsByCreatorAsync(creatorId ?? userId, request);
             return Ok(quizSets);
         }

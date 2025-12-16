@@ -63,13 +63,18 @@ namespace QuizUpLearn.API.Controllers
             return Ok(result);
         }
 
-        [HttpPost("user/{userId}/search")]
+        [HttpPost("user/search")]
+        [SubscriptionAndRoleAuthorize]
         public async Task<ActionResult<PaginationResponseDto<ResponseQuizReportDto>>> GetByUserId(
-            Guid userId,
+            Guid? userId,
             [FromBody] PaginationRequestDto pagination, 
             [FromQuery] bool includeDeleted = false)
         {
-            var result = await _quizReportService.GetByUserIdAsync(userId, pagination, includeDeleted);
+            if (userId == null)
+            {
+                userId = (Guid)HttpContext.Items["UserId"]!;
+            }
+            var result = await _quizReportService.GetByUserIdAsync(userId.Value, pagination, includeDeleted);
             return Ok(result);
         }
 
