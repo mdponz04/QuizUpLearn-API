@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QuizUpLearn.API.Attributes;
 using QuizUpLearn.API.Models;
-using Repository.Entities;
 using System.Net;
 
 namespace QuizUpLearn.API.Controllers
