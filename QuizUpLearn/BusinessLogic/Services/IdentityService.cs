@@ -7,12 +7,14 @@ using Repository.Interfaces;
 using BCrypt.Net;
 using Repository.Models;
 using Microsoft.Extensions.Configuration;
+using FirebaseAdmin.Auth;
 
 namespace BusinessLogic.Services
 {
     public class IdentityService : IIdentityService
     {
         private readonly IAccountRepo _accountRepo;
+        private readonly IUserRepo _userRepo;
         private readonly IMapper _mapper;
         private readonly IOtpVerificationRepo _otpRepo;
         private readonly IMailerSendService _mailer;
@@ -22,6 +24,7 @@ namespace BusinessLogic.Services
 
         public IdentityService(
             IAccountRepo accountRepo,
+            IUserRepo userRepo,
             IOtpVerificationRepo otpRepo,
             IMailerSendService mailer,
             IConfiguration configuration,
@@ -30,6 +33,7 @@ namespace BusinessLogic.Services
             ISubscriptionPlanService subscriptionPlanService)
         {
             _accountRepo = accountRepo;
+            _userRepo = userRepo;
             _otpRepo = otpRepo;
             _mailer = mailer;
             _configuration = configuration;
@@ -135,6 +139,149 @@ namespace BusinessLogic.Services
             var newHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
             var ok = await _accountRepo.UpdatePasswordByEmailAsync(email, newHash);
             return ok;
+        }
+
+        public async Task<LoginResponseDto?> LoginWithGoogleAsync(GoogleLoginRequestDto dto)
+        {
+            try
+            {
+                // Verify Firebase ID token với Firebase Admin SDK
+                FirebaseToken decodedToken;
+                try
+                {
+                    // Firebase Admin SDK sẽ tự động verify:
+                    // - Signature với Google's public keys
+                    // - Issuer (phải là https://securetoken.google.com/{projectId})
+                    // - Audience (phải là projectId)
+                    // - Expiration time
+                    decodedToken = await FirebaseAuth.DefaultInstance.VerifyIdTokenAsync(dto.IdToken);
+                }
+                catch (FirebaseAuthException ex)
+                {
+                    // Token không hợp lệ, đã hết hạn, hoặc không khớp projectId
+                    // Có thể do:
+                    // 1. Token đã hết hạn
+                    // 2. Audience không khớp (projectId sai)
+                    // 3. Signature không hợp lệ
+                    // 4. Token không phải là Firebase ID token
+                    System.Diagnostics.Debug.WriteLine($"Firebase token verification failed: {ex.Message}");
+                    return null;
+                }
+                catch (Exception ex)
+                {
+                    // Lỗi khác khi verify token (có thể do Firebase chưa được khởi tạo)
+                    System.Diagnostics.Debug.WriteLine($"Firebase token verification error: {ex.Message}");
+                    return null;
+                }
+                
+                // Lấy email từ decoded token
+                var email = decodedToken.Claims.GetValueOrDefault("email")?.ToString();
+                if (string.IsNullOrEmpty(email))
+                {
+                    return null;
+                }
+                
+                // Lấy thông tin khác từ token
+                var name = decodedToken.Claims.GetValueOrDefault("name")?.ToString();
+                var picture = decodedToken.Claims.GetValueOrDefault("picture")?.ToString();
+
+                email = email.Trim().ToLowerInvariant();
+                var account = await _accountRepo.GetByEmailAsync(email);
+
+                // Nếu account chưa tồn tại, tạo mới
+                if (account == null)
+                {
+                    // Tạo account mới với password hash random (vì login bằng Google không cần password)
+                    var newAccount = new Account
+                    {
+                        Email = email,
+                        PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString())
+                    };
+                    account = await _accountRepo.CreateAsync(newAccount);
+
+                    // Tạo subscription miễn phí cho user mới
+                    var freePlan = await _subscriptionPlanService.GetFreeSubscriptionPlanAsync();
+                    await _subscriptionService.CreateAsync(new RequestSubscriptionDto
+                    {
+                        UserId = account.UserId,
+                        SubscriptionPlanId = freePlan.Id,
+                        AiGenerateQuizSetRemaining = freePlan.AiGenerateQuizSetMaxTimes,
+                        EndDate = DateTime.UtcNow.AddDays(freePlan.DurationDays)
+                    });
+
+                    // Cập nhật thông tin User từ Google
+                    var user = await _userRepo.GetByIdAsync(account.UserId);
+                    if (user != null)
+                    {
+                        user.FullName = name ?? string.Empty;
+                        user.AvatarUrl = picture ?? string.Empty;
+                        await _userRepo.UpdateAsync(user.Id, user);
+                    }
+                }
+                else
+                {
+                    // Account đã tồn tại, kiểm tra trạng thái
+                    if (account.DeletedAt != null || !account.IsActive)
+                    {
+                        return null;
+                    }
+
+                    // Cập nhật thông tin User từ Google nếu có thay đổi
+                    var user = await _userRepo.GetByIdAsync(account.UserId);
+                    if (user != null)
+                    {
+                        var updated = false;
+                        if (!string.IsNullOrEmpty(name) && user.FullName != name)
+                        {
+                            user.FullName = name;
+                            updated = true;
+                        }
+                        if (!string.IsNullOrEmpty(picture) && user.AvatarUrl != picture)
+                        {
+                            user.AvatarUrl = picture;
+                            updated = true;
+                        }
+                        if (updated)
+                        {
+                            await _userRepo.UpdateAsync(user.Id, user);
+                        }
+                    }
+                }
+
+                // Cập nhật LastLoginAt và IsEmailVerified
+                account.LastLoginAt = DateTime.UtcNow;
+                account.IsEmailVerified = true; // Google email đã được verify
+                await _accountRepo.UpdateAsync(account.Id, account);
+
+                // Reload account với User và Role để map đúng
+                account = await _accountRepo.GetByEmailAsync(email);
+                if (account == null) return null;
+
+                return new LoginResponseDto
+                {
+                    Account = _mapper.Map<ResponseAccountDto>(account),
+                    AccessToken = string.Empty,
+                    ExpiresAt = DateTime.UtcNow,
+                    RefreshToken = string.Empty,
+                    RefreshExpiresAt = DateTime.UtcNow
+                };
+            }
+            catch (FirebaseAuthException)
+            {
+                // Token không hợp lệ (đã được xử lý ở trên)
+                return null;
+            }
+            catch (ArgumentException)
+            {
+                // Lỗi cấu hình
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Lỗi khác
+                System.Diagnostics.Debug.WriteLine($"Unexpected error in LoginWithGoogleAsync: {ex.Message}");
+                return null;
+            }
         }
 
         private static string GenerateSixDigitOtp()
