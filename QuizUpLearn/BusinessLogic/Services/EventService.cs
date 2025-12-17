@@ -278,25 +278,20 @@ namespace BusinessLogic.Services
 
             // ✨ STEP 4: GỬI EMAIL NOTIFICATION - CHỈ SAU KHI ROOM ĐÃ SẴN SÀNG
             _logger.LogInformation($"📧 Initiating email notification for Event {eventEntity.Id} with GamePin {gameResponse.GamePin}");
-            
-            _ = Task.Run(async () =>
+
+            try
             {
-                try
-                {
-                    // Small delay to ensure room is fully initialized
-                    await Task.Delay(500);
-                    
-                    await SendGamePinEmailToEventParticipantsAsync(
-                        eventEntity, 
-                        gameResponse.GamePin, 
-                        gameResponse.GameSessionId);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, $"❌ Failed to send email notifications for Event {eventEntity.Id}");
-                    // Email failure should not break the event start
-                }
-            });
+                // Gửi email NGAY TRONG CÙNG SCOPE (không dùng Task.Run) để tránh dùng DbContext đã dispose
+                await SendGamePinEmailToEventParticipantsAsync(
+                    eventEntity,
+                    gameResponse.GamePin,
+                    gameResponse.GameSessionId);
+            }
+            catch (Exception ex)
+            {
+                // Log lỗi nhưng KHÔNG chặn việc start event
+                _logger.LogError(ex, $"❌ Failed to send email notifications for Event {eventEntity.Id}");
+            }
 
             _logger.LogInformation($"🎉 Event {eventEntity.Name} (ID: {eventEntity.Id}) started successfully with GamePin: {gameResponse.GamePin}");
 
@@ -407,9 +402,9 @@ namespace BusinessLogic.Services
             if (eventEntity == null)
                 throw new ArgumentException("Event không tồn tại");
 
-            // Check if event is active
-            if (eventEntity.Status != "Active")
-                throw new InvalidOperationException("Event chưa được start hoặc đã kết thúc");
+            // Check if event is in Upcoming state (cho phép đăng ký trước khi start)
+            if (eventEntity.Status != "Upcoming")
+                throw new InvalidOperationException("Chỉ có thể đăng ký tham gia khi Event đang ở trạng thái 'Sắp diễn ra' (Upcoming).");
 
             // Check if already joined
             if (await _eventParticipantRepo.IsParticipantInEventAsync(eventId, userId))
