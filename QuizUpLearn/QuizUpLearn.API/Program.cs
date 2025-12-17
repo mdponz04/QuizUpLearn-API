@@ -5,6 +5,8 @@ using QuizUpLearn.API.DI;
 using QuizUpLearn.API.Hubs;
 using System.Text;
 using System.Text.Json.Serialization;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -84,6 +86,15 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true
     };
 });
+
+// Initialize Firebase Admin SDK
+if (FirebaseApp.DefaultInstance == null)
+{
+    FirebaseApp.Create(new AppOptions()
+    {
+        Credential = GoogleCredential.FromFile("quizuplearn-firebase-adminsdk-fbsvc-fb9b9770d2.json")
+    });
+}
 
 var app = builder.Build();
 

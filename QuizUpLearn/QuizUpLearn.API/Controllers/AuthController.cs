@@ -47,6 +47,22 @@ namespace QuizUpLearn.API.Controllers
             return Ok(login);
         }
 
+        [HttpPost("login-with-google")]
+        [AllowAnonymous]
+        public async Task<IActionResult> LoginWithGoogle([FromBody] GoogleLoginRequestDto dto)
+        {
+            var login = await _identityService.LoginWithGoogleAsync(dto);
+            if (login == null) return Unauthorized(new { message = "Token không hợp lệ hoặc không thể xác thực" });
+
+            var access = GenerateJwtToken(login.Account);
+            var refresh = GenerateRefreshToken(login.Account);
+            login.AccessToken = access.token;
+            login.ExpiresAt = access.expiresAt;
+            login.RefreshToken = refresh.token;
+            login.RefreshExpiresAt = refresh.expiresAt;
+            return Ok(login);
+        }
+
         [HttpPost("reset-password/initiate")]
         [AllowAnonymous]
         public async Task<IActionResult> InitiateResetPassword([FromBody] ResetPasswordInitiateRequestDto dto)
