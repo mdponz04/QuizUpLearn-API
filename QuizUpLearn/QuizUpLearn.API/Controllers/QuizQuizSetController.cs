@@ -22,7 +22,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost]
-        [SubscriptionAndRoleAuthorize("Administrator", "Moderator")]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult<ResponseQuizQuizSetDto>> Create([FromBody] RequestQuizQuizSetDto dto)
         {
             if (!ModelState.IsValid)
@@ -53,7 +53,7 @@ namespace QuizUpLearn.API.Controllers
             return Ok(result);
         }
 
-        [HttpGet()]
+        [HttpGet]
         [SubscriptionAndRoleAuthorize("Administrator", "Moderator")]
         public async Task<ActionResult<PaginationResponseDto<ResponseQuizQuizSetDto>>> GetAll(
             [FromQuery] PaginationRequestDto pagination, [FromQuery] bool includeDeleted = false)
@@ -117,7 +117,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpDelete("{id}/permanent")]
-        [SubscriptionAndRoleAuthorize("Administrator")]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<IActionResult> HardDelete(Guid id)
         {
             var result = await _quizQuizSetService.HardDeleteAsync(id);
