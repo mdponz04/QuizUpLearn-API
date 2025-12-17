@@ -152,6 +152,18 @@ namespace Repository.Repositories
             return true;
         }
 
+        public async Task<bool> RestoreQuizAsync(Guid id)
+        {
+            var quiz = await _context.Quizzes
+                .FirstOrDefaultAsync(q => q.Id == id && q.DeletedAt != null);
+            
+            if (quiz == null) return false;
+            
+            quiz.DeletedAt = null;
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
         public async Task<bool> QuizExistsAsync(Guid id)
         {
             return await _context.Quizzes.AnyAsync(q => q.Id == id && q.DeletedAt == null);

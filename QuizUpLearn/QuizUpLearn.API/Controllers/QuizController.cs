@@ -143,6 +143,18 @@ namespace QuizUpLearn.API.Controllers
 
             return NoContent();
         }
+
+        [HttpPost("{id}/restore")]
+        [SubscriptionAndRoleAuthorize("Moderator")]
+        public async Task<IActionResult> RestoreQuiz(Guid id)
+        {
+            var result = await _quizService.RestoreQuizAsync(id);
+            if (!result)
+                throw new HttpException(HttpStatusCode.NotFound, "Quiz not found");
+
+            return Ok();
+        }
+
         [HttpGet("by-grammar-vocab")]
         public async Task<IActionResult> GetByGrammarIdAndVocabularyIdAsync(
             [FromQuery] Guid grammarId,
