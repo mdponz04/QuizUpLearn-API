@@ -13,6 +13,7 @@ namespace BusinessLogic.Services
         private readonly IQuizRepo _quizRepo;
         private readonly IQuizSetRepo _quizSetRepo;
         private readonly IAccountRepo _accountRepo;
+        private readonly IUserRepo _userRepo;
         private readonly IMapper _mapper;
         private readonly ILogger<DashboardService> _logger;
 
@@ -21,6 +22,7 @@ namespace BusinessLogic.Services
             IQuizRepo quizRepo,
             IQuizSetRepo quizSetRepo,
             IAccountRepo accountRepo,
+            IUserRepo userRepo,
             IMapper mapper,
             ILogger<DashboardService> logger)
         {
@@ -28,6 +30,7 @@ namespace BusinessLogic.Services
             _quizRepo = quizRepo;
             _quizSetRepo = quizSetRepo;
             _accountRepo = accountRepo;
+            _userRepo = userRepo;
             _mapper = mapper;
             _logger = logger;
         }
@@ -79,6 +82,7 @@ namespace BusinessLogic.Services
                 
                 // Get user rank (simplified - would need more complex logic in real implementation)
                 var currentRank = await GetUserRankAsync(userId);
+                var totalPoints = await GetUserTotalPointsAsync(userId);
 
                 return new DashboardStatsDto
                 {
@@ -86,6 +90,7 @@ namespace BusinessLogic.Services
                     AccuracyRate = Math.Round(accuracyRate, 1),
                     CurrentStreak = currentStreak,
                     CurrentRank = currentRank,
+                    TotalPoints = totalPoints,
                     TotalCorrectAnswers = totalCorrect,
                     TotalWrongAnswers = totalWrong,
                     TotalQuestions = totalQuestions
@@ -396,6 +401,20 @@ namespace BusinessLogic.Services
             {
                 _logger.LogError(ex, "Error calculating user rank for user {UserId}", userId);
                 return 999; // Default rank if calculation fails
+            }
+        }
+
+        private async Task<int> GetUserTotalPointsAsync(Guid userId)
+        {
+            try
+            {
+                var user = await _userRepo.GetByIdAsync(userId);
+                return user?.TotalPoints ?? 0;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading total points for user {UserId}", userId);
+                return 0;
             }
         }
         private async Task<List<QuizAttempt>> GetUserAttemptsAsync(Guid userId)
