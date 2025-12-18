@@ -90,9 +90,19 @@ builder.Services.AddAuthentication(options =>
 // Initialize Firebase Admin SDK
 if (FirebaseApp.DefaultInstance == null)
 {
-    FirebaseApp.Create(new AppOptions()
+    var fb = builder.Configuration.GetSection("Firebase");
+
+    var json = $@"
+    {{
+      ""type"": ""service_account"",
+      ""project_id"": ""{fb["ProjectId"]}"",
+      ""client_email"": ""{fb["ClientEmail"]}"",
+      ""private_key"": ""{fb["PrivateKey"]?.Replace("\\n", "\n")}""
+    }}";
+
+    FirebaseApp.Create(new AppOptions
     {
-        Credential = GoogleCredential.FromFile("quizuplearn-firebase-adminsdk-fbsvc-fb9b9770d2.json")
+        Credential = GoogleCredential.FromJson(json)
     });
 }
 
