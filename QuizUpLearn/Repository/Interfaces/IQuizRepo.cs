@@ -10,7 +10,6 @@ namespace Repository.Interfaces
         Task<IEnumerable<Quiz>> GetQuizzesByIdsAsync(IEnumerable<Guid> ids);
         Task<IEnumerable<Quiz>> GetAllQuizzesAsync();
         Task<IEnumerable<Quiz>> GetQuizzesByQuizSetIdAsync(Guid quizSetId);
-        Task<IEnumerable<Quiz>> GetActiveQuizzesAsync();
         Task<Quiz> UpdateQuizAsync(Guid id, Quiz quiz);
         Task<bool> SoftDeleteQuizAsync(Guid id);
         Task<bool> HardDeleteQuizAsync(Guid id);

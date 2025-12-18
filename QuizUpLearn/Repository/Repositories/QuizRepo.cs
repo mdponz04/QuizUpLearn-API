@@ -81,17 +81,6 @@ namespace Repository.Repositories
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<Quiz>> GetActiveQuizzesAsync()
-        {
-            return await _context.Quizzes
-                .Include(q => q.Vocabulary)
-                .Include(q => q.Grammar)
-                .Include(q => q.QuizGroupItem)
-                .Include(q => q.AnswerOptions)
-                .Where(q => q.IsActive && q.DeletedAt == null)
-                .ToListAsync();
-        }
-
         public async Task<Quiz> UpdateQuizAsync(Guid id, Quiz quiz)
         {
             var existingQuiz = await _context.Quizzes.FindAsync(id);

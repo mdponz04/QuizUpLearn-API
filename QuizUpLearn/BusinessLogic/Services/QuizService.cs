@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.QuizDtos;
+using BusinessLogic.Helpers;
 using BusinessLogic.Interfaces;
 using Repository.Entities;
 using Repository.Interfaces;
@@ -37,10 +38,12 @@ namespace BusinessLogic.Services
             var quizzes = await _quizRepo.GetAllQuizzesAsync();
             var query = quizzes.AsQueryable();
             
-            query = ApplySearchFilter(query, pagination.SearchTerm);
+            query = ApplyFilters(query, ExtractFilterValues(pagination).isDeleted, ExtractFilterValues(pagination).showActive);
+            query = ApplySearch(query, pagination.SearchTerm);
             query = ApplySortOrder(query, pagination.SortBy, pagination.GetNormalizedSortDirection());
             
-            return CreatePaginatedResponse(query, pagination);
+            var dtos = _mapper.Map<List<QuizResponseDto>>(query.ToList());
+            return PaginationHelper.CreatePagedResponse(dtos, pagination);
         }
 
         public async Task<PaginationResponseDto<QuizResponseDto>> GetQuizzesByQuizSetIdAsync(Guid quizSetId, PaginationRequestDto pagination = null!)
@@ -48,22 +51,13 @@ namespace BusinessLogic.Services
             pagination ??= new PaginationRequestDto();
             var quizzes = await _quizRepo.GetQuizzesByQuizSetIdAsync(quizSetId);
             var query = quizzes.AsQueryable();
-            
-            query = ApplySearchFilter(query, pagination.SearchTerm);
-            query = ApplySortOrder(query, pagination.SortBy, pagination.GetNormalizedSortDirection());
-            
-            return CreatePaginatedResponse(query, pagination);
-        }
 
-        public async Task<PaginationResponseDto<QuizResponseDto>> GetActiveQuizzesAsync(PaginationRequestDto pagination)
-        {
-            var quizzes = await _quizRepo.GetActiveQuizzesAsync();
-            var query = quizzes.AsQueryable();
-            
-            query = ApplySearchFilter(query, pagination.SearchTerm);
+            query = ApplyFilters(query, ExtractFilterValues(pagination).isDeleted, ExtractFilterValues(pagination).showActive);
+            query = ApplySearch(query, pagination.SearchTerm);
             query = ApplySortOrder(query, pagination.SortBy, pagination.GetNormalizedSortDirection());
             
-            return CreatePaginatedResponse(query, pagination);
+            var dtos = _mapper.Map<List<QuizResponseDto>>(query.ToList());
+            return PaginationHelper.CreatePagedResponse(dtos, pagination);
         }
 
         public async Task<QuizResponseDto> UpdateQuizAsync(Guid id, QuizRequestDto quizDto)
@@ -93,19 +87,14 @@ namespace BusinessLogic.Services
             var quizzes = await _quizRepo.GetByGrammarIdAndVocabularyId(grammarId, vocabularyId);
             var query = quizzes.AsQueryable();
             
-            query = ApplySearchFilter(query, pagination.SearchTerm);
+            query = ApplySearch(query, pagination.SearchTerm);
             query = ApplySortOrder(query, pagination.SortBy, pagination.GetNormalizedSortDirection());
             
-            return CreatePaginatedResponse(query, pagination);
+            var dtos = _mapper.Map<List<QuizResponseDto>>(query.ToList());
+            return PaginationHelper.CreatePagedResponse(dtos, pagination);
         }
 
-        /// <summary>
-        /// Applies search filtering to the quiz query
-        /// </summary>
-        /// <param name="query">The quiz query to filter</param>
-        /// <param name="searchTerm">The search term to apply</param>
-        /// <returns>Filtered query</returns>
-        private static IQueryable<Quiz> ApplySearchFilter(IQueryable<Quiz> query, string? searchTerm)
+        private static IQueryable<Quiz> ApplySearch(IQueryable<Quiz> query, string? searchTerm)
         {
             if (string.IsNullOrEmpty(searchTerm))
                 return query;
@@ -139,34 +128,50 @@ namespace BusinessLogic.Services
                 "toeicpart" => sortDirection == "desc" 
                     ? query.OrderByDescending(q => q.TOEICPart)
                     : query.OrderBy(q => q.TOEICPart),
-                "timesanswered" => sortDirection == "desc" 
-                    ? query.OrderByDescending(q => q.TimesAnswered)
-                    : query.OrderBy(q => q.TimesAnswered),
-                "timescorrect" => sortDirection == "desc" 
-                    ? query.OrderByDescending(q => q.TimesCorrect)
-                    : query.OrderBy(q => q.TimesCorrect),
-                "orderindex" => sortDirection == "desc" 
-                    ? query.OrderByDescending(q => q.OrderIndex)
-                    : query.OrderBy(q => q.OrderIndex),
-                "isactive" => sortDirection == "desc" 
-                    ? query.OrderByDescending(q => q.IsActive)
-                    : query.OrderBy(q => q.IsActive),
                 _ => query.OrderByDescending(q => q.CreatedAt)
             };
         }
 
-        private PaginationResponseDto<QuizResponseDto> CreatePaginatedResponse(IQueryable<Quiz> query, PaginationRequestDto pagination)
+        private (bool? showActive, bool? isDeleted) ExtractFilterValues(PaginationRequestDto pagination)
         {
-            var totalCount = query.Count();
+            var jsonExtractHelper = new JsonExtractHelper();
+            if (pagination.Filters == null)
+                return (null, null);
 
-            var pagedData = query
-                .Skip((pagination.Page - 1) * pagination.PageSize)
-                .Take(pagination.PageSize)
-                .ToList();
+            bool? showActive = jsonExtractHelper.GetBoolFromFilter(pagination.Filters, "isActive");
+            bool? showDeleted = jsonExtractHelper.GetBoolFromFilter(pagination.Filters, "isDeleted");
 
-            var dtos = _mapper.Map<List<QuizResponseDto>>(pagedData);
+            return (showActive, showDeleted);
+        }
+
+        private static IQueryable<Quiz> ApplyFilters(
+            IQueryable<Quiz> query,
+            bool? isDeleted = null,
+            bool? isActive = null)
+        {
+            if (isDeleted.HasValue)
+            {
+                if (isDeleted.Value)
+                {
+                    query = query.Where(q => q.DeletedAt != null);
+                }
+                else
+                {
+                    query = query.Where(q => q.DeletedAt == null);
+                }
+            }
+            else
+            {
+                query = query.Where(q => q.DeletedAt == null);
+            }
+
             
-            return PaginationResponseDto<QuizResponseDto>.Create(pagination, totalCount, dtos);
+            if (isActive.HasValue)
+            {
+                query = query.Where(q => q.IsActive == isActive.Value);
+            }
+
+            return query;
         }
     }
 }

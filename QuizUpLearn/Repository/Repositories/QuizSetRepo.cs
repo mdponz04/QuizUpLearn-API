@@ -37,14 +37,13 @@ namespace Repository.Repositories
             bool? isPremiumOnly = null,
             bool? isPublished = null,
             bool? isAiGenerated = null,
-            bool? isRequireValidate = null,
             QuizSetTypeEnum? quizSetType = null)
         {
             var query = _context.QuizSets
                 .Include(qs => qs.Creator)
                 .AsQueryable();
 
-            query = ApplyFilters(query, isDeleted, isPremiumOnly, isPublished, isAiGenerated, isRequireValidate, quizSetType);
+            query = ApplyFilters(query, isDeleted, isPremiumOnly, isPublished, isAiGenerated, quizSetType);
             query = ApplySearch(query, searchTerm);
             query = ApplySorting(query, sortBy, sortDirection);
 
@@ -60,14 +59,13 @@ namespace Repository.Repositories
             bool? isPremiumOnly = null,
             bool? isPublished = null,
             bool? isAiGenerated = null,
-            bool? isRequireValidate = null,
             QuizSetTypeEnum? quizSetType = null)
         {
             var query = _context.QuizSets
                 .Include(qs => qs.Creator)
                 .Where(qs => qs.CreatedBy == creatorId);
 
-            query = ApplyFilters(query, isDeleted, isPremiumOnly, isPublished, isAiGenerated, isRequireValidate, quizSetType);
+            query = ApplyFilters(query, isDeleted, isPremiumOnly, isPublished, isAiGenerated, quizSetType);
             query = ApplySearch(query, searchTerm);
             query = ApplySorting(query, sortBy, sortDirection);
 
@@ -80,14 +78,13 @@ namespace Repository.Repositories
             string? sortDirection = null,
             bool? isPremiumOnly = null,
             bool? isAiGenerated = null,
-            bool? isRequireValidate = null,
             QuizSetTypeEnum? quizSetType = null)
         {
             var query = _context.QuizSets
                 .Include(qs => qs.Creator)
                 .Where(qs => qs.IsPublished && qs.DeletedAt == null);
 
-            query = ApplyFilters(query, false, isPremiumOnly, true, isAiGenerated, isRequireValidate, quizSetType);
+            query = ApplyFilters(query, false, isPremiumOnly, true, isAiGenerated, quizSetType);
             query = ApplySearch(query, searchTerm);
             query = ApplySorting(query, sortBy, sortDirection);
 
@@ -189,7 +186,6 @@ namespace Repository.Repositories
             bool? isPremiumOnly = null,
             bool? isPublished = null,
             bool? isAiGenerated = null,
-            bool? isRequireValidate = null,
             QuizSetTypeEnum? quizSetType = null)
         {
             if (isDeleted.HasValue)
@@ -223,11 +219,6 @@ namespace Repository.Repositories
                 query = query.Where(qs => qs.IsAIGenerated == isAiGenerated.Value);
             }
 
-            if(isRequireValidate.HasValue)
-            {
-                query = query.Where(qs => qs.IsRequireValidate == isRequireValidate.Value);
-            }
-
             if (quizSetType.HasValue)
             {
                 query = query.Where(qs => qs.QuizSetType == quizSetType.Value);
@@ -244,8 +235,7 @@ namespace Repository.Repositories
 
             return query.Where(qs => 
                 (qs.Title != null && qs.Title.ToLower().Contains(normalizedSearchTerm)) ||
-                (qs.Description != null && qs.Description.ToLower().Contains(normalizedSearchTerm)) ||
-                (qs.DifficultyLevel != null && qs.DifficultyLevel.ToLower().Contains(normalizedSearchTerm))
+                (qs.Description != null && qs.Description.ToLower().Contains(normalizedSearchTerm))
             );
         }
 

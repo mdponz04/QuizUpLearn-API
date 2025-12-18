@@ -21,11 +21,6 @@ namespace QuizUpLearn.API.Controllers
             _quizService = quizService;
         }
 
-        /// <summary>
-        /// Creates a new quiz
-        /// </summary>
-        /// <param name="quizDto">Quiz data</param>
-        /// <returns>Newly created quiz</returns>
         [HttpPost]
         [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult<QuizResponseDto>> CreateQuiz([FromBody] QuizRequestDto quizDto)
@@ -37,11 +32,6 @@ namespace QuizUpLearn.API.Controllers
             return CreatedAtAction(nameof(GetQuizById), new { id = createdQuiz.Id }, createdQuiz);
         }
 
-        /// <summary>
-        /// Gets a quiz by ID
-        /// </summary>
-        /// <param name="id">Quiz ID</param>
-        /// <returns>Quiz data</returns>
         [HttpGet("{id}")]
         public async Task<ActionResult<QuizResponseDto>> GetQuizById(Guid id)
         {
@@ -52,52 +42,24 @@ namespace QuizUpLearn.API.Controllers
             return Ok(quiz);
         }
 
-        /// <summary>
-        /// Gets all quizzes
-        /// </summary>
-        /// <returns>List of quizzes</returns>
-        [HttpGet]
+        [HttpPost("search")]
         [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult<PaginationResponseDto<QuizResponseDto>>> GetAllQuizzes(
-            [FromQuery] PaginationRequestDto pagination)
+            PaginationRequestDto pagination)
         {
             var quizzes = await _quizService.GetAllQuizzesAsync(pagination);
             return Ok(quizzes);
         }
 
-        /// <summary>
-        /// Gets all quizzes by quiz set ID
-        /// </summary>
-        /// <param name="quizSetId">Quiz set ID</param>
-        /// <returns>List of quizzes in the specified quiz set</returns>
-        [HttpGet("set/{quizSetId}")]
+        [HttpPost("serach/quiz-set/{quizSetId:guid}")]
         public async Task<ActionResult<PaginationResponseDto<QuizResponseDto>>> GetQuizzesByQuizSet(
             Guid quizSetId,
-            [FromQuery] PaginationRequestDto pagination)
+            PaginationRequestDto pagination)
         {
             var quizzes = await _quizService.GetQuizzesByQuizSetIdAsync(quizSetId, pagination);
             return Ok(quizzes);
         }
 
-        /// <summary>
-        /// Gets all active quizzes
-        /// </summary>
-        /// <returns>List of active quizzes</returns>
-        [HttpGet("active")]
-        [SubscriptionAndRoleAuthorize("Moderator")]
-        public async Task<ActionResult<PaginationResponseDto<QuizResponseDto>>> GetActiveQuizzes(
-            [FromQuery] PaginationRequestDto pagination)
-        {
-            var quizzes = await _quizService.GetActiveQuizzesAsync(pagination);
-            return Ok(quizzes);
-        }
-
-        /// <summary>
-        /// Updates an existing quiz
-        /// </summary>
-        /// <param name="id">Quiz ID</param>
-        /// <param name="quizDto">Updated quiz data</param>
-        /// <returns>Updated quiz</returns>
         [HttpPut("{id}")]
         [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult<QuizResponseDto>> UpdateQuiz(Guid id, [FromBody] QuizRequestDto quizDto)
@@ -112,11 +74,6 @@ namespace QuizUpLearn.API.Controllers
             return Ok(updatedQuiz);
         }
 
-        /// <summary>
-        /// Soft deletes a quiz (sets DeletedAt timestamp)
-        /// </summary>
-        /// <param name="id">Quiz ID</param>
-        /// <returns>Success/failure status</returns>
         [HttpDelete("{id}")]
         [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<IActionResult> SoftDeleteQuiz(Guid id)
@@ -128,11 +85,6 @@ namespace QuizUpLearn.API.Controllers
             return NoContent();
         }
 
-        /// <summary>
-        /// Hard deletes a quiz (removes from database)
-        /// </summary>
-        /// <param name="id">Quiz ID</param>
-        /// <returns>Success/failure status</returns>
         [HttpDelete("{id}/permanent")]
         [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<IActionResult> HardDeleteQuiz(Guid id)

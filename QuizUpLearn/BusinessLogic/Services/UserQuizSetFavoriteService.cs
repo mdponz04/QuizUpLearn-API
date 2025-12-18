@@ -39,13 +39,23 @@ namespace BusinessLogic.Services
         public async Task<PaginationResponseDto<ResponseUserQuizSetFavoriteDto>> GetAllAsync(PaginationRequestDto pagination, bool includeDeleted = false)
         {
             var entities = await _userQuizSetFavoriteRepo.GetAllAsync(includeDeleted);
-            var dtos = _mapper.Map<IEnumerable<ResponseUserQuizSetFavoriteDto>>(entities);
+            var query = entities.AsQueryable();
+
+            query = ApplySearch(query, pagination.SearchTerm);
+            query = ApplySortOrder(query, pagination.SortBy, pagination.GetNormalizedSortDirection());
+
+            var dtos = _mapper.Map<IEnumerable<ResponseUserQuizSetFavoriteDto>>(query.ToList());
             return dtos.ToPagedResponse(pagination);
         }
 
         public async Task<PaginationResponseDto<ResponseUserQuizSetFavoriteDto>> GetByUserIdAsync(Guid userId, PaginationRequestDto pagination, bool includeDeleted = false)
         {
             var entities = await _userQuizSetFavoriteRepo.GetByUserIdAsync(userId, includeDeleted);
+            var query = entities.AsQueryable();
+
+            query = ApplySearch(query, pagination.SearchTerm);
+            query = ApplySortOrder(query, pagination.SortBy, pagination.GetNormalizedSortDirection());
+
             var dtos = _mapper.Map<IEnumerable<ResponseUserQuizSetFavoriteDto>>(entities);
             return dtos.ToPagedResponse(pagination);
         }
@@ -53,6 +63,11 @@ namespace BusinessLogic.Services
         public async Task<PaginationResponseDto<ResponseUserQuizSetFavoriteDto>> GetByQuizSetIdAsync(Guid quizSetId, PaginationRequestDto pagination, bool includeDeleted = false)
         {
             var entities = await _userQuizSetFavoriteRepo.GetByQuizSetIdAsync(quizSetId, includeDeleted);
+            var query = entities.AsQueryable();
+
+            query = ApplySearch(query, pagination.SearchTerm);
+            query = ApplySortOrder(query, pagination.SortBy, pagination.GetNormalizedSortDirection());
+
             var dtos = _mapper.Map<IEnumerable<ResponseUserQuizSetFavoriteDto>>(entities);
             return dtos.ToPagedResponse(pagination);
         }
@@ -97,6 +112,30 @@ namespace BusinessLogic.Services
         public async Task<int> GetFavoriteCountByQuizSetAsync(Guid quizSetId)
         {
             return await _userQuizSetFavoriteRepo.GetFavoriteCountByQuizSetAsync(quizSetId);
+        }
+
+        private static IQueryable<UserQuizSetFavorite> ApplySearch(IQueryable<UserQuizSetFavorite> query, string? searchTerm)
+        {
+            if (string.IsNullOrEmpty(searchTerm))
+                return query;
+
+            var normalizedSearchTerm = searchTerm.ToLower();
+
+            return query.Where(uqsf => uqsf.QuizSet != null
+            && !string.IsNullOrEmpty(uqsf.QuizSet.Title) 
+            && uqsf.QuizSet.Title.Contains(searchTerm));
+        }
+        private static IQueryable<UserQuizSetFavorite> ApplySortOrder(IQueryable<UserQuizSetFavorite> query, string? sortBy, string sortDirection)
+        {
+            var sortField = sortBy ?? "CreatedAt";
+
+            return sortField.ToLower() switch
+            {
+                "createdat" => sortDirection == "desc"
+                    ? query.OrderByDescending(q => q.CreatedAt)
+                    : query.OrderBy(q => q.CreatedAt),
+                _ => query.OrderByDescending(q => q.CreatedAt)
+            };
         }
     }
 }
