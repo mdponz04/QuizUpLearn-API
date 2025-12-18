@@ -123,7 +123,7 @@ namespace BusinessLogic.Services
 
             return query.Where(uqsf => uqsf.QuizSet != null
             && !string.IsNullOrEmpty(uqsf.QuizSet.Title) 
-            && uqsf.QuizSet.Title.Contains(searchTerm));
+            && uqsf.QuizSet.Title.ToLower().Contains(normalizedSearchTerm));
         }
         private static IQueryable<UserQuizSetFavorite> ApplySortOrder(IQueryable<UserQuizSetFavorite> query, string? sortBy, string sortDirection)
         {
