@@ -56,7 +56,7 @@ namespace BusinessLogic.Services
             query = ApplySearch(query, pagination.SearchTerm);
             query = ApplySortOrder(query, pagination.SortBy, pagination.GetNormalizedSortDirection());
 
-            var dtos = _mapper.Map<IEnumerable<ResponseUserQuizSetFavoriteDto>>(entities);
+            var dtos = _mapper.Map<IEnumerable<ResponseUserQuizSetFavoriteDto>>(query.ToList());
             return dtos.ToPagedResponse(pagination);
         }
 
@@ -68,7 +68,7 @@ namespace BusinessLogic.Services
             query = ApplySearch(query, pagination.SearchTerm);
             query = ApplySortOrder(query, pagination.SortBy, pagination.GetNormalizedSortDirection());
 
-            var dtos = _mapper.Map<IEnumerable<ResponseUserQuizSetFavoriteDto>>(entities);
+            var dtos = _mapper.Map<IEnumerable<ResponseUserQuizSetFavoriteDto>>(query.ToList());
             return dtos.ToPagedResponse(pagination);
         }
 
@@ -121,9 +121,11 @@ namespace BusinessLogic.Services
 
             var normalizedSearchTerm = searchTerm.ToLower();
 
-            return query.Where(uqsf => uqsf.QuizSet != null
-            && !string.IsNullOrEmpty(uqsf.QuizSet.Title) 
+            query = query.Where(uqsf => uqsf.QuizSet != null
+            && !string.IsNullOrEmpty(uqsf.QuizSet.Title)
             && uqsf.QuizSet.Title.ToLower().Contains(normalizedSearchTerm));
+
+            return query;
         }
         private static IQueryable<UserQuizSetFavorite> ApplySortOrder(IQueryable<UserQuizSetFavorite> query, string? sortBy, string sortDirection)
         {
