@@ -19,10 +19,17 @@ namespace BusinessLogic.Services
             _mapper = mapper;
         }
 
-        public async Task<PaginationResponseDto<ResponseVocabularyDto>> GetAllAsync(PaginationRequestDto pagination)
+        public async Task<PaginationResponseDto<ResponseVocabularyDto>> GetAllAsync(
+            PaginationRequestDto pagination,
+            Repository.Enums.VocabularyDifficultyEnum? difficulty = null)
         {
             var entities = await _repo.GetAllAsync();
             var dtos = _mapper.Map<IEnumerable<ResponseVocabularyDto>>(entities);
+            
+            if (difficulty.HasValue)
+            {
+                dtos = dtos.Where(v => v.VocabularyDifficulty == difficulty.Value);
+            }
             return dtos.ToPagedResponse(pagination);
         }
 

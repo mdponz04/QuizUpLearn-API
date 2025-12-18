@@ -21,9 +21,11 @@ namespace QuizUpLearn.API.Controllers
 
         [HttpGet]
         [SubscriptionAndRoleAuthorize("Moderator")]
-        public async Task<IActionResult> GetAll([FromQuery] PaginationRequestDto pagination)
+        public async Task<IActionResult> GetAll(
+            [FromQuery] PaginationRequestDto pagination,
+            [FromQuery] Repository.Enums.VocabularyDifficultyEnum? difficulty)
         {
-            var vocabularies = await _vocabularyService.GetAllAsync(pagination);
+            var vocabularies = await _vocabularyService.GetAllAsync(pagination, difficulty);
             return Ok(vocabularies);
         }
 
