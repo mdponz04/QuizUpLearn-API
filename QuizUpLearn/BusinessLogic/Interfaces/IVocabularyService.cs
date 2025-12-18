@@ -5,7 +5,9 @@ namespace BusinessLogic.Interfaces
 {
     public interface IVocabularyService
     {
-        Task<PaginationResponseDto<ResponseVocabularyDto>> GetAllAsync(PaginationRequestDto pagination);
+        Task<PaginationResponseDto<ResponseVocabularyDto>> GetAllAsync(
+            PaginationRequestDto pagination,
+            Repository.Enums.VocabularyDifficultyEnum? difficulty = null);
         Task<ResponseVocabularyDto?> GetByIdAsync(Guid id);
         Task<ResponseVocabularyDto?> CreateAsync(RequestVocabularyDto request);
         Task<ResponseVocabularyDto?> UpdateAsync(Guid id, RequestVocabularyDto request);

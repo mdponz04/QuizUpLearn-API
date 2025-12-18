@@ -99,17 +99,18 @@ namespace BusinessLogic.Extensions
             this IQueryable<T> query, 
             PaginationRequestDto pagination)
         {
-            // Get total count before pagination
-            var totalCount = await Task.Run(() => query.Count());
-
-            // Apply sorting, search, and pagination
-            var pagedQuery = query
-                .ApplySorting(pagination)
+            // Apply search + sorting first so TotalCount reflects filtered results
+            var filteredQuery = query
                 .ApplySearch(pagination)
-                .ApplyPagination(pagination);
+                .ApplySorting(pagination);
 
-            // Execute the query
-            var data = await Task.Run(() => pagedQuery.ToList());
+            // Total count AFTER search (but before pagination)
+            var totalCount = filteredQuery.Count();
+
+            // Apply pagination last
+            var pagedQuery = filteredQuery.ApplyPagination(pagination);
+
+            var data = pagedQuery.ToList();
 
             return PaginationResponseDto<T>.Create(pagination, totalCount, data);
         }
