@@ -705,6 +705,8 @@ namespace BusinessLogic.Services
                     , quiz.AnswerOptions);
 
                 previousQuestionText += quiz.QuestionText + ", ";
+
+                singleQuizId = createdQuiz.Id;
             }
             return (Guid.Empty, singleQuizId);
         }
