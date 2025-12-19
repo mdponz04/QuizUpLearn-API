@@ -885,7 +885,7 @@ namespace BusinessLogic.Services
                     string answersText = string.Empty;
                     answersText = string.Join("\n", answers.Select(a => $"{a.OptionLabel}. {a.OptionText} (IsCorrect: {a.IsCorrect})"));
 
-                    var quizPrompt = _promptGenerator.GetAnalyzeMistakeQuizPrompt(j, quiz, answersText, mistake);
+                    var quizPrompt = _promptGenerator.GetAnalyzeMistakeQuizPrompt(quiz, answersText, mistake);
 
                     quizzesPrompt += quizPrompt + "\n";
 
