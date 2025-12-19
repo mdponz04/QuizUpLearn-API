@@ -396,45 +396,39 @@ Return JSON:
 }}
 ";
         }
-        public string GetAnalyzeMistakeQuizPrompt(
-            int index
-            , QuizResponseDto quiz
+        public string GetAnalyzeMistakeQuizPrompt(QuizResponseDto quiz
             , string answersText
             , ResponseUserMistakeDto mistake
             , ResponseQuizGroupItemDto quizGroupItem = null!)
         {
             return $@"
-Quiz number {index}:
+Quiz
 TOIEC part: ""{quiz.TOEICPart}""
+Các thông tin thêm (nếu có):
+Đoạn văn: ""{quizGroupItem?.PassageText ?? string.Empty}""
+Lời thoại của đoạn audio: ""{quizGroupItem?.AudioScript ?? string.Empty}""
+Mô tả hình ảnh: ""{quizGroupItem?.ImageDescription ?? string.Empty}""
 
-Additional materials context (if any):
-Passage : ""{quizGroupItem?.PassageText ?? string.Empty}""
-Audio Script : ""{quizGroupItem?.AudioScript ?? string.Empty}""
-Image Description : ""{quizGroupItem?.ImageDescription ?? string.Empty}""
+Câu hỏi: ""{quiz.QuestionText}""
+Các câu trả lời: ""{answersText}""
 
-Question: ""{quiz.QuestionText}""
-Answer options : ""{answersText}""
-
-User's wrong answer (maybe user not answer): ""{mistake.UserAnswer}""
+Câu trả lời của học viên chọn (có thể là học viên không làm nên để trống): ""{mistake.UserAnswer}""
 ";
         }
         public string GetAnalyzeMistakeGeneratePrompt()
         {
             return $@"
-You are an expert TOEIC tutor.
-Generate ONE single weakpoint out of these questions and ONE single advice for the user how to improve in this area.
+--------------------------------
+Bạn đóng vai là người giáo viên chuyên dạy luyện thi TOEIC cho 2 kỹ năng listening và reading.
+Hãy đưa ra 1 điểm yếu và 1 lời khuyên cho học viên thông qua các câu hỏi và trả lời ở trên để học viên có thể nhận biết được điểm yếu và cách khắc phục điểm yếu đó.
 
-You need to translate the weakpoint and advice to Vietnamese language.
+Bạn cần trả lời bằng tiếng việt cho các content và return theo mẫu JSON bên dưới.
 
-Return in JSON:
+JSON:
 {{
   ""WeakPoint"": ""..."",
   ""Advice"": ""...""
 }}";
-        }
-        public string GetFixWeakPointPrompt()
-        {
-            return $@"";
         }
     }
 }
