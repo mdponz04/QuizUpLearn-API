@@ -30,8 +30,7 @@ namespace BusinessLogic.Helpers
         {
         }
 
-        public string GetValidationPromptAsync(QuizSetResponseDto quizSet
-            , QuizResponseDto quiz
+        public string GetValidationPromptAsync(QuizResponseDto quiz
             , List<ResponseAnswerOptionDto> options
             , string groupPassage
             , string groupAudioScript
@@ -43,9 +42,7 @@ namespace BusinessLogic.Helpers
 You are an expert TOEIC test validator.
 Review this quiz for correctness and clarity.
 
-### Quiz Set Context:
-TOEIC practice quiz titled: '{quizSet.Title}'.
-Description: {quizSet.Description}, 
+### Quiz Context:
 Toeic part: {quiz.TOEICPart},
 Grammar focus: {grammar},
 Vocabulary keyword: {vocabKeyword}.
@@ -69,19 +66,17 @@ Check the criteria and :
 3. The correct answer makes sense in context.
 4. Not duplicating or very similar options.
 5. If it is TOEIC part 2, question text and option text will be null because of that all you need to check the audio script, inside that audio script it will have the question and the answer options.
-6. No need suggestion improvement, only validate correctness, explain shortly at Feedback field if the question is invalid otherwise return feedback with empty string.
-7. Does the question text have grammar or vocabulary keyword if not then it invalid.
+6. Does the question text have grammar or vocabulary keyword if not then it invalid.
 
-Return only these 2 fields as JSON structure:
+Return only 1 fields as JSON structure:
 {{ 
-    ""IsValid"": true/false,
-    ""Feedback"": "".....""
+    ""IsValid"": true/false
 }}
 ";
         }
 
         //updated
-        public string GetQuizSetPart1Prompt(AiGenerateQuizSetRequestDto inputData, string previousImageDescription, string previousQuestionText, string keyword, string grammar)
+        public string GetQuizSetPart1Prompt(AiGenerateQuizRequestDto inputData, string previousImageDescription, string previousQuestionText, string keyword, string grammar)
         {
             return $@"
 Topic: '{inputData.Topic}'.
@@ -120,7 +115,7 @@ Only return in this structure no need any extended field/infor:
 ";
         }
         //updated
-        public string GetQuizSetPart2Prompt(AiGenerateQuizSetRequestDto inputData, string previousQuestionText, string keyword, string grammar)
+        public string GetQuizSetPart2Prompt(AiGenerateQuizRequestDto inputData, string previousQuestionText, string keyword, string grammar)
         {
             return $@"
 Topic: '{inputData.Topic}'.
@@ -153,7 +148,7 @@ Only return in this structure no need any extended field/infor:
 ";
         }
         //updated
-        public string GetPart3AudioPrompt(AiGenerateQuizSetRequestDto inputData, string previousAudioScript, string keyword, string grammar)
+        public string GetPart3AudioPrompt(AiGenerateQuizRequestDto inputData, string previousAudioScript, string keyword, string grammar)
         {
             return $@"
 Generate a TOEIC audio topic: '{inputData.Topic}'.
@@ -214,7 +209,7 @@ Only return in this structure no need any extended field/infor:
 ";
         }
         //updated
-        public string GetPart4AudioPrompt(AiGenerateQuizSetRequestDto inputData, string previousAudioScript, string keyword, string grammar)
+        public string GetPart4AudioPrompt(AiGenerateQuizRequestDto inputData, string previousAudioScript, string keyword, string grammar)
         {
             return $@"
 Generate a TOEIC audio topic: '{inputData.Topic}'.
@@ -269,7 +264,7 @@ Only return in this structure no need any extended field/infor:
 ";
         }
         //updated
-        public string GetPart5Prompt(AiGenerateQuizSetRequestDto inputData, string previousQuestionText, string keyword, string grammar)
+        public string GetPart5Prompt(AiGenerateQuizRequestDto inputData, string previousQuestionText, string keyword, string grammar)
         {
             return $@"
 Topic: '{inputData.Topic}'.
@@ -301,7 +296,7 @@ Only return in this structure no need any extended field/infor:
 ";
         }
         //updated
-        public string GetPart6PassagePrompt(AiGenerateQuizSetRequestDto inputData, string previousPassages, string keyword, string grammar)
+        public string GetPart6PassagePrompt(AiGenerateQuizRequestDto inputData, string previousPassages, string keyword, string grammar)
         {
             return $@"
 Generate a TOEIC passage: 
@@ -351,7 +346,7 @@ Only return in this structure no need any extended field/infor:
 ";
         }
         //updated
-        public string GetPart7PassagePrompt(AiGenerateQuizSetRequestDto inputData, string previousPassages, string keyword, string grammar)
+        public string GetPart7PassagePrompt(AiGenerateQuizRequestDto inputData, string previousPassages, string keyword, string grammar)
         {
             return $@"
 Generate a TOEIC Part 7 reading passage about '{inputData.Topic}' 

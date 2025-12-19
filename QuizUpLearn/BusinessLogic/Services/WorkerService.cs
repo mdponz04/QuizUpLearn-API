@@ -10,8 +10,8 @@ namespace BusinessLogic.Services
         private readonly ConcurrentQueue<Func<IServiceProvider, CancellationToken, Task>> _jobQueue = new();
         private readonly SemaphoreSlim _signal = new(0);
         private readonly IServiceScopeFactory _scopeFactory;
-        // Track active jobs: Key = UserId, Value = (JobId, QuizSetId)
-        private readonly ConcurrentDictionary<Guid, (Guid jobId, Guid quizSetId)> _activeJobs = new();
+        // Track active jobs: Key = UserId, Value = JobId
+        private readonly ConcurrentDictionary<Guid, Guid> _activeJobs = new();
 
         public WorkerService(IServiceScopeFactory scopeFactory)
         {
@@ -25,22 +25,22 @@ namespace BusinessLogic.Services
             return Task.CompletedTask;
         }
 
-        public void RegisterActiveJob(Guid userId, Guid jobId, Guid quizSetId)
+        public void RegisterActiveJob(Guid userId, Guid jobId)
         {
-            _activeJobs[userId] = (jobId, quizSetId);
+            _activeJobs[userId] = (jobId);
         }
 
         public void RemoveActiveJob(Guid jobId)
         {
             // Find and remove the job entry by jobId
-            var entry = _activeJobs.FirstOrDefault(kvp => kvp.Value.jobId == jobId);
+            var entry = _activeJobs.FirstOrDefault(kvp => kvp.Value == jobId);
             if (entry.Key != Guid.Empty)
             {
                 _activeJobs.TryRemove(entry.Key, out _);
             }
         }
 
-        public (Guid jobId, Guid quizSetId)? GetActiveJobForUser(Guid userId)
+        public Guid? GetActiveJobForUser(Guid userId)
         {
             if (_activeJobs.TryGetValue(userId, out var job))
             {
