@@ -45,7 +45,7 @@ namespace QuizUpLearn.API.Controllers
         [HttpPost("search")]
         [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult<PaginationResponseDto<QuizResponseDto>>> GetAllQuizzes(
-            PaginationRequestDto pagination)
+            [FromBody] PaginationRequestDto pagination)
         {
             var quizzes = await _quizService.GetAllQuizzesAsync(pagination);
             return Ok(quizzes);

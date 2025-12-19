@@ -96,8 +96,6 @@ namespace Repository.Repositories
             if(!string.IsNullOrEmpty(quiz.CorrectAnswer))
                 existingQuiz.CorrectAnswer = quiz.CorrectAnswer;
             
-            // Always update AudioURL and ImageURL to allow clearing media
-            // Null or empty string will clear the media URL from database
             existingQuiz.AudioURL = string.IsNullOrEmpty(quiz.AudioURL) ? null : quiz.AudioURL;
             existingQuiz.ImageURL = string.IsNullOrEmpty(quiz.ImageURL) ? null : quiz.ImageURL;
             

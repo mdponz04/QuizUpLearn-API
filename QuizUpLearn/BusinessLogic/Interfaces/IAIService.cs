@@ -1,20 +1,10 @@
-﻿using BusinessLogic.DTOs;
-using BusinessLogic.DTOs.AiDtos;
-using BusinessLogic.DTOs.QuizSetDtos;
+﻿using BusinessLogic.DTOs.AiDtos;
 
 namespace BusinessLogic.Interfaces
 {
     public interface IAIService
     {
         Task AnalyzeUserMistakesAndAdviseAsync(Guid userId);
-        Task<(bool, string)> ValidateQuizSetAsync(Guid quizSetId);
-        Task<bool> GeneratePracticeQuizSetPart1Async(AiGenerateQuizSetRequestDto inputData, Guid quizSetId);
-        Task<bool> GeneratePracticeQuizSetPart2Async(AiGenerateQuizSetRequestDto inputData, Guid quizSetId);
-        Task<bool> GeneratePracticeQuizSetPart3Async(AiGenerateQuizSetRequestDto inputData, Guid quizSetId);
-        Task<bool> GeneratePracticeQuizSetPart4Async(AiGenerateQuizSetRequestDto inputData, Guid quizSetId);
-        Task<bool> GeneratePracticeQuizSetPart5Async(AiGenerateQuizSetRequestDto inputData, Guid quizSetId);
-        Task<bool> GeneratePracticeQuizSetPart6Async(AiGenerateQuizSetRequestDto inputData, Guid quizSetId);
-        Task<bool> GeneratePracticeQuizSetPart7Async(AiGenerateQuizSetRequestDto inputData, Guid quizSetId);
-        Task<PaginationResponseDto<QuizSetResponseDto>> GenerateFixWeakPointQuizSetAsync(Guid userId);
+        Task<(Guid quizGroupItemId, Guid? singleQuizid)> GeneratePracticeQuizzesAsync(AiGenerateQuizRequestDto inputData);
     }
 }
