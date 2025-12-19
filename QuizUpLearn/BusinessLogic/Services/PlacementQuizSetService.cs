@@ -48,7 +48,6 @@ namespace BusinessLogic.Services
                 Title = $"TOEIC Placement Test {file.FileName}",
                 Description = "Imported from Excel file",
                 IsPublished = false,
-                IsAIGenerated = false,
                 IsPremiumOnly = false,
                 QuizSetType = Repository.Enums.QuizSetTypeEnum.Placement,
                 CreatedBy = userId

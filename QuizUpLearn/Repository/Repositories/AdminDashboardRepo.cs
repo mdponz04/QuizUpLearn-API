@@ -58,12 +58,12 @@ namespace Repository.Repositories
                 .CountAsync();
         }
 
-        public async Task<int> GetTotalAIUsageCountAsync()
+        /*public async Task<int> GetTotalAIUsageCountAsync()
         {
             return await _context.QuizSets
                 .Where(qs => qs.IsAIGenerated && qs.DeletedAt == null)
                 .CountAsync();
-        }
+        }*/
 
         public async Task<int> GetTotalQuizSetsCountAsync()
         {
@@ -162,7 +162,7 @@ namespace Repository.Repositories
             return participants.ToDictionary(x => x.TournamentId, x => x.Count);
         }
 
-        public async Task<List<QuizSet>> GetAIQuizSetsByDateRangeAsync(DateTime startDate, DateTime endDate)
+        /*public async Task<List<QuizSet>> GetAIQuizSetsByDateRangeAsync(DateTime startDate, DateTime endDate)
         {
             return await _context.QuizSets
                 .Where(qs => qs.IsAIGenerated && 
@@ -170,7 +170,7 @@ namespace Repository.Repositories
                             qs.CreatedAt >= startDate && 
                             qs.CreatedAt <= endDate)
                 .ToListAsync();
-        }
+        }*/
 
         public async Task<List<Subscription>> GetActiveSubscriptionsWithPlansAsync()
         {
@@ -232,14 +232,14 @@ namespace Repository.Repositories
                 .ToListAsync();
         }
 
-        public async Task<int> GetAIQuizSetsCountByDateRangeAsync(DateTime startDate)
+        /*public async Task<int> GetAIQuizSetsCountByDateRangeAsync(DateTime startDate)
         {
             return await _context.QuizSets
                 .Where(qs => qs.IsAIGenerated && 
                             qs.DeletedAt == null && 
                             qs.CreatedAt >= startDate)
                 .CountAsync();
-        }
+        }*/
     }
 }
 

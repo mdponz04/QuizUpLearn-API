@@ -73,7 +73,7 @@ namespace QuizUpLearn.API.Controllers
             return Ok(new { Success = true, Data = result, Message = "Success" });
         }
 
-        [HttpGet("ai-usage")]
+        /*[HttpGet("ai-usage")]
         [SubscriptionAndRoleAuthorize("Administrator")]
         public async Task<IActionResult> GetAIUsage(
             [FromQuery] string timeRange = "week",
@@ -81,7 +81,7 @@ namespace QuizUpLearn.API.Controllers
         {
             var result = await _service.GetAIUsageAsync(timeRange, groupBy);
             return Ok(new { Success = true, Data = result, Message = "Success" });
-        }
+        }*/
 
         [HttpGet("subscription-distribution")]
         [SubscriptionAndRoleAuthorize("Administrator")]

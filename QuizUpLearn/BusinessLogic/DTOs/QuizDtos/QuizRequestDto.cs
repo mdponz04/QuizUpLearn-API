@@ -8,6 +8,8 @@
         public string? QuestionText { get; set; }
         public string? TOEICPart { get; set; }
         public bool IsActive { get; set; } = true;
+        public bool IsAIGenerated { get; set; } = true;
+        public string DifficultyLevel { get; set; } = string.Empty;
         public List<RequestAnswerOptionDto> AnswerOptions { get; set; } = new List<RequestAnswerOptionDto>();
         // optional fields
         public string CorrectAnswer { get; set; } = string.Empty;

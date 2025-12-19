@@ -10,7 +10,7 @@ namespace BusinessLogic.Interfaces
         Task<List<UserGrowthDto>> GetUserGrowthAsync(int months);
         Task<List<EventStatsDto>> GetEventStatsAsync(int limit, string sortBy);
         Task<List<TournamentStatsDto>> GetTournamentStatsAsync(int limit, string sortBy);
-        Task<List<AIUsageDto>> GetAIUsageAsync(string timeRange, string groupBy);
+        //Task<List<AIUsageDto>> GetAIUsageAsync(string timeRange, string groupBy);
         Task<List<SubscriptionDistributionDto>> GetSubscriptionDistributionAsync();
         Task<QuizSetStatsDto> GetQuizSetStatsAsync();
         Task<ActivitySummaryDto> GetActivitySummaryAsync(int days);

@@ -22,7 +22,7 @@ namespace BusinessLogic.Services
             var activeSubscriptions = await _repo.GetActiveSubscriptionsCountAsync();
             var totalEvents = await _repo.GetTotalEventsCountAsync();
             var totalTournaments = await _repo.GetTotalTournamentsCountAsync();
-            var totalAIUsage = await _repo.GetTotalAIUsageCountAsync();
+            //var totalAIUsage = await _repo.GetTotalAIUsageCountAsync();
             var totalQuizSets = await _repo.GetTotalQuizSetsCountAsync();
 
             return new AdminOverviewDto
@@ -33,7 +33,7 @@ namespace BusinessLogic.Services
                 ActiveSubscriptions = activeSubscriptions,
                 TotalEvents = totalEvents,
                 TotalTournaments = totalTournaments,
-                TotalAIUsage = totalAIUsage,
+                //TotalAIUsage = totalAIUsage,
                 TotalQuizSets = totalQuizSets
             };
         }
@@ -204,7 +204,7 @@ namespace BusinessLogic.Services
             return result.Take(limit).ToList();
         }
 
-        public async Task<List<AIUsageDto>> GetAIUsageAsync(string timeRange, string groupBy)
+        /*public async Task<List<AIUsageDto>> GetAIUsageAsync(string timeRange, string groupBy)
         {
             var endDate = DateTime.UtcNow;
             var startDate = timeRange.ToLower() switch
@@ -257,7 +257,7 @@ namespace BusinessLogic.Services
             };
 
             return grouped;
-        }
+        }*/
 
         public async Task<List<SubscriptionDistributionDto>> GetSubscriptionDistributionAsync()
         {
@@ -301,8 +301,8 @@ namespace BusinessLogic.Services
 
             var published = quizSets.Count(qs => qs.IsPublished);
             var draft = total - published;
-            var aiGenerated = quizSets.Count(qs => qs.IsAIGenerated);
-            var manuallyCreated = total - aiGenerated;
+            //var aiGenerated = quizSets.Count(qs => qs.IsAIGenerated);
+            //var manuallyCreated = total - aiGenerated;
 
             //var totalQuestions = quizSets.Sum(qs => qs.Quizzes.Count);
             //var averageQuestions = total > 0 ? (double)totalQuestions / total : 0;
@@ -313,8 +313,8 @@ namespace BusinessLogic.Services
                 ByType = byType,
                 Published = published,
                 Draft = draft,
-                AIGenerated = aiGenerated,
-                ManuallyCreated = manuallyCreated,
+                //AIGenerated = aiGenerated,
+                //ManuallyCreated = manuallyCreated,
                 //AverageQuestionsPerSet = Math.Round(averageQuestions, 1)
             };
         }
@@ -345,7 +345,7 @@ namespace BusinessLogic.Services
                     .Sum(t => t.Amount)
             };
 
-            var aiGenerations = await _repo.GetAIQuizSetsCountByDateRangeAsync(startDate);
+            //var aiGenerations = await _repo.GetAIQuizSetsCountByDateRangeAsync(startDate);
 
             return new ActivitySummaryDto
             {
@@ -356,7 +356,7 @@ namespace BusinessLogic.Services
                 NewEvents = newEvents,
                 NewTournaments = newTournaments,
                 Transactions = transactionSummary,
-                AIGenerations = aiGenerations
+                //AIGenerations = aiGenerations
             };
         }
 

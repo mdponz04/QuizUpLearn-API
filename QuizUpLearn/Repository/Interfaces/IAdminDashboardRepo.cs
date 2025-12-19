@@ -11,7 +11,7 @@ namespace Repository.Interfaces
         Task<int> GetActiveSubscriptionsCountAsync();
         Task<int> GetTotalEventsCountAsync();
         Task<int> GetTotalTournamentsCountAsync();
-        Task<int> GetTotalAIUsageCountAsync();
+        /*Task<int> GetTotalAIUsageCountAsync();*/
         Task<int> GetTotalQuizSetsCountAsync();
         Task<List<PaymentTransaction>> GetCompletedTransactionsAsync(DateTime? startDate, DateTime? endDate);
         Task<Dictionary<TransactionStatusEnum, int>> GetTransactionStatusCountsAsync();
@@ -21,7 +21,7 @@ namespace Repository.Interfaces
         Task<Dictionary<Guid, int>> GetEventParticipantCountsAsync();
         Task<List<Tournament>> GetTournamentsAsync();
         Task<Dictionary<Guid, int>> GetTournamentParticipantCountsAsync();
-        Task<List<QuizSet>> GetAIQuizSetsByDateRangeAsync(DateTime startDate, DateTime endDate);
+        /*Task<List<QuizSet>> GetAIQuizSetsByDateRangeAsync(DateTime startDate, DateTime endDate);*/
         Task<List<Subscription>> GetActiveSubscriptionsWithPlansAsync();
         Task<List<PaymentTransaction>> GetTransactionsByPlanIdAsync(Guid planId);
         Task<List<QuizSet>> GetQuizSetsWithQuizzesAsync();
@@ -30,7 +30,7 @@ namespace Repository.Interfaces
         Task<List<Event>> GetEventsByDateRangeAsync(DateTime startDate);
         Task<List<Tournament>> GetTournamentsByDateRangeAsync(DateTime startDate);
         Task<List<PaymentTransaction>> GetTransactionsByDateRangeAsync(DateTime startDate);
-        Task<int> GetAIQuizSetsCountByDateRangeAsync(DateTime startDate);
+        /*Task<int> GetAIQuizSetsCountByDateRangeAsync(DateTime startDate);*/
     }
 }
 

@@ -36,14 +36,13 @@ namespace Repository.Repositories
             bool? isDeleted = null,
             bool? isPremiumOnly = null,
             bool? isPublished = null,
-            bool? isAiGenerated = null,
             QuizSetTypeEnum? quizSetType = null)
         {
             var query = _context.QuizSets
                 .Include(qs => qs.Creator)
                 .AsQueryable();
 
-            query = ApplyFilters(query, isDeleted, isPremiumOnly, isPublished, isAiGenerated, quizSetType);
+            query = ApplyFilters(query, isDeleted, isPremiumOnly, isPublished, quizSetType);
             query = ApplySearch(query, searchTerm);
             query = ApplySorting(query, sortBy, sortDirection);
 
@@ -58,14 +57,13 @@ namespace Repository.Repositories
             bool? isDeleted = null,
             bool? isPremiumOnly = null,
             bool? isPublished = null,
-            bool? isAiGenerated = null,
             QuizSetTypeEnum? quizSetType = null)
         {
             var query = _context.QuizSets
                 .Include(qs => qs.Creator)
                 .Where(qs => qs.CreatedBy == creatorId);
 
-            query = ApplyFilters(query, isDeleted, isPremiumOnly, isPublished, isAiGenerated, quizSetType);
+            query = ApplyFilters(query, isDeleted, isPremiumOnly, isPublished, quizSetType);
             query = ApplySearch(query, searchTerm);
             query = ApplySorting(query, sortBy, sortDirection);
 
@@ -77,14 +75,13 @@ namespace Repository.Repositories
             string? sortBy = null,
             string? sortDirection = null,
             bool? isPremiumOnly = null,
-            bool? isAiGenerated = null,
             QuizSetTypeEnum? quizSetType = null)
         {
             var query = _context.QuizSets
                 .Include(qs => qs.Creator)
                 .Where(qs => qs.IsPublished && qs.DeletedAt == null);
 
-            query = ApplyFilters(query, false, isPremiumOnly, true, isAiGenerated, quizSetType);
+            query = ApplyFilters(query, false, isPremiumOnly, true, quizSetType);
             query = ApplySearch(query, searchTerm);
             query = ApplySorting(query, sortBy, sortDirection);
 
@@ -103,8 +100,6 @@ namespace Repository.Repositories
                 existingQuizSet.Description = quizSet.Description;
             if (!string.IsNullOrEmpty(quizSet.QuizSetType.ToString()))
                 existingQuizSet.QuizSetType = quizSet.QuizSetType;
-            if (!string.IsNullOrEmpty(quizSet.DifficultyLevel))
-                existingQuizSet.DifficultyLevel = quizSet.DifficultyLevel;
 
             existingQuizSet.IsPublished = quizSet.IsPublished;
             existingQuizSet.IsPremiumOnly = quizSet.IsPremiumOnly;
@@ -185,7 +180,6 @@ namespace Repository.Repositories
             bool? isDeleted = null,
             bool? isPremiumOnly = null,
             bool? isPublished = null,
-            bool? isAiGenerated = null,
             QuizSetTypeEnum? quizSetType = null)
         {
             if (isDeleted.HasValue)
@@ -212,11 +206,6 @@ namespace Repository.Repositories
             if (isPublished.HasValue)
             {
                 query = query.Where(qs => qs.IsPublished == isPublished.Value);
-            }
-
-            if (isAiGenerated.HasValue)
-            {
-                query = query.Where(qs => qs.IsAIGenerated == isAiGenerated.Value);
             }
 
             if (quizSetType.HasValue)
@@ -261,9 +250,6 @@ namespace Repository.Repositories
                 "deletedat" => isDescending 
                     ? query.OrderByDescending(qs => qs.DeletedAt) 
                     : query.OrderBy(qs => qs.DeletedAt),
-                "difficultylevel" => isDescending 
-                    ? query.OrderByDescending(qs => qs.DifficultyLevel) 
-                    : query.OrderBy(qs => qs.DifficultyLevel),
                 "totalattempts" => isDescending 
                     ? query.OrderByDescending(qs => qs.TotalAttempts) 
                     : query.OrderBy(qs => qs.TotalAttempts),

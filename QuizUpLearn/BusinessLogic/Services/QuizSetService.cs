@@ -48,7 +48,6 @@ namespace BusinessLogic.Services
                 filters.isDeleted,
                 filters.isPremiumOnly,
                 filters.isPublished,
-                filters.isAiGenerated,
                 filters.quizSetType);
 
             var dtos = _mapper.Map<IEnumerable<QuizSetResponseDto>>(quizSets);
@@ -67,7 +66,6 @@ namespace BusinessLogic.Services
                 filters.isDeleted,
                 filters.isPremiumOnly,
                 filters.isPublished,
-                filters.isAiGenerated,
                 filters.quizSetType);
 
             var dtos = _mapper.Map<IEnumerable<QuizSetResponseDto>>(quizSets);
@@ -83,7 +81,6 @@ namespace BusinessLogic.Services
                 pagination.SortBy,
                 pagination.SortDirection,
                 filters.isPremiumOnly,
-                filters.isAiGenerated,
                 filters.quizSetType);
 
             var dtos = _mapper.Map<IEnumerable<QuizSetResponseDto>>(quizSets);
@@ -122,19 +119,18 @@ namespace BusinessLogic.Services
         {
             return await _quizSetRepo.ValidateQuizSet(id);
         }
-        private (bool? isDeleted, bool? isPremiumOnly, bool? isPublished, bool? isAiGenerated, QuizSetTypeEnum? quizSetType) ExtractFilterValues(PaginationRequestDto pagination)
+        private (bool? isDeleted, bool? isPremiumOnly, bool? isPublished, QuizSetTypeEnum? quizSetType) ExtractFilterValues(PaginationRequestDto pagination)
         {
             var jsonExtractHelper = new JsonExtractHelper();
             if (pagination.Filters == null)
-                return (null, null, null, null, null);
+                return (null, null, null, null);
 
             bool? showDeleted = jsonExtractHelper.GetBoolFromFilter(pagination.Filters, "isDeleted");
             bool? showPremiumOnly = jsonExtractHelper.GetBoolFromFilter(pagination.Filters, "isPremiumOnly");
             bool? showPublished = jsonExtractHelper.GetBoolFromFilter(pagination.Filters, "isPublished");
-            bool? showAIGenerated = jsonExtractHelper.GetBoolFromFilter(pagination.Filters, "isAiGenerated");
             QuizSetTypeEnum? quizSetType = jsonExtractHelper.GetEnumFromFilter(pagination.Filters, "quizSetType");
 
-            return (showDeleted, showPremiumOnly, showPublished, showAIGenerated, quizSetType);
+            return (showDeleted, showPremiumOnly, showPublished, quizSetType);
         }
     }
 }

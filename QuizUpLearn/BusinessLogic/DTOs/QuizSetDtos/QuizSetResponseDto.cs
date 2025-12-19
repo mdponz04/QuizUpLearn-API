@@ -10,10 +10,8 @@ namespace BusinessLogic.DTOs.QuizSetDtos
         public string? Title { get; set; }
         public string? Description { get; set; }
         public QuizSetTypeEnum QuizSetType { get; set; }
-        public string? DifficultyLevel { get; set; }
         public int TotalQuestions { get; set; }
         public Guid CreatedBy { get; set; }
-        public bool IsAIGenerated { get; set; }
         public bool IsPublished { get; set; }
         public bool IsPremiumOnly { get; set; }
         public int TotalAttempts { get; set; }

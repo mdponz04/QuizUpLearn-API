@@ -16,6 +16,8 @@ namespace Repository.Entities
         public int TimesCorrect { get; set; } = 0;
         public int? OrderIndex { get; set; }
         public bool IsActive { get; set; } = true;
+        public bool IsAIGenerated { get; set; } = true;
+        public string DifficultyLevel { get; set; } = string.Empty;
 
         // Navigation
         public virtual Vocabulary? Vocabulary { get; set; }

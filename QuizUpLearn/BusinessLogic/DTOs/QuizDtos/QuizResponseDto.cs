@@ -19,6 +19,8 @@ namespace BusinessLogic.DTOs.QuizDtos
         public int TimesCorrect { get; set; }
         public int? OrderIndex { get; set; }
         public bool IsActive { get; set; }
+        public bool IsAIGenerated { get; set; } = true;
+        public string DifficultyLevel { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public DateTime? DeletedAt { get; set; }
