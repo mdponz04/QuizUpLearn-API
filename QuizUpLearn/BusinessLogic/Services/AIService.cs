@@ -961,6 +961,7 @@ namespace BusinessLogic.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error generating practice quizzes: {ex.Message}");
+                return (Guid.Empty, null);
             }
 
             return result;

@@ -47,7 +47,7 @@ namespace QuizUpLearn.API.Controllers
                 var aiService = sp.GetRequiredService<IAIService>();
                 var hubContext = sp.GetRequiredService<IHubContext<BackgroundJobHub>>();
                 var workerService = sp.GetRequiredService<IWorkerService>();
-                Guid result = Guid.Empty;
+                (Guid, Guid?) result = (Guid.Empty, Guid.Empty);
 
                 await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobStarted", new
                 {
@@ -58,15 +58,7 @@ namespace QuizUpLearn.API.Controllers
 
                 try
                 {
-                    var ids = await aiService.GeneratePracticeQuizzesAsync(inputData);
-                    if(ids.singleQuizid.HasValue)
-                    {
-                        result = ids.singleQuizid.Value;
-                    }
-                    else
-                    {
-                        result = ids.quizGroupItemId;
-                    }
+                    result = await aiService.GeneratePracticeQuizzesAsync(inputData);
                 }
                 catch (Exception ex)
                 {
@@ -85,8 +77,10 @@ namespace QuizUpLearn.API.Controllers
                 await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
                 {
                     JobId = jobId,
-                    Result = result,
-                    Status = "Success"
+                    Result = "Success",
+                    Status = "Success",
+                    QuizGroupItemId = result.Item1,
+                    SingleQuizId = result.Item2
                 });
             });
 
