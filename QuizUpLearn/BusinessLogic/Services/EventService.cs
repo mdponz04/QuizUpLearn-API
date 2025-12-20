@@ -21,6 +21,7 @@ namespace BusinessLogic.Services
         private readonly IMailerSendService _mailerSendService;
         private readonly IConfiguration _configuration;
         private readonly ILogger<EventService> _logger;
+        private readonly IQuizAttemptRepo _quizAttemptRepo;
 
         public EventService(
             IEventRepo eventRepo,
@@ -31,7 +32,8 @@ namespace BusinessLogic.Services
             IRealtimeGameService realtimeGameService,
             IMailerSendService mailerSendService,
             IConfiguration configuration,
-            ILogger<EventService> logger)
+            ILogger<EventService> logger,
+            IQuizAttemptRepo quizAttemptRepo)
         {
             _eventRepo = eventRepo;
             _eventParticipantRepo = eventParticipantRepo;
@@ -42,6 +44,7 @@ namespace BusinessLogic.Services
             _mailerSendService = mailerSendService;
             _configuration = configuration;
             _logger = logger;
+            _quizAttemptRepo = quizAttemptRepo;
         }
 
         public async Task<EventResponseDto> CreateEventAsync(Guid userId, CreateEventRequestDto dto)
@@ -332,6 +335,8 @@ namespace BusinessLogic.Services
 
         /// <summary>
         /// Lấy Leaderboard của Event với ranking và badges
+        /// Ưu tiên dùng EventParticipant.Score (đã được sync từ GameHub realtime game)
+        /// Fallback sang QuizAttempt nếu EventParticipant.Score = 0
         /// </summary>
         public async Task<EventLeaderboardResponseDto> GetEventLeaderboardAsync(Guid eventId)
         {
@@ -339,20 +344,109 @@ namespace BusinessLogic.Services
             if (eventEntity == null)
                 throw new ArgumentException("Event không tồn tại");
 
-            // Lấy participants và sort theo Score (cao → thấp), sau đó theo Accuracy
+            // Lấy tất cả participants của Event
             var participants = await _eventParticipantRepo.GetByEventIdAsync(eventId);
-            var sortedParticipants = participants
-                .OrderByDescending(p => p.Score)
-                .ThenByDescending(p => p.Accuracy)
-                .ThenBy(p => p.JoinAt)
+            var participantList = participants.ToList();
+
+            if (!participantList.Any())
+            {
+                return new EventLeaderboardResponseDto
+                {
+                    EventId = eventEntity.Id,
+                    EventName = eventEntity.Name,
+                    EventStatus = eventEntity.Status,
+                    TotalParticipants = 0,
+                    EventStartDate = eventEntity.StartDate,
+                    EventEndDate = eventEntity.EndDate,
+                    Rankings = new List<EventLeaderboardItemDto>(),
+                    TopPlayer = null,
+                    GeneratedAt = DateTime.UtcNow
+                };
+            }
+
+            // Lấy tất cả attempts của QuizSet này một lần để tối ưu query (dùng làm fallback)
+            var attempts = await _quizAttemptRepo.GetByQuizSetIdAsync(eventEntity.QuizSetId, includeDeleted: false);
+            var validAttempts = attempts
+                .Where(a => a.Status == "completed" && a.DeletedAt == null)
                 .ToList();
 
-            // Update rank cho participants
+            // Group attempts theo UserId để dễ xử lý
+            var attemptsByUser = validAttempts
+                .GroupBy(a => a.UserId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var eventStartDate = eventEntity.StartDate.Date;
+            var eventEndDate = eventEntity.EndDate.Date;
+            var now = DateTime.UtcNow.Date;
+            var effectiveEndDate = now < eventEndDate ? now : eventEndDate;
+
+            // Tính điểm cho từng participant
+            // ƯU TIÊN: Dùng EventParticipant.Score (đã được sync từ GameHub realtime game)
+            // FALLBACK: Dùng QuizAttempt nếu EventParticipant.Score = 0
+            var participantScores = new List<(EventParticipant Participant, long Score, double Accuracy, DateTime? FinishAt)>();
+
+            foreach (var participant in participantList)
+            {
+                var user = participant.Participant;
+                if (user == null) continue;
+
+                long score = participant.Score; // Ưu tiên dùng điểm đã sync từ GameHub
+                double accuracy = participant.Accuracy;
+                DateTime? finishAt = participant.FinishAt;
+
+                // Nếu EventParticipant.Score = 0, fallback sang QuizAttempt
+                if (score == 0)
+                {
+                    var participantJoinDate = participant.JoinAt.Date;
+                    var startDate = participantJoinDate > eventStartDate ? participantJoinDate : eventStartDate;
+
+                    // Lấy attempts của user này
+                    if (attemptsByUser.TryGetValue(participant.ParticipantId, out var userAttempts))
+                    {
+                        // Lọc attempts chỉ tính những attempts được hoàn thành trong thời gian Event và sau khi join
+                        var validUserAttempts = userAttempts
+                            .Where(a =>
+                            {
+                                var attemptDate = (a.UpdatedAt ?? a.CreatedAt).Date;
+                                return attemptDate >= eventStartDate
+                                    && attemptDate <= effectiveEndDate
+                                    && a.CreatedAt >= participant.JoinAt;
+                            })
+                            .ToList();
+
+                        // Lấy attempt tốt nhất (score cao nhất, nếu bằng nhau thì lấy accuracy cao nhất)
+                        var bestAttempt = validUserAttempts
+                            .OrderByDescending(a => a.Score)
+                            .ThenByDescending(a => a.Accuracy)
+                            .ThenByDescending(a => a.UpdatedAt ?? a.CreatedAt)
+                            .FirstOrDefault();
+
+                        if (bestAttempt != null)
+                        {
+                            score = bestAttempt.Score;
+                            accuracy = (double)bestAttempt.Accuracy;
+                            finishAt = bestAttempt.UpdatedAt ?? bestAttempt.CreatedAt;
+                        }
+                    }
+                }
+
+                participantScores.Add((participant, score, accuracy, finishAt));
+            }
+
+            // Sắp xếp theo Score (cao → thấp), sau đó theo Accuracy, cuối cùng theo JoinAt
+            var sortedScores = participantScores
+                .OrderByDescending(x => x.Score)
+                .ThenByDescending(x => x.Accuracy)
+                .ThenBy(x => x.Participant.JoinAt)
+                .ToList();
+
+            // Tạo rankings với badges
             var rankings = new List<EventLeaderboardItemDto>();
             long currentRank = 1;
 
-            foreach (var participant in sortedParticipants)
+            foreach (var (participant, score, accuracy, finishAt) in sortedScores)
             {
+                var user = participant.Participant;
                 var isTopThree = currentRank <= 3;
                 var badge = currentRank switch
                 {
@@ -366,12 +460,12 @@ namespace BusinessLogic.Services
                 {
                     Rank = currentRank,
                     ParticipantId = participant.ParticipantId,
-                    ParticipantName = participant.Participant?.FullName ?? "Unknown",
-                    AvatarUrl = participant.Participant?.AvatarUrl,
-                    Score = participant.Score,
-                    Accuracy = participant.Accuracy,
+                    ParticipantName = user?.FullName ?? "Unknown",
+                    AvatarUrl = user?.AvatarUrl,
+                    Score = score,
+                    Accuracy = accuracy,
                     JoinAt = participant.JoinAt,
-                    FinishAt = participant.FinishAt,
+                    FinishAt = finishAt,
                     IsTopThree = isTopThree,
                     Badge = badge
                 });
@@ -381,6 +475,8 @@ namespace BusinessLogic.Services
 
             // Lấy top player (rank 1)
             var topPlayer = rankings.FirstOrDefault();
+
+            _logger.LogInformation($"✅ Event Leaderboard calculated for Event {eventId}: {rankings.Count} participants");
 
             return new EventLeaderboardResponseDto
             {
@@ -489,6 +585,61 @@ namespace BusinessLogic.Services
             {
                 _logger.LogError(ex, $"❌ Failed to sync player score for Event {eventId}, User {userId}");
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Lưu lịch sử chơi Event vào QuizAttempt để user có thể xem lại
+        /// AttemptType = "event"
+        /// </summary>
+        public async Task SaveEventGameHistoryAsync(
+            Guid eventId, 
+            Guid userId, 
+            Guid quizSetId, 
+            int totalQuestions, 
+            int correctAnswers, 
+            int wrongAnswers, 
+            long score, 
+            double accuracy, 
+            int? timeSpent)
+        {
+            try
+            {
+                _logger.LogInformation($"📝 Saving Event game history for Event {eventId}, User {userId}: Score={score}, Accuracy={accuracy:F2}%");
+
+                // Tính accuracy dạng decimal
+                var accuracyDecimal = totalQuestions > 0 
+                    ? (decimal)correctAnswers / totalQuestions 
+                    : 0;
+
+                // Tạo QuizAttempt với AttemptType = "event"
+                var attempt = new Repository.Entities.QuizAttempt
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    QuizSetId = quizSetId,
+                    AttemptType = "event",
+                    TotalQuestions = totalQuestions,
+                    CorrectAnswers = correctAnswers,
+                    WrongAnswers = wrongAnswers,
+                    Score = (int)score, // QuizAttempt.Score là int
+                    Accuracy = accuracyDecimal,
+                    IsCompleted = true,
+                    TimeSpent = timeSpent,
+                    Status = "completed",
+                    OpponentId = null,
+                    IsWinner = null,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                await _quizAttemptRepo.CreateAsync(attempt);
+                _logger.LogInformation($"✅ Saved Event game history: AttemptId={attempt.Id}, EventId={eventId}, UserId={userId}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"❌ Failed to save Event game history for Event {eventId}, User {userId}");
+                // Không throw để không ảnh hưởng đến flow chính
             }
         }
 

@@ -2,6 +2,8 @@ using BusinessLogic.DTOs.TournamentDtos;
 using BusinessLogic.Interfaces;
 using Repository.Entities;
 using Repository.Interfaces;
+using Repository.Enums;
+using Microsoft.Extensions.Logging;
 
 namespace BusinessLogic.Services
 {
@@ -13,6 +15,7 @@ namespace BusinessLogic.Services
 		private readonly IQuizSetRepo _quizSetRepo;
 		private readonly IQuizAttemptRepo _quizAttemptRepo;
 		private readonly IUserRepo _userRepo;
+		private readonly ILogger<TournamentService> _logger;
 
 		public TournamentService(
 			ITournamentRepo tournamentRepo,
@@ -20,7 +23,8 @@ namespace BusinessLogic.Services
 			ITournamentQuizSetRepo tournamentQuizSetRepo,
 			IQuizSetRepo quizSetRepo,
 			IQuizAttemptRepo quizAttemptRepo,
-			IUserRepo userRepo)
+			IUserRepo userRepo,
+			ILogger<TournamentService> logger)
 		{
 			_tournamentRepo = tournamentRepo;
 			_participantRepo = participantRepo;
@@ -28,6 +32,7 @@ namespace BusinessLogic.Services
 			_quizSetRepo = quizSetRepo;
 			_quizAttemptRepo = quizAttemptRepo;
 			_userRepo = userRepo;
+			_logger = logger;
 		}
 
 	public async Task<TournamentResponseDto> CreateAsync(CreateTournamentRequestDto dto)
@@ -169,6 +174,21 @@ namespace BusinessLogic.Services
 			var sets = await _tournamentQuizSetRepo.GetForDateAsync(tournamentId, today);
 			var active = sets.FirstOrDefault(x => x.IsActive) ?? sets.FirstOrDefault();
 			if (active == null) return null;
+			
+			// Kiểm tra QuizSet tồn tại và không bị deleted
+			if (active.QuizSet == null || active.QuizSet.DeletedAt != null)
+			{
+				_logger.LogWarning($"QuizSet {active.QuizSetId} không tồn tại hoặc đã bị xóa cho Tournament {tournamentId}");
+				return null;
+			}
+			
+			// Kiểm tra QuizSetType phải là Tournament
+			if (active.QuizSet.QuizSetType != QuizSetTypeEnum.Tournament)
+			{
+				_logger.LogWarning($"QuizSet {active.QuizSetId} không phải loại Tournament (QuizSetType: {active.QuizSet.QuizSetType}) cho Tournament {tournamentId}");
+				return null;
+			}
+			
 			var startOfDay = today;
 			var endOfDay = today.AddDays(1).AddTicks(-1);
 			return new TournamentTodaySetDto

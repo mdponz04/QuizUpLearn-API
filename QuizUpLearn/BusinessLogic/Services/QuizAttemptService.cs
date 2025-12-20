@@ -66,6 +66,7 @@ namespace BusinessLogic.Services
             // Kiểm tra xem quiz set này có thuộc tournament đang "Started" không
             var activeTournamentQuizSets = await _tournamentQuizSetRepo.GetActiveByQuizSetIdAsync(dto.QuizSetId);
             var activeTournamentQuizSetsList = activeTournamentQuizSets.ToList();
+            var isTournamentQuiz = false; // Flag để xác định có phải tournament quiz không
             
             if (activeTournamentQuizSetsList.Any())
             {
@@ -86,11 +87,16 @@ namespace BusinessLogic.Services
                     // Kiểm tra quiz set này có active cho ngày hôm nay không
                     if (tournamentQuizSet.UnlockDate.Date != today) continue;
                     
+                    // Đánh dấu đây là tournament quiz
+                    isTournamentQuiz = true;
+                    
                     // Kiểm tra user đã có attempt completed trong ngày này chưa
+                    // Check cả "single" và "tournament" để đảm bảo không có duplicate
                     var existingAttempts = await _repo.GetByQuizSetIdAsync(dto.QuizSetId, includeDeleted: false);
                     var todayAttempt = existingAttempts
                         .Where(a => 
                             a.UserId == dto.UserId
+                            && (a.AttemptType == "single" || a.AttemptType == "tournament") // Chỉ check single và tournament
                             && a.Status == "completed"
                             && a.DeletedAt == null
                             && a.CreatedAt >= participant.JoinAt
@@ -119,11 +125,12 @@ namespace BusinessLogic.Services
             /*var quizGroupItemDtos = _mapper.Map<IEnumerable<BusinessLogic.DTOs.QuizGroupItemDtos.ResponseQuizGroupItemDto>>(quizGroupItems).ToList();*/
 
             // Create attempt in progress
+            // Set AttemptType = "tournament" nếu đây là tournament quiz, ngược lại là "single"
             var attempt = new QuizAttempt
             {
                 UserId = dto.UserId,
                 QuizSetId = dto.QuizSetId,
-                AttemptType = "single",
+                AttemptType = isTournamentQuiz ? "tournament" : "single",
                 TotalQuestions = selected.Count,
                 CorrectAnswers = 0,
                 WrongAnswers = 0,
@@ -288,8 +295,8 @@ namespace BusinessLogic.Services
             var attempt = await _repo.GetByIdAsync(id);
             if (attempt == null) return null;
 
-            // Kiểm tra validation cho tournament (chỉ áp dụng cho AttemptType = "single" và quiz set thuộc tournament)
-            if (attempt.AttemptType == "single")
+            // Kiểm tra validation cho tournament (áp dụng cho AttemptType = "single" hoặc "tournament" và quiz set thuộc tournament)
+            if (attempt.AttemptType == "single" || attempt.AttemptType == "tournament")
             {
                 var activeTournamentQuizSets = await _tournamentQuizSetRepo.GetActiveByQuizSetIdAsync(attempt.QuizSetId);
                 var activeTournamentQuizSetsList = activeTournamentQuizSets.ToList();
@@ -313,11 +320,13 @@ namespace BusinessLogic.Services
                         if (tournamentQuizSet.UnlockDate.Date != today) continue;
                         
                         // Kiểm tra user đã có attempt completed khác trong ngày này chưa (trừ attempt hiện tại)
+                        // Check cả "single" và "tournament" để đảm bảo không có duplicate
                         var existingAttempts = await _repo.GetByQuizSetIdAsync(attempt.QuizSetId, includeDeleted: false);
                         var todayAttempt = existingAttempts
                             .Where(a => 
                                 a.Id != id // Trừ attempt hiện tại
                                 && a.UserId == attempt.UserId
+                                && (a.AttemptType == "single" || a.AttemptType == "tournament") // Chỉ check single và tournament
                                 && a.Status == "completed"
                                 && a.DeletedAt == null
                                 && a.CreatedAt >= participant.JoinAt

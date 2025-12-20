@@ -18,6 +18,7 @@ namespace BusinessLogic.Interfaces
         Task<bool> JoinEventAsync(Guid eventId, Guid userId);
         Task<bool> IsUserJoinedAsync(Guid eventId, Guid userId);
         Task SyncPlayerScoreAsync(Guid eventId, Guid userId, long score, double accuracy);
+        Task SaveEventGameHistoryAsync(Guid eventId, Guid userId, Guid quizSetId, int totalQuestions, int correctAnswers, int wrongAnswers, long score, double accuracy, int? timeSpent);
     }
 }
 

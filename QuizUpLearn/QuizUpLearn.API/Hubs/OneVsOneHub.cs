@@ -17,17 +17,23 @@ namespace QuizUpLearn.API.Hubs
     {
         private readonly IOneVsOneGameService _gameService;
         private readonly IUserService _userService;
+        private readonly IQuizAttemptService _quizAttemptService;
+        private readonly IQuizAttemptDetailService _quizAttemptDetailService;
         private readonly ILogger<OneVsOneHub> _logger;
         private readonly IHubContext<OneVsOneHub> _hubContext;
 
         public OneVsOneHub(
             IOneVsOneGameService gameService, 
             IUserService userService,
+            IQuizAttemptService quizAttemptService,
+            IQuizAttemptDetailService quizAttemptDetailService,
             ILogger<OneVsOneHub> logger,
             IHubContext<OneVsOneHub> hubContext)
         {
             _gameService = gameService;
             _userService = userService;
+            _quizAttemptService = quizAttemptService;
+            _quizAttemptDetailService = quizAttemptDetailService;
             _logger = logger;
             _hubContext = hubContext;
         }
@@ -491,6 +497,19 @@ namespace QuizUpLearn.API.Hubs
                 await _hubContext.Clients.Group($"Room_{roomPin}").SendAsync("GameEnded", finalResult);
                 _logger.LogInformation($"✅ GameEnded sent for room {roomPin}");
 
+                // Lưu lịch sử chơi cho tất cả players
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await SaveGameHistoryAsync(roomPin);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Error saving game history for room {roomPin}");
+                    }
+                });
+
                 _ = Task.Run(async () =>
                 {
                     await Task.Delay(60000);
@@ -500,6 +519,139 @@ namespace QuizUpLearn.API.Hubs
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error in EndGame for room {roomPin}");
+            }
+        }
+
+        /// <summary>
+        /// Lưu lịch sử chơi cho tất cả players trong room
+        /// </summary>
+        private async Task SaveGameHistoryAsync(string roomPin)
+        {
+            try
+            {
+                var room = await _gameService.GetRoomAsync(roomPin);
+                if (room == null)
+                {
+                    _logger.LogWarning($"Room {roomPin} not found when saving game history");
+                    return;
+                }
+
+                // Xác định AttemptType dựa trên Mode
+                string attemptType = room.Mode == GameModeEnum.OneVsOne ? "1vs1" : "Multi";
+
+                _logger.LogInformation($"💾 Saving game history for {room.Players.Count} players in room {roomPin} (Mode: {room.Mode}, AttemptType: {attemptType})");
+
+                // Lưu lịch sử cho mỗi player
+                foreach (var player in room.Players)
+                {
+                    try
+                    {
+                        // Tính toán thống kê từ AllAnswers
+                        int totalQuestions = room.Questions.Count;
+                        int correctAnswers = player.CorrectAnswers;
+                        int wrongAnswers = totalQuestions - correctAnswers;
+                        int score = player.Score;
+                        decimal accuracy = totalQuestions > 0 ? (decimal)correctAnswers / totalQuestions : 0;
+                        
+                        // Tính tổng thời gian (từ AllAnswers)
+                        int totalTimeSpent = 0;
+                        foreach (var questionAnswers in room.AllAnswers.Values)
+                        {
+                            if (questionAnswers.TryGetValue(player.ConnectionId, out var answer))
+                            {
+                                totalTimeSpent += (int)Math.Round(answer.TimeSpent);
+                            }
+                        }
+
+                        // Xác định IsWinner (nếu có winner và player này là winner)
+                        bool? isWinner = null;
+                        var rankings = room.Players
+                            .OrderByDescending(p => p.Score)
+                            .ThenByDescending(p => p.CorrectAnswers)
+                            .ThenBy(p => p.JoinedAt)
+                            .ToList();
+                        
+                        if (rankings.Count > 0)
+                        {
+                            var topPlayer = rankings[0];
+                            // Nếu chỉ có 1 người có điểm cao nhất thì đó là winner
+                            if (rankings.Count(p => p.Score == topPlayer.Score) == 1 && player.UserId == topPlayer.UserId)
+                            {
+                                isWinner = true;
+                            }
+                            else if (player.UserId != topPlayer.UserId)
+                            {
+                                isWinner = false;
+                            }
+                        }
+
+                        // Tạo QuizAttempt
+                        var attemptDto = new RequestQuizAttemptDto
+                        {
+                            UserId = player.UserId,
+                            QuizSetId = room.QuizSetId,
+                            AttemptType = attemptType,
+                            TotalQuestions = totalQuestions,
+                            CorrectAnswers = correctAnswers,
+                            WrongAnswers = wrongAnswers,
+                            Score = score,
+                            Accuracy = accuracy,
+                            TimeSpent = totalTimeSpent > 0 ? totalTimeSpent : null,
+                            OpponentId = null, // Không dùng cho 1vs1/Multi
+                            IsWinner = isWinner,
+                            Status = "completed"
+                        };
+
+                        var createdAttempt = await _quizAttemptService.CreateAsync(attemptDto);
+                        _logger.LogInformation($"✅ Created QuizAttempt {createdAttempt.Id} for player {player.PlayerName} (UserId: {player.UserId})");
+
+                        // Tạo QuizAttemptDetail cho mỗi question
+                        foreach (var question in room.Questions)
+                        {
+                            // Tìm answer của player cho question này
+                            if (room.AllAnswers.TryGetValue(question.QuestionId, out var questionAnswers) &&
+                                questionAnswers.TryGetValue(player.ConnectionId, out var answer))
+                            {
+                                // Player đã trả lời câu này
+                                var detailDto = new RequestQuizAttemptDetailDto
+                                {
+                                    AttemptId = createdAttempt.Id,
+                                    QuestionId = question.QuestionId,
+                                    UserAnswer = answer.AnswerId.ToString(),
+                                    TimeSpent = (int)Math.Round(answer.TimeSpent)
+                                };
+
+                                await _quizAttemptDetailService.CreateAsync(detailDto);
+                            }
+                            else
+                            {
+                                // Player không trả lời câu này (timeout hoặc skip)
+                                var detailDto = new RequestQuizAttemptDetailDto
+                                {
+                                    AttemptId = createdAttempt.Id,
+                                    QuestionId = question.QuestionId,
+                                    UserAnswer = string.Empty, // Không có answer
+                                    TimeSpent = null
+                                };
+
+                                await _quizAttemptDetailService.CreateAsync(detailDto);
+                            }
+                        }
+
+                        _logger.LogInformation($"✅ Saved {room.Questions.Count} QuizAttemptDetails for player {player.PlayerName}");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Error saving game history for player {player.PlayerName} (UserId: {player.UserId}) in room {roomPin}");
+                    }
+                }
+
+                _logger.LogInformation($"✅ Successfully saved game history for all players in room {roomPin}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error in SaveGameHistoryAsync for room {roomPin}");
+                throw;
             }
         }
 

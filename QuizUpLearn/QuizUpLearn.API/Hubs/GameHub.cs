@@ -1193,6 +1193,9 @@ namespace QuizUpLearn.API.Hubs
                             ? (double)ranking.CorrectAnswers / finalResult.TotalQuestions * 100
                             : 0;
 
+                        // Tính wrong answers
+                        var wrongAnswers = ranking.TotalAnswered - ranking.CorrectAnswers;
+
                         // Sync vào EventParticipant
                         await _eventService.SyncPlayerScoreAsync(
                             eventId,
@@ -1200,8 +1203,20 @@ namespace QuizUpLearn.API.Hubs
                             ranking.TotalScore,
                             accuracy);
 
+                        // Lưu lịch sử chơi Event vào QuizAttempt
+                        await _eventService.SaveEventGameHistoryAsync(
+                            eventId,
+                            player.UserId.Value,
+                            session.QuizSetId,
+                            finalResult.TotalQuestions,
+                            ranking.CorrectAnswers,
+                            wrongAnswers,
+                            ranking.TotalScore,
+                            accuracy,
+                            timeSpent: null); // TimeSpent không có trong FinalResultDto, có thể tính sau nếu cần
+
                         syncedCount++;
-                        _logger.LogInformation($"✅ Synced score for User {player.UserId}: Score={ranking.TotalScore}, Accuracy={accuracy:F2}%");
+                        _logger.LogInformation($"✅ Synced score and saved history for User {player.UserId}: Score={ranking.TotalScore}, Accuracy={accuracy:F2}%");
                     }
                     catch (Exception ex)
                     {

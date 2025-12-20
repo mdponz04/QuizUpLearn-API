@@ -245,6 +245,7 @@ namespace BusinessLogic.Services
                 //QuizGroupItems = quizGroupItemsMap, // Store group items for TOEIC-style questions
                 CurrentQuestionIndex = 0,
                 CurrentAnswers = new Dictionary<string, OneVsOneAnswerDto>(),
+                AllAnswers = new Dictionary<Guid, Dictionary<string, OneVsOneAnswerDto>>(),
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -635,6 +636,13 @@ namespace BusinessLogic.Services
             };
 
             room.CurrentAnswers[connectionId] = answer;
+            
+            // Lưu vào AllAnswers để lưu lịch sử khi game kết thúc
+            if (!room.AllAnswers.ContainsKey(questionId))
+            {
+                room.AllAnswers[questionId] = new Dictionary<string, OneVsOneAnswerDto>();
+            }
+            room.AllAnswers[questionId][connectionId] = answer;
             
             _logger.LogInformation($"✅ Answer stored in CurrentAnswers. Total: {room.CurrentAnswers.Count}/{room.Players.Count}");
 

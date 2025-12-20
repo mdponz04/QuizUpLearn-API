@@ -101,6 +101,12 @@ namespace BusinessLogic.DTOs
         /// </summary>
         public Dictionary<string, OneVsOneAnswerDto> CurrentAnswers { get; set; } = new();
         
+        /// <summary>
+        /// Tất cả câu trả lời của tất cả questions (QuestionId -> ConnectionId -> Answer)
+        /// Dùng để lưu lịch sử chơi khi game kết thúc
+        /// </summary>
+        public Dictionary<Guid, Dictionary<string, OneVsOneAnswerDto>> AllAnswers { get; set; } = new();
+        
         public OneVsOneRoundResultDto? CurrentRoundResult { get; set; }
         public DateTime CreatedAt { get; set; }
     }

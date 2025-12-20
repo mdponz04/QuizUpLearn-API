@@ -39,6 +39,16 @@ namespace Repository.Repositories
 		{
 			var date = dateUtc.Date;
 			return await _context.TournamentQuizSets
+				.Include(tqs => tqs.QuizSet)
+					.ThenInclude(qs => qs!.Creator)
+				.Include(tqs => tqs.QuizSet)
+					.ThenInclude(qs => qs!.QuizQuizSets)
+						.ThenInclude(qqs => qqs.Quiz)
+							.ThenInclude(q => q.AnswerOptions)
+				.Include(tqs => tqs.QuizSet)
+					.ThenInclude(qs => qs!.QuizQuizSets)
+						.ThenInclude(qqs => qqs.Quiz)
+							.ThenInclude(q => q.QuizGroupItem)
 				.Where(x => x.TournamentId == tournamentId && x.DeletedAt == null && x.UnlockDate.Date == date)
 				.ToListAsync();
 		}
