@@ -14,5 +14,6 @@ namespace BusinessLogic.Interfaces
         Task<bool> HardDeleteQuizAsync(Guid id);
         Task<bool> RestoreQuizAsync(Guid id);
         Task<PaginationResponseDto<QuizResponseDto>> GetByGrammarIdAndVocabularyIdAsync(Guid grammarId, Guid vocabularyId, PaginationRequestDto pagination = null!);
+        Task<NeedAmountQuizResponseDto> GetNeededQuizCountsForTOEICAsync(List<Guid> quizIds);
     }
 }
