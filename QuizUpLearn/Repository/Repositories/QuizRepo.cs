@@ -151,10 +151,6 @@ namespace Repository.Repositories
             return true;
         }
 
-        public async Task<bool> QuizExistsAsync(Guid id)
-        {
-            return await _context.Quizzes.AnyAsync(q => q.Id == id && q.DeletedAt == null);
-        }
 
         public async Task<IEnumerable<Quiz>> GetByGrammarIdAndVocabularyId(Guid grammarId, Guid vocabId)
         {
@@ -166,6 +162,13 @@ namespace Repository.Repositories
                 .Include(q => q.Grammar)
                 .Include(q => q.QuizGroupItem)
                 .ToListAsync();
+        }
+
+        public async Task<bool> HardDeleteQuizzesBatchAsync(IEnumerable<Quiz> quizzes)
+        {
+            _context.Quizzes.RemoveRange(quizzes.ToList());
+            await _context.SaveChangesAsync();
+            return true;
         }
     }
 }

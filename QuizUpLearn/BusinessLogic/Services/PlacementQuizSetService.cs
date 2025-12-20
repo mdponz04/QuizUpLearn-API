@@ -65,19 +65,21 @@ namespace BusinessLogic.Services
 
             foreach (var quizData in quizzesData)
             {
-                var quizGroupItemDto = new QuizRequestDto
+                var quizDto = new QuizRequestDto
                 {
                     QuestionText = quizData.Prompt,
                     OrderIndex = quizData.GlobalIndex,
                     TOEICPart = $"PART{quizData.Part}",
-                    CorrectAnswer = quizData.CorrectAnswer
+                    CorrectAnswer = quizData.CorrectAnswer,
+                    IsAIGenerated = false
                 };
+
                 if(quizData.Part >= 1 && quizData.Part <= 4)
                 {
-                    quizGroupItemDto.QuizGroupItemId = quizGroupItemListening.Id;
+                    quizDto.QuizGroupItemId = quizGroupItemListening.Id;
                 }
 
-                var quiz = _mapper.Map<Quiz>(quizGroupItemDto);
+                var quiz = _mapper.Map<Quiz>(quizDto);
                 quizzesToInsert.Add(quiz);
             }
 

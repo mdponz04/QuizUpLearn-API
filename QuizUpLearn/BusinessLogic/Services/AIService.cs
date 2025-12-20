@@ -367,6 +367,27 @@ namespace BusinessLogic.Services
             return result.Url;
         }
 
+        private async Task<string> DetermineQuizDifficultyLevel(Guid grammarId, Guid vocabId)
+        {
+            var grammar = await _grammarService.GetByIdAsync(grammarId);
+            var vocabulary = await _vocabularyService.GetByIdAsync(vocabId);
+
+            if (grammar == null || vocabulary == null)
+                throw new ArgumentException("Grammar or Vocabulary not found");
+
+            var grammarLevel = (int)grammar.GrammarDifficulty;
+            var vocabLevel = (int)vocabulary.VocabularyDifficulty;
+
+            var averageLevel = (grammarLevel + vocabLevel) / 2.0;
+
+            return averageLevel switch
+            {
+                < 0.5 => "easy",
+                >= 0.5 and < 1.5 => "medium",
+                >= 1.5 => "hard"
+            };
+        }
+
         private async Task<QuizResponseDto?> CreateQuizWithOptionsAsync(Guid grammarId, Guid vocabId , string part, string questionText, List<AiGenerateAnswerOptionResponseDto> options, bool isAssignOptionText = true, Guid? groupItemId = null, string? audioUrl = null, string? imageUrl = null)
         {
             var quiz = await _quizService.CreateQuizAsync(new QuizRequestDto
@@ -377,7 +398,9 @@ namespace BusinessLogic.Services
                 AudioURL = audioUrl,
                 ImageURL = imageUrl,
                 GrammarId = grammarId,
-                VocabularyId = vocabId
+                VocabularyId = vocabId,
+                IsAIGenerated = true,
+                DifficultyLevel = await DetermineQuizDifficultyLevel(grammarId, vocabId)
             });
 
             foreach (var opt in options)

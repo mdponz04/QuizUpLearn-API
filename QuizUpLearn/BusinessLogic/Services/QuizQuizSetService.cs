@@ -4,6 +4,7 @@ using BusinessLogic.DTOs.QuizQuizSetDtos;
 using BusinessLogic.Extensions;
 using BusinessLogic.Interfaces;
 using Repository.Entities;
+using Repository.Enums;
 using Repository.Interfaces;
 
 namespace BusinessLogic.Services
@@ -173,7 +174,19 @@ namespace BusinessLogic.Services
 
         public async Task<bool> DeleteByQuizSetIdAsync(Guid quizSetId)
         {
-            return await _quizQuizSetRepo.DeleteByQuizSetIdAsync(quizSetId);
+            var quizSet = await _quizSetRepo.GetQuizSetByIdAsync(quizSetId);
+
+            if (quizSet != null && quizSet.QuizSetType == QuizSetTypeEnum.Placement)
+            {
+                var quizAssociations = await _quizRepo.GetQuizzesByQuizSetIdAsync(quizSetId);
+                await _quizRepo.HardDeleteQuizzesBatchAsync(quizAssociations);
+            }
+            else
+            {
+                await _quizQuizSetRepo.DeleteByQuizSetIdAsync(quizSetId);
+            }
+
+            return true;
         }
     }
 }
