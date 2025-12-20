@@ -226,13 +226,13 @@ namespace BusinessLogic.Services
 
                 var quizzesByPart = quizzes.Where(q => q.TOEICPart == partString).ToList();
 
-                int currentEasy = quizzes.Count(q => q.DifficultyLevel.ToLower() == "easy");
-                int currentMedium = quizzes.Count(q => q.DifficultyLevel.ToLower() == "medium");
-                int currentHard = quizzes.Count(q => q.DifficultyLevel.ToLower() == "hard");
+                int currentEasy = quizzesByPart.Count(q => q.DifficultyLevel.ToLower() == "easy");
+                int currentMedium = quizzesByPart.Count(q => q.DifficultyLevel.ToLower() == "medium");
+                int currentHard = quizzesByPart.Count(q => q.DifficultyLevel.ToLower() == "hard");
 
-                needed[0, part] = Math.Max(0, ToeicMatrix[0, part] - currentEasy);
-                needed[1, part] = Math.Max(0, ToeicMatrix[1, part] - currentMedium);
-                needed[2, part] = Math.Max(0, ToeicMatrix[2, part] - currentHard);
+                needed[0, part] = ToeicMatrix[0, part] - currentEasy;
+                needed[1, part] = ToeicMatrix[1, part] - currentMedium;
+                needed[2, part] = ToeicMatrix[2, part] - currentHard;
             }
 
             return new NeedAmountQuizResponseDto{
