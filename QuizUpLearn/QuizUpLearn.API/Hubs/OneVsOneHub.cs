@@ -103,6 +103,8 @@ namespace QuizUpLearn.API.Hubs
                     var room = await _gameService.GetRoomAsync(roomPin);
                     if (room != null)
                     {
+                        var wasInProgress = room.Status == OneVsOneRoomStatus.InProgress;
+                        
                         await _gameService.PlayerLeaveAsync(roomPin, Context.ConnectionId);
                         
                         // Thông báo cho player còn lại
@@ -111,6 +113,50 @@ namespace QuizUpLearn.API.Hubs
                             ConnectionId = Context.ConnectionId,
                             Timestamp = DateTime.UtcNow
                         });
+                        
+                        // GAMEPLAY PHASE: Check if all remaining players have answered
+                        if (wasInProgress)
+                        {
+                            var updatedRoom = await _gameService.GetRoomAsync(roomPin);
+                            if (updatedRoom != null && updatedRoom.Status == OneVsOneRoomStatus.InProgress)
+                            {
+                                // Check if all remaining connected players have answered
+                                var remainingPlayers = updatedRoom.Players.Where(p => !string.IsNullOrEmpty(p.ConnectionId)).ToList();
+                                var answeredCount = updatedRoom.CurrentAnswers.Count;
+                                
+                                _logger.LogInformation($"🔄 Player disconnected during gameplay. Room {roomPin}: {answeredCount}/{remainingPlayers.Count} remaining players answered");
+                                
+                                if (remainingPlayers.Count > 0 && answeredCount >= remainingPlayers.Count)
+                                {
+                                    _logger.LogInformation($"✅ All remaining players have answered. Triggering round result for room {roomPin}");
+                                    
+                                    // All remaining players have answered, show result immediately
+                                    var result = await _gameService.GetCurrentRoundResultAsync(roomPin);
+                                    if (result != null)
+                                    {
+                                        await _gameService.MarkResultShownAsync(roomPin);
+                                        
+                                        var currentQuestion = updatedRoom.Questions[updatedRoom.CurrentQuestionIndex];
+                                        var payload = BuildShowQuestionPayload(currentQuestion, updatedRoom);
+                                        
+                                        await Clients.Group($"Room_{roomPin}").SendAsync("ShowRoundResult", new
+                                        {
+                                            Result = result,
+                                            CurrentQuestion = payload,
+                                            QuestionNumber = updatedRoom.CurrentQuestionIndex + 1,
+                                            TotalQuestions = updatedRoom.Questions.Count
+                                        });
+                                        
+                                        // Auto next question after 5 seconds
+                                        _ = Task.Run(async () =>
+                                        {
+                                            await Task.Delay(5000);
+                                            await AutoNextQuestionAsync(roomPin);
+                                        });
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
