@@ -566,7 +566,7 @@ namespace QuizUpLearn.API.Hubs
                 // Gửi kết quả cuối cùng cho tất cả
                 await Clients.Group($"Game_{gamePin}").SendAsync("GameEnded", finalResult);
 
-                // ✨ SYNC ĐIỂM VÀO EVENT PARTICIPANT (nếu là Event game)
+                // ✨ SYNC ĐIỂM VÀO EVENT PARTICIPANT VÀ UPDATE STATUS (nếu là Event game)
                 // Dùng IServiceScopeFactory để tạo scope mới cho background task
                 _ = Task.Run(async () =>
                 {
@@ -575,11 +575,23 @@ namespace QuizUpLearn.API.Hubs
                         try
                         {
                             var eventService = scope.ServiceProvider.GetRequiredService<IEventService>();
-                            await SyncEventScoresAsync(gamePin, finalResult, eventService);
+                            var gameService = scope.ServiceProvider.GetRequiredService<IRealtimeGameService>();
+                            
+                            // Lấy game session để check EventId
+                            var session = await gameService.GetGameSessionAsync(gamePin);
+                            if (session != null && session.EventId.HasValue)
+                            {
+                                // Sync điểm
+                                await SyncEventScoresAsync(gamePin, finalResult, eventService, gameService);
+                                
+                                // Update Event status thành "Ended"
+                                await eventService.UpdateEventStatusAsync(session.EventId.Value, "Ended");
+                                _logger.LogInformation($"✅ Event {session.EventId.Value} status updated to Ended after game completion");
+                            }
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, $"❌ Failed to sync event scores for game {gamePin}");
+                            _logger.LogError(ex, $"❌ Failed to sync event scores and update status for game {gamePin}");
                         }
                     }
                 });
@@ -610,6 +622,32 @@ namespace QuizUpLearn.API.Hubs
                     GamePin = gamePin,
                     Message = "The game has been cancelled by the host",
                     Timestamp = DateTime.UtcNow
+                });
+
+                // ✨ UPDATE EVENT STATUS THÀNH "Cancelled" (nếu là Event game)
+                _ = Task.Run(async () =>
+                {
+                    using (var scope = _serviceScopeFactory.CreateScope())
+                    {
+                        try
+                        {
+                            var gameService = scope.ServiceProvider.GetRequiredService<IRealtimeGameService>();
+                            var eventService = scope.ServiceProvider.GetRequiredService<IEventService>();
+                            
+                            // Lấy game session để check EventId
+                            var session = await gameService.GetGameSessionAsync(gamePin);
+                            if (session != null && session.EventId.HasValue)
+                            {
+                                // Update Event status thành "Cancelled"
+                                await eventService.UpdateEventStatusAsync(session.EventId.Value, "Cancelled");
+                                _logger.LogInformation($"✅ Event {session.EventId.Value} status updated to Cancelled after game cancellation");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, $"❌ Failed to update Event status to Cancelled for game {gamePin}");
+                        }
+                    }
                 });
 
                 await _gameService.CleanupGameAsync(gamePin);
@@ -1116,6 +1154,36 @@ namespace QuizUpLearn.API.Hubs
                     CompletedAt = finalResult.CompletedAt
                 });
 
+                // ✨ SYNC ĐIỂM VÀO EVENT PARTICIPANT VÀ UPDATE STATUS (nếu là Event game)
+                // Dùng IServiceScopeFactory để tạo scope mới cho background task
+                _ = Task.Run(async () =>
+                {
+                    using (var scope = _serviceScopeFactory.CreateScope())
+                    {
+                        try
+                        {
+                            var eventService = scope.ServiceProvider.GetRequiredService<IEventService>();
+                            var gameService = scope.ServiceProvider.GetRequiredService<IRealtimeGameService>();
+                            
+                            // Lấy game session để check EventId
+                            var session = await gameService.GetGameSessionAsync(gamePin);
+                            if (session != null && session.EventId.HasValue)
+                            {
+                                // Sync điểm
+                                await SyncEventScoresAsync(gamePin, finalResult, eventService, gameService);
+                                
+                                // Update Event status thành "Ended"
+                                await eventService.UpdateEventStatusAsync(session.EventId.Value, "Ended");
+                                _logger.LogInformation($"✅ Event {session.EventId.Value} status updated to Ended after force end");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, $"❌ Failed to sync event scores and update status for force-ended game {gamePin}");
+                        }
+                    }
+                });
+
                 _logger.LogInformation($"🛑 Game {gamePin} force ended by host. Reason: {reason}");
             }
             catch (Exception ex)
@@ -1156,14 +1224,14 @@ namespace QuizUpLearn.API.Hubs
         /// Sync điểm từ GameSession (Redis) vào EventParticipant (Database)
         /// Chỉ sync nếu game này là Event game (có EventId)
         /// </summary>
-        private async Task SyncEventScoresAsync(string gamePin, FinalResultDto finalResult, IEventService eventService)
+        private async Task SyncEventScoresAsync(string gamePin, FinalResultDto finalResult, IEventService eventService, IRealtimeGameService gameService)
         {
             try
             {
                 _logger.LogInformation($"🔄 Starting score sync for game {gamePin}");
 
                 // Lấy game session để check EventId
-                var session = await _gameService.GetGameSessionAsync(gamePin);
+                var session = await gameService.GetGameSessionAsync(gamePin);
                 if (session == null)
                 {
                     _logger.LogWarning($"⚠️ Game session not found for {gamePin}");

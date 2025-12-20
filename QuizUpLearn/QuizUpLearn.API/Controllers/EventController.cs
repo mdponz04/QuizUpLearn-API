@@ -318,6 +318,56 @@ namespace QuizUpLearn.API.Controllers
         }
 
         /// <summary>
+        /// ✨ END EVENT - Kết thúc Event và tính toán rank cho participants
+        /// </summary>
+        [HttpPost("end")]
+        [SubscriptionAndRoleAuthorize("Moderator")]
+        public async Task<ActionResult<ApiResponse<EndEventResponseDto>>> EndEvent([FromBody] EndEventRequestDto dto)
+        {
+            try
+            {
+                var userId = await GetUserIdFromToken();
+                if (userId == Guid.Empty)
+                    return Unauthorized(new ApiResponse<EndEventResponseDto> { Success = false, Message = "Người dùng chưa được xác thực" });
+
+                var result = await _eventService.EndEventAsync(userId, dto);
+                
+                _logger.LogInformation($"Event {dto.EventId} ended successfully");
+
+                return Ok(new ApiResponse<EndEventResponseDto> 
+                { 
+                    Success = true, 
+                    Data = result, 
+                    Message = $"Sự kiện đã kết thúc thành công! Tổng số người tham gia: {result.TotalParticipants}" 
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, $"Unauthorized end event attempt");
+                return Unauthorized(new ApiResponse<EndEventResponseDto> { Success = false, Message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, $"End event {dto.EventId} operation invalid");
+                return BadRequest(new ApiResponse<EndEventResponseDto> { Success = false, Message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, $"End event {dto.EventId} validation failed");
+                return BadRequest(new ApiResponse<EndEventResponseDto> { Success = false, Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"End event {dto.EventId} failed");
+                return StatusCode(500, new ApiResponse<EndEventResponseDto> 
+                { 
+                    Success = false, 
+                    Message = "Đã xảy ra lỗi khi kết thúc sự kiện" 
+                });
+            }
+        }
+
+        /// <summary>
         /// Lấy danh sách participants của Event
         /// </summary>
         [HttpGet("{id:guid}/participants")]
