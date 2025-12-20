@@ -4,6 +4,7 @@ using BusinessLogic.DTOs.QuizDtos;
 using BusinessLogic.Helpers;
 using BusinessLogic.Interfaces;
 using Repository.Entities;
+using Repository.Enums;
 using Repository.Interfaces;
 
 namespace BusinessLogic.Services
@@ -172,6 +173,91 @@ namespace BusinessLogic.Services
             }
 
             return query;
+        }
+
+        static readonly int[,] ToeicMatrix = {
+            //Parts
+            {  4, 10, 10,  6, 10,  4,  8 }, // Easy
+            {  2, 10, 18, 14, 12,  8, 20 }, // Medium
+            {  0,  5, 11, 10,  8,  4, 26 } // Hard
+        };
+
+        public async Task<NeedAmountQuizResponseDto> GetNeededQuizCountsForTOEICAsync(List<Guid> quizIds)
+        {
+            var quizzes =  new List<Quiz>();
+            foreach(var id in quizIds)
+            {
+                var quiz = await _quizRepo.GetQuizByIdAsync(id);
+                if (quiz != null)
+                {
+                    quizzes.Add(quiz);
+                }
+            }
+
+            int[,] needed = new int[3, 7];
+
+            for (int part = 0; part < 7; part++)
+            {
+                string partString = "";
+                switch (part)
+                {
+                    case 0:
+                        partString = QuizPartEnum.PART1.ToString();
+                        break;
+                    case 1:
+                        partString = QuizPartEnum.PART2.ToString();
+                        break;
+                    case 2:
+                        partString = QuizPartEnum.PART3.ToString();
+                        break;
+                    case 3:
+                        partString = QuizPartEnum.PART4.ToString();
+                        break;
+                    case 4:
+                        partString = QuizPartEnum.PART5.ToString();
+                        break;
+                    case 5:
+                        partString = QuizPartEnum.PART6.ToString();
+                        break;
+                    case 6:
+                        partString = QuizPartEnum.PART7.ToString();
+                        break;
+                }
+
+                var quizzesByPart = quizzes.Where(q => q.TOEICPart == partString).ToList();
+
+                int currentEasy = quizzes.Count(q => q.DifficultyLevel.ToLower() == "easy");
+                int currentMedium = quizzes.Count(q => q.DifficultyLevel.ToLower() == "medium");
+                int currentHard = quizzes.Count(q => q.DifficultyLevel.ToLower() == "hard");
+
+                needed[0, part] = Math.Max(0, ToeicMatrix[0, part] - currentEasy);
+                needed[1, part] = Math.Max(0, ToeicMatrix[1, part] - currentMedium);
+                needed[2, part] = Math.Max(0, ToeicMatrix[2, part] - currentHard);
+            }
+
+            return new NeedAmountQuizResponseDto{
+                Part1EasyAmount = needed[0,0],
+                Part1MediumAmount = needed[1,0],
+                Part1HardAmount = needed[2,0],
+                Part2EasyAmount = needed[0,1],
+                Part2MediumAmount = needed[1,1],
+                Part2HardAmount = needed[2,1],
+                Part3EasyAmount = needed[0,2],
+                Part3MediumAmount = needed[1,2],
+                Part3HardAmount = needed[2,2],
+                Part4EasyAmount = needed[0,3],
+                Part4MediumAmount = needed[1,3],
+                Part4HardAmount = needed[2,3],
+                Part5EasyAmount = needed[0,4],
+                Part5MediumAmount = needed[1,4],
+                Part5HardAmount = needed[2,4],
+                Part6EasyAmount = needed[0,5],
+                Part6MediumAmount = needed[1,5],
+                Part6HardAmount = needed[2,5],
+                Part7EasyAmount = needed[0,6],
+                Part7MediumAmount = needed[1,6],
+                Part7HardAmount = needed[2,6],
+            };
         }
     }
 }

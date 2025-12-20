@@ -116,5 +116,12 @@ namespace QuizUpLearn.API.Controllers
             var quizzes = await _quizService.GetByGrammarIdAndVocabularyIdAsync(grammarId, vocabularyId, pagination);
             return Ok(quizzes);
         }
+
+        [HttpPost("toeic-needed-quizzes")]
+        public async Task<IActionResult> GetNeededQuizCountsForTOEICAsync([FromBody] List<Guid> quizIds)
+        {
+            var result = await _quizService.GetNeededQuizCountsForTOEICAsync(quizIds);
+            return Ok(result);
+        }
     }
 }
