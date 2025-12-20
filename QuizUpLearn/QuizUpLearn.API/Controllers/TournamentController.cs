@@ -78,7 +78,7 @@ namespace QuizUpLearn.API.Controllers
 			try
 			{
 				var res = await _tournamentService.CreateAsync(dto);
-				return Ok(new ApiResponse<TournamentResponseDto> { Success = true, Data = res, Message = "Tournament created" });
+				return Ok(new ApiResponse<TournamentResponseDto> { Success = true, Data = res, Message = "Đã tạo giải đấu" });
 			}
 			catch (Exception ex)
 			{
@@ -98,7 +98,7 @@ namespace QuizUpLearn.API.Controllers
 			try
 			{
 				var res = await _tournamentService.AddQuizSetsAsync(id, body.QuizSetIds);
-				return Ok(new ApiResponse<TournamentResponseDto> { Success = true, Data = res, Message = "Quiz sets added" });
+				return Ok(new ApiResponse<TournamentResponseDto> { Success = true, Data = res, Message = "Đã thêm bộ câu hỏi" });
 			}
 			catch (Exception ex)
 			{
@@ -128,7 +128,7 @@ namespace QuizUpLearn.API.Controllers
 			try
 			{
 				var res = await _tournamentService.StartAsync(id);
-				return Ok(new ApiResponse<TournamentResponseDto> { Success = true, Data = res, Message = "Tournament started" });
+				return Ok(new ApiResponse<TournamentResponseDto> { Success = true, Data = res, Message = "Đã bắt đầu giải đấu" });
 			}
 			catch (Exception ex)
 			{
@@ -143,7 +143,7 @@ namespace QuizUpLearn.API.Controllers
 			try
 			{
 				var res = await _tournamentService.EndAsync(id);
-				return Ok(new ApiResponse<TournamentResponseDto> { Success = true, Data = res, Message = "Tournament ended" });
+				return Ok(new ApiResponse<TournamentResponseDto> { Success = true, Data = res, Message = "Đã kết thúc giải đấu" });
 			}
 			catch (Exception ex)
 			{
@@ -163,19 +163,19 @@ namespace QuizUpLearn.API.Controllers
 					?? User?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
 				if (string.IsNullOrEmpty(accountIdClaim) || !Guid.TryParse(accountIdClaim, out var accountId))
 				{
-					return Unauthorized(new ApiResponse<object> { Success = false, Message = "Invalid user authentication." });
+					return Unauthorized(new ApiResponse<object> { Success = false, Message = "Xác thực người dùng không hợp lệ" });
 				}
 
 				// Lấy UserId từ AccountId
 				var user = await _userService.GetByAccountIdAsync(accountId);
 				if (user == null)
 				{
-					return Unauthorized(new ApiResponse<object> { Success = false, Message = "User not found for this account." });
+					return Unauthorized(new ApiResponse<object> { Success = false, Message = "Không tìm thấy người dùng cho tài khoản này" });
 				}
 
 				var ok = await _tournamentService.JoinAsync(id, user.Id);
-				if (!ok) return BadRequest(new ApiResponse<object> { Success = false, Message = "Join failed" });
-				return Ok(new ApiResponse<object> { Success = true, Message = "Joined tournament" });
+				if (!ok) return BadRequest(new ApiResponse<object> { Success = false, Message = "Tham gia thất bại" });
+				return Ok(new ApiResponse<object> { Success = true, Message = "Đã tham gia giải đấu" });
 			}
 			catch (Exception ex)
 			{
@@ -210,14 +210,14 @@ namespace QuizUpLearn.API.Controllers
 					?? User?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
 				if (string.IsNullOrEmpty(accountIdClaim) || !Guid.TryParse(accountIdClaim, out var accountId))
 				{
-					return Unauthorized(new ApiResponse<object> { Success = false, Message = "Invalid user authentication." });
+					return Unauthorized(new ApiResponse<object> { Success = false, Message = "Xác thực người dùng không hợp lệ" });
 				}
 
 				// Lấy UserId từ AccountId
 				var user = await _userService.GetByAccountIdAsync(accountId);
 				if (user == null)
 				{
-					return Unauthorized(new ApiResponse<object> { Success = false, Message = "User not found for this account." });
+					return Unauthorized(new ApiResponse<object> { Success = false, Message = "Không tìm thấy người dùng cho tài khoản này" });
 				}
 
 				var isJoined = await _tournamentService.IsUserJoinedAsync(id, user.Id);
@@ -225,7 +225,7 @@ namespace QuizUpLearn.API.Controllers
 				{ 
 					Success = true, 
 					Data = new { IsJoined = isJoined },
-					Message = isJoined ? "User has joined this tournament" : "User has not joined this tournament"
+					Message = isJoined ? "Người dùng đã tham gia giải đấu này" : "Người dùng chưa tham gia giải đấu này"
 				});
 			}
 			catch (Exception ex)
@@ -245,7 +245,7 @@ namespace QuizUpLearn.API.Controllers
 				var tournament = await _tournamentService.GetByIdAsync(id);
 				if (tournament == null)
 				{
-					return BadRequest(new ApiResponse<object> { Success = false, Message = "Tournament not found" });
+					return BadRequest(new ApiResponse<object> { Success = false, Message = "Không tìm thấy giải đấu" });
 				}
 
 				// Tính điểm tích lũy theo từng ngày cho mỗi user
@@ -293,9 +293,9 @@ namespace QuizUpLearn.API.Controllers
 				var res = await _tournamentService.DeleteAsync(id);
 				if (!res)
 				{
-					return BadRequest(new ApiResponse<object> { Success = false, Message = "Delete failed" });
+					return BadRequest(new ApiResponse<object> { Success = false, Message = "Xóa thất bại" });
 				}
-				return Ok(new ApiResponse<object> { Success = true, Message = "Tournament deleted successfully" });
+				return Ok(new ApiResponse<object> { Success = true, Message = "Đã xóa giải đấu thành công" });
 			}
 			catch (Exception ex)
 			{

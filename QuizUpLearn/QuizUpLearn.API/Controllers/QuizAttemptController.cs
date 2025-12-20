@@ -32,7 +32,7 @@ namespace QuizUpLearn.API.Controllers
         public async Task<IActionResult> GetById([FromRoute] Guid id)
         {
             var quizAttempt = await _service.GetByIdAsync(id);
-            if (quizAttempt == null) throw new HttpException(HttpStatusCode.NotFound, "Quiz attempt not found");
+            if (quizAttempt == null) throw new HttpException(HttpStatusCode.NotFound, "Không tìm thấy lần làm bài");
             return Ok(quizAttempt);
         }
 
@@ -91,7 +91,7 @@ namespace QuizUpLearn.API.Controllers
         public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] RequestQuizAttemptDto dto)
         {
             var updated = await _service.UpdateAsync(id, dto);
-            if (updated == null) throw new HttpException(HttpStatusCode.NotFound, "Quiz attempt not found");
+            if (updated == null) throw new HttpException(HttpStatusCode.NotFound, "Không tìm thấy lần làm bài");
             return Ok(updated);
         }
 
@@ -99,7 +99,7 @@ namespace QuizUpLearn.API.Controllers
         public async Task<IActionResult> Finish([FromRoute] Guid id)
         {
             var result = await _service.FinishAsync(id);
-            if (result == null) throw new HttpException(HttpStatusCode.NotFound, "Quiz attempt not found");
+            if (result == null) throw new HttpException(HttpStatusCode.NotFound, "Không tìm thấy lần làm bài");
             return Ok(result);
         }
 
@@ -107,7 +107,7 @@ namespace QuizUpLearn.API.Controllers
         public async Task<IActionResult> SoftDelete([FromRoute] Guid id)
         {
             var ok = await _service.SoftDeleteAsync(id);
-            if (!ok) throw new HttpException(HttpStatusCode.NotFound, "Quiz attempt not found");
+            if (!ok) throw new HttpException(HttpStatusCode.NotFound, "Không tìm thấy lần làm bài");
             return NoContent();
         }
 
@@ -115,7 +115,7 @@ namespace QuizUpLearn.API.Controllers
         public async Task<IActionResult> Restore([FromRoute] Guid id)
         {
             var ok = await _service.RestoreAsync(id);
-            if (!ok) throw new HttpException(HttpStatusCode.NotFound, "Quiz attempt not found");
+            if (!ok) throw new HttpException(HttpStatusCode.NotFound, "Không tìm thấy lần làm bài");
             return Ok();
         }
     }

@@ -60,7 +60,7 @@ namespace BusinessLogic.Services
             var quizSet = await _quizSetRepo.GetQuizSetByIdAsync(dto.QuizSetId);
             if (quizSet == null)
             {
-                throw new InvalidOperationException("QuizSet not found");
+                throw new InvalidOperationException("Không tìm thấy bộ câu hỏi");
             }
 
             // Kiểm tra xem quiz set này có thuộc tournament đang "Started" không
@@ -160,7 +160,7 @@ namespace BusinessLogic.Services
         {
             if (dto.UserId == Guid.Empty)
             {
-                throw new InvalidOperationException("UserId is required");
+                throw new InvalidOperationException("Yêu cầu UserId");
             }
 
             // Cleanup WeakPoint orphan (không còn UserMistake liên quan) trước khi start
@@ -186,7 +186,7 @@ namespace BusinessLogic.Services
 
             if (!quizIds.Any())
             {
-                throw new InvalidOperationException("No mistake quizzes found for this user");
+                throw new InvalidOperationException("Không tìm thấy câu hỏi sai nào cho người dùng này");
             }
 
             var quizzes = await _quizRepo.GetQuizzesByIdsAsync(quizIds);
@@ -198,7 +198,7 @@ namespace BusinessLogic.Services
 
             if (!selected.Any())
             {
-                throw new InvalidOperationException("No valid quizzes found for this user");
+                throw new InvalidOperationException("Không tìm thấy câu hỏi hợp lệ nào cho người dùng này");
             }
 
             // Lấy QuizSetId từ quiz đầu tiên (thông qua QuizQuizSet)
@@ -216,7 +216,7 @@ namespace BusinessLogic.Services
             {
                 // Nếu quiz không có QuizSetId, tạo một QuizSet mới cho mistake quizzes
                 // Hoặc có thể throw exception
-                throw new InvalidOperationException($"Quiz {firstQuiz.Id} does not belong to any QuizSet");
+                throw new InvalidOperationException($"Câu hỏi {firstQuiz.Id} không thuộc bộ câu hỏi nào");
             }
 
             var attempt = new QuizAttempt

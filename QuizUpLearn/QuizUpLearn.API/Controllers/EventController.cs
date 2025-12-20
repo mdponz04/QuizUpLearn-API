@@ -47,14 +47,14 @@ namespace QuizUpLearn.API.Controllers
             {
                 var userId = await GetUserIdFromToken();
                 if (userId == Guid.Empty)
-                    return Unauthorized(new ApiResponse<EventResponseDto> { Success = false, Message = "User not authenticated" });
+                    return Unauthorized(new ApiResponse<EventResponseDto> { Success = false, Message = "Người dùng chưa được xác thực" });
 
                 var result = await _eventService.CreateEventAsync(userId, dto);
                 return Ok(new ApiResponse<EventResponseDto> 
                 { 
                     Success = true, 
                     Data = result, 
-                    Message = "Event created successfully" 
+                    Message = "Tạo sự kiện thành công" 
                 });
             }
             catch (ArgumentException ex)
@@ -68,7 +68,7 @@ namespace QuizUpLearn.API.Controllers
                 return StatusCode(500, new ApiResponse<EventResponseDto> 
                 { 
                     Success = false, 
-                    Message = "An error occurred while creating event" 
+                    Message = "Đã xảy ra lỗi khi tạo sự kiện" 
                 });
             }
         }
@@ -84,7 +84,7 @@ namespace QuizUpLearn.API.Controllers
             {
                 var result = await _eventService.GetEventByIdAsync(id);
                 if (result == null)
-                    return NotFound(new ApiResponse<EventResponseDto> { Success = false, Message = "Event not found" });
+                    return NotFound(new ApiResponse<EventResponseDto> { Success = false, Message = "Không tìm thấy sự kiện" });
 
                 return Ok(new ApiResponse<EventResponseDto> { Success = true, Data = result });
             }
@@ -94,7 +94,7 @@ namespace QuizUpLearn.API.Controllers
                 return StatusCode(500, new ApiResponse<EventResponseDto> 
                 { 
                     Success = false, 
-                    Message = "An error occurred while retrieving event" 
+                    Message = "Đã xảy ra lỗi khi lấy thông tin sự kiện" 
                 });
             }
         }
@@ -117,7 +117,7 @@ namespace QuizUpLearn.API.Controllers
                 return StatusCode(500, new ApiResponse<IEnumerable<EventResponseDto>> 
                 { 
                     Success = false, 
-                    Message = "An error occurred while retrieving events" 
+                    Message = "Đã xảy ra lỗi khi lấy danh sách sự kiện" 
                 });
             }
         }
@@ -140,7 +140,7 @@ namespace QuizUpLearn.API.Controllers
                 return StatusCode(500, new ApiResponse<IEnumerable<EventResponseDto>> 
                 { 
                     Success = false, 
-                    Message = "An error occurred while retrieving active events" 
+                    Message = "Đã xảy ra lỗi khi lấy danh sách sự kiện đang diễn ra" 
                 });
             }
         }
@@ -163,7 +163,7 @@ namespace QuizUpLearn.API.Controllers
                 return StatusCode(500, new ApiResponse<IEnumerable<EventResponseDto>> 
                 { 
                     Success = false, 
-                    Message = "An error occurred while retrieving upcoming events" 
+                    Message = "Đã xảy ra lỗi khi lấy danh sách sự kiện sắp diễn ra" 
                 });
             }
         }
@@ -178,7 +178,7 @@ namespace QuizUpLearn.API.Controllers
             {
                 var userId = await GetUserIdFromToken();
                 if (userId == Guid.Empty)
-                    return Unauthorized(new ApiResponse<IEnumerable<EventResponseDto>> { Success = false, Message = "User not authenticated" });
+                    return Unauthorized(new ApiResponse<IEnumerable<EventResponseDto>> { Success = false, Message = "Người dùng chưa được xác thực" });
 
                 var result = await _eventService.GetMyEventsAsync(userId);
                 return Ok(new ApiResponse<IEnumerable<EventResponseDto>> { Success = true, Data = result });
@@ -189,7 +189,7 @@ namespace QuizUpLearn.API.Controllers
                 return StatusCode(500, new ApiResponse<IEnumerable<EventResponseDto>> 
                 { 
                     Success = false, 
-                    Message = "An error occurred while retrieving your events" 
+                    Message = "Đã xảy ra lỗi khi lấy danh sách sự kiện của bạn" 
                 });
             }
         }
@@ -205,13 +205,13 @@ namespace QuizUpLearn.API.Controllers
             {
                 var result = await _eventService.UpdateEventAsync(id, dto);
                 if (result == null)
-                    return NotFound(new ApiResponse<EventResponseDto> { Success = false, Message = "Event not found" });
+                    return NotFound(new ApiResponse<EventResponseDto> { Success = false, Message = "Không tìm thấy sự kiện" });
 
                 return Ok(new ApiResponse<EventResponseDto> 
                 { 
                     Success = true, 
                     Data = result, 
-                    Message = "Event updated successfully" 
+                    Message = "Cập nhật sự kiện thành công" 
                 });
             }
             catch (InvalidOperationException ex)
@@ -230,7 +230,7 @@ namespace QuizUpLearn.API.Controllers
                 return StatusCode(500, new ApiResponse<EventResponseDto> 
                 { 
                     Success = false, 
-                    Message = "An error occurred while updating event" 
+                    Message = "Đã xảy ra lỗi khi cập nhật sự kiện" 
                 });
             }
         }
@@ -246,9 +246,9 @@ namespace QuizUpLearn.API.Controllers
             {
                 var result = await _eventService.DeleteEventAsync(id);
                 if (!result)
-                    return NotFound(new ApiResponse<object> { Success = false, Message = "Event not found" });
+                    return NotFound(new ApiResponse<object> { Success = false, Message = "Không tìm thấy sự kiện" });
 
-                return Ok(new ApiResponse<object> { Success = true, Message = "Event deleted successfully" });
+                return Ok(new ApiResponse<object> { Success = true, Message = "Xóa sự kiện thành công" });
             }
             catch (InvalidOperationException ex)
             {
@@ -261,7 +261,7 @@ namespace QuizUpLearn.API.Controllers
                 return StatusCode(500, new ApiResponse<object> 
                 { 
                     Success = false, 
-                    Message = "An error occurred while deleting event" 
+                    Message = "Đã xảy ra lỗi khi xóa sự kiện" 
                 });
             }
         }
@@ -278,7 +278,7 @@ namespace QuizUpLearn.API.Controllers
             {
                 var userId = await GetUserIdFromToken();
                 if (userId == Guid.Empty)
-                    return Unauthorized(new ApiResponse<StartEventResponseDto> { Success = false, Message = "User not authenticated" });
+                    return Unauthorized(new ApiResponse<StartEventResponseDto> { Success = false, Message = "Người dùng chưa được xác thực" });
 
                 var result = await _eventService.StartEventAsync(userId, dto);
                 
@@ -288,7 +288,7 @@ namespace QuizUpLearn.API.Controllers
                 { 
                     Success = true, 
                     Data = result, 
-                    Message = $"Event started successfully! GamePin: {result.GamePin}" 
+                    Message = $"Sự kiện đã bắt đầu thành công! GamePin: {result.GamePin}" 
                 });
             }
             catch (UnauthorizedAccessException ex)
@@ -312,7 +312,7 @@ namespace QuizUpLearn.API.Controllers
                 return StatusCode(500, new ApiResponse<StartEventResponseDto> 
                 { 
                     Success = false, 
-                    Message = "An error occurred while starting event" 
+                    Message = "Đã xảy ra lỗi khi bắt đầu sự kiện" 
                 });
             }
         }
@@ -334,7 +334,7 @@ namespace QuizUpLearn.API.Controllers
                 return StatusCode(500, new ApiResponse<IEnumerable<EventParticipantResponseDto>> 
                 { 
                     Success = false, 
-                    Message = "An error occurred while retrieving participants" 
+                    Message = "Đã xảy ra lỗi khi lấy danh sách người tham gia" 
                 });
             }
         }
@@ -353,7 +353,7 @@ namespace QuizUpLearn.API.Controllers
                 { 
                     Success = true, 
                     Data = result,
-                    Message = "Leaderboard retrieved successfully" 
+                    Message = "Lấy bảng xếp hạng thành công" 
                 });
             }
             catch (ArgumentException ex)
@@ -371,7 +371,7 @@ namespace QuizUpLearn.API.Controllers
                 return StatusCode(500, new ApiResponse<EventLeaderboardResponseDto> 
                 { 
                     Success = false, 
-                    Message = "An error occurred while retrieving leaderboard" 
+                    Message = "Đã xảy ra lỗi khi lấy bảng xếp hạng" 
                 });
             }
         }
@@ -386,10 +386,10 @@ namespace QuizUpLearn.API.Controllers
             {
                 var userId = await GetUserIdFromToken();
                 if (userId == Guid.Empty)
-                    return Unauthorized(new ApiResponse<object> { Success = false, Message = "User not authenticated" });
+                    return Unauthorized(new ApiResponse<object> { Success = false, Message = "Người dùng chưa được xác thực" });
 
                 var result = await _eventService.JoinEventAsync(id, userId);
-                return Ok(new ApiResponse<object> { Success = true, Message = "Joined event successfully" });
+                return Ok(new ApiResponse<object> { Success = true, Message = "Tham gia sự kiện thành công" });
             }
             catch (InvalidOperationException ex)
             {
@@ -407,7 +407,7 @@ namespace QuizUpLearn.API.Controllers
                 return StatusCode(500, new ApiResponse<object> 
                 { 
                     Success = false, 
-                    Message = "An error occurred while joining event" 
+                    Message = "Đã xảy ra lỗi khi tham gia sự kiện" 
                 });
             }
         }
@@ -422,14 +422,14 @@ namespace QuizUpLearn.API.Controllers
             {
                 var userId = await GetUserIdFromToken();
                 if (userId == Guid.Empty)
-                    return Unauthorized(new ApiResponse<object> { Success = false, Message = "User not authenticated" });
+                    return Unauthorized(new ApiResponse<object> { Success = false, Message = "Người dùng chưa được xác thực" });
 
                 var isJoined = await _eventService.IsUserJoinedAsync(id, userId);
                 return Ok(new ApiResponse<object> 
                 { 
                     Success = true, 
                     Data = new { IsJoined = isJoined },
-                    Message = isJoined ? "User has joined this event" : "User has not joined this event"
+                    Message = isJoined ? "Bạn đã tham gia sự kiện này" : "Bạn chưa tham gia sự kiện này"
                 });
             }
             catch (Exception ex)
@@ -438,7 +438,7 @@ namespace QuizUpLearn.API.Controllers
                 return StatusCode(500, new ApiResponse<object> 
                 { 
                     Success = false, 
-                    Message = "An error occurred while checking joined status" 
+                    Message = "Đã xảy ra lỗi khi kiểm tra trạng thái tham gia" 
                 });
             }
         }
@@ -457,7 +457,7 @@ namespace QuizUpLearn.API.Controllers
                 {
                     Success = true,
                     Data = stats,
-                    Message = "Scheduler statistics retrieved successfully"
+                    Message = "Lấy thống kê lịch trình thành công"
                 });
             }
             catch (Exception ex)
@@ -466,7 +466,7 @@ namespace QuizUpLearn.API.Controllers
                 return StatusCode(500, new ApiResponse<SchedulerStatistics>
                 {
                     Success = false,
-                    Message = "An error occurred while retrieving scheduler statistics"
+                    Message = "Đã xảy ra lỗi khi lấy thống kê lịch trình"
                 });
             }
         }
@@ -488,7 +488,7 @@ namespace QuizUpLearn.API.Controllers
                 return Ok(new ApiResponse<object>
                 {
                     Success = true,
-                    Message = "Scheduler check triggered successfully. Check will run shortly."
+                    Message = "Kích hoạt kiểm tra lịch trình thành công. Kiểm tra sẽ chạy trong giây lát."
                 });
             }
             catch (Exception ex)
@@ -497,7 +497,7 @@ namespace QuizUpLearn.API.Controllers
                 return StatusCode(500, new ApiResponse<object>
                 {
                     Success = false,
-                    Message = "An error occurred while triggering scheduler check"
+                    Message = "Đã xảy ra lỗi khi kích hoạt kiểm tra lịch trình"
                 });
             }
         }

@@ -922,7 +922,7 @@ namespace BusinessLogic.Services
 
             // All retries exhausted
             throw new InvalidOperationException(
-                $"Failed to send batch {batchNumber} after {maxRetries} attempts", 
+                $"Không thể gửi batch {batchNumber} sau {maxRetries} lần thử", 
                 lastError);
         }
 

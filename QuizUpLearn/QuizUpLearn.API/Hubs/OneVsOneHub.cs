@@ -103,34 +103,89 @@ namespace QuizUpLearn.API.Hubs
                     var room = await _gameService.GetRoomAsync(roomPin);
                     if (room != null)
                     {
+                        // Lưu thông tin player đang rời trước khi gọi PlayerLeaveAsync
+                        var leavingPlayer = room.Players.FirstOrDefault(p => p.ConnectionId == Context.ConnectionId);
+                        var isHost = room.Player1?.ConnectionId == Context.ConnectionId;
                         var wasInProgress = room.Status == OneVsOneRoomStatus.InProgress;
                         
                         await _gameService.PlayerLeaveAsync(roomPin, Context.ConnectionId);
                         
-                        // Thông báo cho player còn lại
-                        await Clients.Group($"Room_{roomPin}").SendAsync("PlayerDisconnected", new
-                        {
-                            ConnectionId = Context.ConnectionId,
-                            Timestamp = DateTime.UtcNow
-                        });
+                        // Lấy room state sau khi player rời để kiểm tra status
+                        var updatedRoom = await _gameService.GetRoomAsync(roomPin);
                         
-                        // GAMEPLAY PHASE: Check if all remaining players have answered
-                        if (wasInProgress)
+                        // ========== CASE 1: HOST RỜI (áp dụng cho cả 1vs1 và Multiplayer) ==========
+                        if (isHost && updatedRoom != null && updatedRoom.Status == OneVsOneRoomStatus.Cancelled)
                         {
-                            var updatedRoom = await _gameService.GetRoomAsync(roomPin);
-                            if (updatedRoom != null && updatedRoom.Status == OneVsOneRoomStatus.InProgress)
+                            var gameMode = updatedRoom.Mode == GameModeEnum.OneVsOne ? "1vs1" : "Multiplayer";
+                            _logger.LogInformation($"🚨 Host '{leavingPlayer?.PlayerName}' left {gameMode} room {roomPin} - Cancelling game immediately");
+                            
+                            // ✨ Gửi RoomCancelled ngay lập tức để tránh game stuck
+                            await Clients.Group($"Room_{roomPin}").SendAsync("RoomCancelled", new
                             {
-                                // Check if all remaining connected players have answered
+                                RoomPin = roomPin,
+                                HostName = leavingPlayer?.PlayerName ?? "Host",
+                                Mode = updatedRoom.Mode.ToString(),
+                                Message = "Host đã rời phòng. Game đã bị hủy.",
+                                Timestamp = DateTime.UtcNow
+                            });
+                            
+                            // Cleanup room sau 30 giây để players có thời gian nhận thông báo
+                            _ = Task.Run(async () =>
+                            {
+                                await Task.Delay(30000);
+                                await _gameService.CleanupRoomAsync(roomPin);
+                                _logger.LogInformation($"✅ Cleaned up cancelled {gameMode} room {roomPin} after host left");
+                            });
+                            
+                            // ✨ QUAN TRỌNG: Không xử lý thêm logic gameplay nếu host rời
+                            return; // Exit early để tránh xử lý logic gameplay
+                        }
+                        // ========== CASE 2: PLAYER KHÁC RỜI (không phải host) ==========
+                        else if (updatedRoom != null)
+                        {
+                            // Gửi PlayerDisconnected event
+                            _logger.LogInformation($"Player '{leavingPlayer?.PlayerName}' left room {roomPin} - Updating room state");
+                            
+                            await Clients.Group($"Room_{roomPin}").SendAsync("PlayerDisconnected", new
+                            {
+                                ConnectionId = Context.ConnectionId,
+                                PlayerName = leavingPlayer?.PlayerName,
+                                Timestamp = DateTime.UtcNow
+                            });
+                            
+                            // ✨ QUAN TRỌNG: Cập nhật room state cho các players còn lại (đặc biệt là host)
+                            // Để host biết player đã rời và room đã về trạng thái Waiting (nếu < 2 players)
+                            await NotifyRoomStateChangedAsync(roomPin);
+                            
+                            // GAMEPLAY PHASE: Nếu đang trong game và player rời
+                            if (wasInProgress && updatedRoom.Status == OneVsOneRoomStatus.InProgress)
+                            {
                                 var remainingPlayers = updatedRoom.Players.Where(p => !string.IsNullOrEmpty(p.ConnectionId)).ToList();
+                                
+                                // ✨ Nếu không còn players nào (trừ host), end game
+                                if (remainingPlayers.Count == 0)
+                                {
+                                    _logger.LogInformation($"⚠️ No remaining players in room {roomPin} - Ending game");
+                                    await EndGame(roomPin);
+                                    return;
+                                }
+                                
+                                // ✨ Nếu chỉ còn 1 player (host), tiếp tục game với 1 player
+                                if (remainingPlayers.Count == 1)
+                                {
+                                    _logger.LogInformation($"⚠️ Only 1 player remaining in room {roomPin} - Game continues with host only");
+                                }
+                                
+                                // Check if all remaining connected players have answered
                                 var answeredCount = updatedRoom.CurrentAnswers.Count;
                                 
                                 _logger.LogInformation($"🔄 Player disconnected during gameplay. Room {roomPin}: {answeredCount}/{remainingPlayers.Count} remaining players answered");
                                 
+                                // ✨ Nếu tất cả players còn lại đã trả lời → Show result ngay
                                 if (remainingPlayers.Count > 0 && answeredCount >= remainingPlayers.Count)
                                 {
                                     _logger.LogInformation($"✅ All remaining players have answered. Triggering round result for room {roomPin}");
                                     
-                                    // All remaining players have answered, show result immediately
                                     var result = await _gameService.GetCurrentRoundResultAsync(roomPin);
                                     if (result != null)
                                     {
@@ -139,22 +194,14 @@ namespace QuizUpLearn.API.Hubs
                                         var currentQuestion = updatedRoom.Questions[updatedRoom.CurrentQuestionIndex];
                                         var payload = BuildShowQuestionPayload(currentQuestion, updatedRoom);
                                         
-                                        await Clients.Group($"Room_{roomPin}").SendAsync("ShowRoundResult", new
-                                        {
-                                            Result = result,
-                                            CurrentQuestion = payload,
-                                            QuestionNumber = updatedRoom.CurrentQuestionIndex + 1,
-                                            TotalQuestions = updatedRoom.Questions.Count
-                                        });
+                                        await Clients.Group($"Room_{roomPin}").SendAsync("ShowRoundResult", result);
                                         
-                                        // Auto next question after 5 seconds
-                                        _ = Task.Run(async () =>
-                                        {
-                                            await Task.Delay(5000);
-                                            await AutoNextQuestionAsync(roomPin);
-                                        });
+                                        // ✨ Auto next question sau 5 giây (game tiếp tục mượt mà)
+                                        _ = AutoNextQuestionAsync(roomPin);
                                     }
                                 }
+                                // ✨ Nếu chưa đủ players trả lời, game vẫn tiếp tục chờ timer 30s
+                                // Timer sẽ tự động show result khi hết thời gian
                             }
                         }
                     }
@@ -485,6 +532,7 @@ namespace QuizUpLearn.API.Hubs
 
         /// <summary>
         /// Timer 30 giây cho mỗi câu hỏi - tự động show result nếu chưa có
+        /// Game tiếp tục mượt mà ngay cả khi có players rời
         /// </summary>
         private async Task StartQuestionTimerAsync(string roomPin, Guid questionId)
         {
@@ -494,14 +542,27 @@ namespace QuizUpLearn.API.Hubs
 
                 var room = await _gameService.GetRoomAsync(roomPin);
                 if (room == null)
+                {
+                    _logger.LogInformation($"Timer expired for room {roomPin} but room no longer exists");
                     return;
+                }
 
-
+                // ✨ Chỉ xử lý nếu game vẫn đang chạy và đúng question
                 if (room.Status == OneVsOneRoomStatus.InProgress && 
                     room.CurrentQuestionIndex < room.Questions.Count &&
                     room.Questions[room.CurrentQuestionIndex].QuestionId == questionId)
                 {
-                    _logger.LogInformation($"30s timer expired for room {roomPin}, auto-showing result");
+                    var remainingPlayers = room.Players.Where(p => !string.IsNullOrEmpty(p.ConnectionId)).ToList();
+                    
+                    // ✨ Nếu không còn players nào, end game
+                    if (remainingPlayers.Count == 0)
+                    {
+                        _logger.LogInformation($"⚠️ Timer expired but no players remaining in room {roomPin} - Ending game");
+                        await EndGame(roomPin);
+                        return;
+                    }
+                    
+                    _logger.LogInformation($"⏰ 30s timer expired for room {roomPin} (question {questionId}), auto-showing result for {remainingPlayers.Count} remaining players");
 
                     var result = await _gameService.GetCurrentRoundResultAsync(roomPin);
                     if (result != null)
@@ -509,12 +570,13 @@ namespace QuizUpLearn.API.Hubs
                         await _hubContext.Clients.Group($"Room_{roomPin}").SendAsync("ShowRoundResult", result);
                         await _gameService.MarkResultShownAsync(roomPin);
 
+                        // ✨ Game tiếp tục mượt mà - auto next question sau 5 giây
                         _ = AutoNextQuestionAsync(roomPin);
                     }
                 }
                 else
                 {
-                    _logger.LogInformation($"Timer expired for room {roomPin} but result already shown or question changed. Status: {room.Status}");
+                    _logger.LogInformation($"Timer expired for room {roomPin} but result already shown or question changed. Status: {room.Status}, QuestionIndex: {room.CurrentQuestionIndex}");
                 }
             }
             catch (Exception ex)

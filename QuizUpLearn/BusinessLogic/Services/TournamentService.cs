@@ -89,7 +89,7 @@ namespace BusinessLogic.Services
 
 		public async Task<TournamentResponseDto> AddQuizSetsAsync(Guid tournamentId, IEnumerable<Guid> quizSetIds)
 		{
-			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId) ?? throw new ArgumentException("Tournament not found");
+			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId) ?? throw new ArgumentException("Không tìm thấy giải đấu");
 			var scheduledIds = await BuildScheduledQuizSetIdsAsync(tournament, quizSetIds);
 			await SaveTournamentQuizSetsAsync(tournament, scheduledIds);
 			var all = await _tournamentQuizSetRepo.GetByTournamentAsync(tournamentId);
@@ -98,7 +98,7 @@ namespace BusinessLogic.Services
 
 		public async Task<TournamentResponseDto> StartAsync(Guid tournamentId)
 		{
-			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId) ?? throw new ArgumentException("Tournament not found");
+			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId) ?? throw new ArgumentException("Không tìm thấy giải đấu");
 			if (tournament.Status != "Created")
 			{
 				throw new ArgumentException($"Tournament phải ở trạng thái 'Created' mới có thể start. Trạng thái hiện tại: {tournament.Status}");
@@ -120,7 +120,7 @@ namespace BusinessLogic.Services
 
 		public async Task<TournamentResponseDto> EndAsync(Guid tournamentId)
 		{
-			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId) ?? throw new ArgumentException("Tournament not found");
+			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId) ?? throw new ArgumentException("Không tìm thấy giải đấu");
 			if (tournament.Status != "Started")
 			{
 				throw new ArgumentException($"Chỉ có thể end tournament khi status là 'Started'. Trạng thái hiện tại: {tournament.Status}");
@@ -138,7 +138,7 @@ namespace BusinessLogic.Services
 			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId);
 			if (tournament == null)
 			{
-				throw new ArgumentException("Tournament not found");
+				throw new ArgumentException("Không tìm thấy giải đấu");
 			}
 
 			// Chỉ cho phép join khi tournament đã Started
@@ -203,7 +203,7 @@ namespace BusinessLogic.Services
 
 		public async Task<IEnumerable<TournamentQuizSetItemDto>> GetQuizSetsAsync(Guid tournamentId)
 		{
-			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId) ?? throw new ArgumentException("Tournament not found");
+			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId) ?? throw new ArgumentException("Không tìm thấy giải đấu");
 			if (tournament.Status != "Created")
 			{
 				throw new ArgumentException($"Chỉ có thể xem quiz set khi tournament đang ở trạng thái 'Created'. Trạng thái hiện tại: {tournament.Status}");
@@ -224,7 +224,7 @@ namespace BusinessLogic.Services
 
 		public async Task<bool> DeleteAsync(Guid tournamentId)
 		{
-			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId) ?? throw new ArgumentException("Tournament not found");
+			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId) ?? throw new ArgumentException("Không tìm thấy giải đấu");
 			
 			if (tournament.Status != "Created")
 			{
@@ -365,7 +365,7 @@ namespace BusinessLogic.Services
 
 		public async Task<IEnumerable<TournamentLeaderboardItemDto>> GetLeaderboardAsync(Guid tournamentId)
 		{
-			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId) ?? throw new ArgumentException("Tournament not found");
+			var tournament = await _tournamentRepo.GetByIdAsync(tournamentId) ?? throw new ArgumentException("Không tìm thấy giải đấu");
 
 			// Lấy tất cả participants của tournament
 			var participants = await _participantRepo.GetByTournamentAsync(tournamentId);

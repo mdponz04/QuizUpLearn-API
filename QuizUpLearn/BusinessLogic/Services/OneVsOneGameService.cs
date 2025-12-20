@@ -130,6 +130,18 @@ namespace BusinessLogic.Services
             }
         }
 
+        private async Task DeleteConnectionMappingAsync(string connectionId)
+        {
+            try
+            {
+                await _cache.RemoveAsync($"connection1v1:{connectionId}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error deleting connection mapping for {connectionId}");
+            }
+        }
+
         // ==================== CREATE ROOM ====================
         public async Task<CreateOneVsOneRoomResponseDto> CreateRoomAsync(CreateOneVsOneRoomDto dto)
         {
@@ -144,26 +156,14 @@ namespace BusinessLogic.Services
             if (quizSet == null)
                 throw new ArgumentException("Quiz set not found");
 
-            // Load quiz group items for TOEIC-style grouped questions (Parts 3,4,6,7)
-            //var quizGroupItems = await quizGroupItemRepository.GetAllByQuizSetIdAsync(dto.QuizSetId);
-            /*var quizGroupItemsMap = new Dictionary<Guid, QuizGroupItemDto>();
-            foreach (var groupItem in quizGroupItems)
-            {
-                quizGroupItemsMap[groupItem.Id] = new QuizGroupItemDto
-                {
-                    Id = groupItem.Id,
-                    Name = groupItem.Name,
-                    AudioUrl = groupItem.AudioUrl,
-                    ImageUrl = groupItem.ImageUrl,
-                    PassageText = groupItem.PassageText
-                };
-            }*/
-
-            // Load questions
+            // Load questions (includes QuizGroupItem via Include)
             var quizzes = await quizRepository.GetQuizzesByQuizSetIdAsync(dto.QuizSetId);
             var questionsList = new List<QuestionDto>();
             var correctAnswersMap = new Dictionary<Guid, bool>();
 
+            // Build QuizGroupItems map from quizzes (for TOEIC-style grouped questions)
+            var quizGroupItemsMap = new Dictionary<Guid, QuizGroupItemDto>();
+            
             int questionNumber = 1;
             foreach (var quiz in quizzes)
             {
@@ -188,6 +188,19 @@ namespace BusinessLogic.Services
                 };
 
                 questionsList.Add(questionDto);
+
+                // ✨ Load QuizGroupItem nếu có (TOEIC Parts 3,4,6,7)
+                if (quiz.QuizGroupItemId.HasValue && quiz.QuizGroupItem != null && !quizGroupItemsMap.ContainsKey(quiz.QuizGroupItemId.Value))
+                {
+                    quizGroupItemsMap[quiz.QuizGroupItemId.Value] = new QuizGroupItemDto
+                    {
+                        Id = quiz.QuizGroupItem.Id,
+                        Name = quiz.QuizGroupItem.Name,
+                        AudioUrl = quiz.QuizGroupItem.AudioUrl,
+                        ImageUrl = quiz.QuizGroupItem.ImageUrl,
+                        PassageText = quiz.QuizGroupItem.PassageText
+                    };
+                }
 
                 // Lưu đáp án đúng
                 foreach (var ao in answerOptions)
@@ -242,7 +255,7 @@ namespace BusinessLogic.Services
                 Player1 = player1,
                 
                 Questions = questionsList,
-                //QuizGroupItems = quizGroupItemsMap, // Store group items for TOEIC-style questions
+                QuizGroupItems = quizGroupItemsMap, // Store group items for TOEIC-style questions
                 CurrentQuestionIndex = 0,
                 CurrentAnswers = new Dictionary<string, OneVsOneAnswerDto>(),
                 AllAnswers = new Dictionary<Guid, Dictionary<string, OneVsOneAnswerDto>>(),
@@ -478,11 +491,14 @@ namespace BusinessLogic.Services
             if (leavingPlayer == null)
                 return false;
 
-            // Player1 (Host) leave → Cancel room
+            // Player1 (Host) leave → Cancel room (áp dụng cho cả 1vs1 và Multiplayer)
             if (room.Player1?.ConnectionId == connectionId)
             {
                 room.Status = OneVsOneRoomStatus.Cancelled;
-                _logger.LogInformation($"Host left room {roomPin} - Room cancelled");
+                // Xóa connection mapping khi host rời
+                await DeleteConnectionMappingAsync(connectionId);
+                var gameMode = room.Mode == GameModeEnum.OneVsOne ? "1vs1" : "Multiplayer";
+                _logger.LogInformation($"🚨 Host left {gameMode} room {roomPin} - Room cancelled (affects all {room.Players.Count} players)");
             }
             else
             {
@@ -500,6 +516,9 @@ namespace BusinessLogic.Services
                 {
                     room.Player2 = room.Players.Count >= 2 ? room.Players[1] : null;
                 }
+
+                // ✨ Xóa connection mapping để player có thể join lại với connectionId mới
+                await DeleteConnectionMappingAsync(connectionId);
 
                 _logger.LogInformation($"Player '{leavingPlayer.PlayerName}' left room {roomPin} ({room.Players.Count} players remaining)");
             }
