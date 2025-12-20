@@ -3,6 +3,7 @@ using BusinessLogic.Interfaces;
 using BusinessLogic.DTOs;
 using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace QuizUpLearn.API.Hubs
 {
@@ -16,17 +17,20 @@ namespace QuizUpLearn.API.Hubs
         private readonly IUserService _userService;
         private readonly IEventService _eventService;
         private readonly ILogger<GameHub> _logger;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
 
         public GameHub(
             IRealtimeGameService gameService,
             IUserService userService,
             IEventService eventService,
-            ILogger<GameHub> logger)
+            ILogger<GameHub> logger,
+            IServiceScopeFactory serviceScopeFactory)
         {
             _gameService = gameService;
             _userService = userService;
             _eventService = eventService;
             _logger = logger;
+            _serviceScopeFactory = serviceScopeFactory;
         }
 
         // ==================== HELPER METHODS ====================
@@ -563,15 +567,20 @@ namespace QuizUpLearn.API.Hubs
                 await Clients.Group($"Game_{gamePin}").SendAsync("GameEnded", finalResult);
 
                 // ✨ SYNC ĐIỂM VÀO EVENT PARTICIPANT (nếu là Event game)
+                // Dùng IServiceScopeFactory để tạo scope mới cho background task
                 _ = Task.Run(async () =>
                 {
-                    try
+                    using (var scope = _serviceScopeFactory.CreateScope())
                     {
-                        await SyncEventScoresAsync(gamePin, finalResult);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, $"Failed to sync event scores for game {gamePin}");
+                        try
+                        {
+                            var eventService = scope.ServiceProvider.GetRequiredService<IEventService>();
+                            await SyncEventScoresAsync(gamePin, finalResult, eventService);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, $"❌ Failed to sync event scores for game {gamePin}");
+                        }
                     }
                 });
 
@@ -1147,7 +1156,7 @@ namespace QuizUpLearn.API.Hubs
         /// Sync điểm từ GameSession (Redis) vào EventParticipant (Database)
         /// Chỉ sync nếu game này là Event game (có EventId)
         /// </summary>
-        private async Task SyncEventScoresAsync(string gamePin, FinalResultDto finalResult)
+        private async Task SyncEventScoresAsync(string gamePin, FinalResultDto finalResult, IEventService eventService)
         {
             try
             {
@@ -1197,14 +1206,14 @@ namespace QuizUpLearn.API.Hubs
                         var wrongAnswers = ranking.TotalAnswered - ranking.CorrectAnswers;
 
                         // Sync vào EventParticipant
-                        await _eventService.SyncPlayerScoreAsync(
+                        await eventService.SyncPlayerScoreAsync(
                             eventId,
                             player.UserId.Value,
                             ranking.TotalScore,
                             accuracy);
 
                         // Lưu lịch sử chơi Event vào QuizAttempt
-                        await _eventService.SaveEventGameHistoryAsync(
+                        await eventService.SaveEventGameHistoryAsync(
                             eventId,
                             player.UserId.Value,
                             session.QuizSetId,

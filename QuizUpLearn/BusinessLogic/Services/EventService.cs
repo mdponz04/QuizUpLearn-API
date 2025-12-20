@@ -394,6 +394,8 @@ namespace BusinessLogic.Services
                 double accuracy = participant.Accuracy;
                 DateTime? finishAt = participant.FinishAt;
 
+                _logger.LogInformation($"📊 Participant {participant.ParticipantId} (Event {eventId}): Score={score}, Accuracy={accuracy:F2}%");
+
                 // Nếu EventParticipant.Score = 0, fallback sang QuizAttempt
                 if (score == 0)
                 {
@@ -426,10 +428,20 @@ namespace BusinessLogic.Services
                             score = bestAttempt.Score;
                             accuracy = (double)bestAttempt.Accuracy;
                             finishAt = bestAttempt.UpdatedAt ?? bestAttempt.CreatedAt;
+                            _logger.LogInformation($"📊 Participant {participant.ParticipantId}: Using QuizAttempt fallback - Score={score}, Accuracy={accuracy:F2}%");
                         }
+                        else
+                        {
+                            _logger.LogWarning($"⚠️ Participant {participant.ParticipantId}: No QuizAttempt found for fallback, using Score=0");
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"⚠️ Participant {participant.ParticipantId}: No QuizAttempts found for user, using Score=0");
                     }
                 }
 
+                _logger.LogInformation($"📊 Final score for Participant {participant.ParticipantId}: Score={score}, Accuracy={accuracy:F2}%");
                 participantScores.Add((participant, score, accuracy, finishAt));
             }
 
@@ -730,9 +742,12 @@ namespace BusinessLogic.Services
 
                 if (!participantList.Any())
                 {
-                    _logger.LogWarning($"⚠️ No participants found for Event {eventEntity.Id}. Skipping GamePin email sending.");
+                    _logger.LogWarning($"⚠️ Không tìm thấy người tham gia nào cho Event {eventEntity.Id}. Bỏ qua việc gửi email GamePin.");
+                    _logger.LogWarning($"⚠️ LƯU Ý: User cần đăng ký tham gia Event (POST /api/event/{{id}}/join) TRƯỚC KHI start event để nhận email!");
                     return;
                 }
+
+                _logger.LogInformation($"📋 Tìm thấy {participantList.Count} người đã đăng ký tham gia Event {eventEntity.Id}");
 
                 // Lấy User và Account tương ứng
                 var accounts = new List<Account>();
@@ -771,7 +786,8 @@ namespace BusinessLogic.Services
 
                 if (!accounts.Any())
                 {
-                    _logger.LogWarning($"⚠️ No valid accounts found to notify for Event {eventEntity.Id}. Skipping GamePin email sending.");
+                    _logger.LogWarning($"⚠️ Không tìm thấy tài khoản hợp lệ nào để gửi thông báo cho Event {eventEntity.Id}. Bỏ qua việc gửi email GamePin.");
+                    _logger.LogWarning($"⚠️ LƯU Ý: Tài khoản cần có IsActive=true, IsEmailVerified=true và Email hợp lệ!");
                     return;
                 }
 
