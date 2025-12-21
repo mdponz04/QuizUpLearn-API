@@ -97,12 +97,17 @@ namespace QuizUpLearn.API.Hubs
                     {
                         var leavingPlayer = room.Players.FirstOrDefault(p => p.ConnectionId == Context.ConnectionId);
                         var isHost = room.Player1?.ConnectionId == Context.ConnectionId;
-                        var wasInProgress = room.Status == OneVsOneRoomStatus.InProgress;
+                        
+                        // Check if game is in any active phase (not just InProgress)
+                        var isActiveGamePhase = room.Status == OneVsOneRoomStatus.InProgress || 
+                                               room.Status == OneVsOneRoomStatus.ShowingResult ||
+                                               room.Status == OneVsOneRoomStatus.Ready; // Ready status includes countdown
                         
                         await _gameService.PlayerLeaveAsync(roomPin, Context.ConnectionId);
                         var updatedRoom = await _gameService.GetRoomAsync(roomPin);
                         
-                        if (isHost && updatedRoom != null && updatedRoom.Status == OneVsOneRoomStatus.Cancelled)
+                        // Only cancel room if host left during lobby phase (NOT during any active game phase)
+                        if (isHost && !isActiveGamePhase && updatedRoom != null && updatedRoom.Status == OneVsOneRoomStatus.Cancelled)
                         {
                             var gameMode = updatedRoom.Mode == GameModeEnum.OneVsOne ? "1vs1" : "Multiplayer";
                             _logger.LogInformation($"🚨 Host '{leavingPlayer?.PlayerName}' left {gameMode} room {roomPin} - Cancelling game immediately");
@@ -138,7 +143,9 @@ namespace QuizUpLearn.API.Hubs
                             
                             await NotifyRoomStateChangedAsync(roomPin);
                             
-                            if (wasInProgress && updatedRoom.Status == OneVsOneRoomStatus.InProgress)
+                            // Handle answer check during InProgress or ShowingResult phases
+                            if ((room.Status == OneVsOneRoomStatus.InProgress || room.Status == OneVsOneRoomStatus.ShowingResult) && 
+                                (updatedRoom.Status == OneVsOneRoomStatus.InProgress || updatedRoom.Status == OneVsOneRoomStatus.ShowingResult))
                             {
                                 var remainingPlayers = updatedRoom.Players.Where(p => !string.IsNullOrEmpty(p.ConnectionId)).ToList();
                                 
@@ -154,7 +161,9 @@ namespace QuizUpLearn.API.Hubs
                                     _logger.LogInformation($"⚠️ Only 1 player remaining in room {roomPin} - Game continues with host only");
                                 }
                                 
-                                var answeredCount = updatedRoom.CurrentAnswers.Count;
+                                // CRITICAL FIX: Count only answers from remaining connected players
+                                var remainingPlayerConnectionIds = remainingPlayers.Select(p => p.ConnectionId).ToHashSet();
+                                var answeredCount = updatedRoom.CurrentAnswers.Keys.Count(connId => remainingPlayerConnectionIds.Contains(connId));
                                 _logger.LogInformation($"🔄 Player disconnected during gameplay. Room {roomPin}: {answeredCount}/{remainingPlayers.Count} remaining players answered");
                                 
                                 if (remainingPlayers.Count > 0 && answeredCount >= remainingPlayers.Count)
