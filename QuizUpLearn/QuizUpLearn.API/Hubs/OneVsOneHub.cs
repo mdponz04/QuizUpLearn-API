@@ -42,16 +42,9 @@ namespace QuizUpLearn.API.Hubs
             _serviceScopeFactory = serviceScopeFactory;
         }
 
-        // ==================== HELPER METHODS ====================
-        /// <summary>
-        /// Build ShowQuestion payload with group item data for TOEIC-style grouped questions
-        /// </summary>
         private object BuildShowQuestionPayload(QuestionDto question, OneVsOneRoomDto? room)
         {
             QuizGroupItemDto? groupItem = null;
-            
-            // Get group item if this question belongs to a group (TOEIC Parts 3,4,6,7)
-            // Parts 1, 2, 5 are standalone - don't need group display
             var toeicPart = question.ToeicPart?.ToUpperInvariant();
             var partsWithGroupContent = new[] { "PART3", "PART4", "PART6", "PART7" };
             var shouldIncludeGroup = toeicPart != null && partsWithGroupContent.Contains(toeicPart);
@@ -66,7 +59,6 @@ namespace QuizUpLearn.API.Hubs
 
             return new
             {
-                // Question data
                 QuestionId = question.QuestionId,
                 QuestionText = question.QuestionText,
                 ImageUrl = question.ImageUrl,
@@ -76,10 +68,7 @@ namespace QuizUpLearn.API.Hubs
                 TotalQuestions = question.TotalQuestions,
                 TimeLimit = question.TimeLimit ?? 30,
                 QuizGroupItemId = question.QuizGroupItemId,
-                ToeicPart = question.ToeicPart, // Include TOEIC Part for frontend logic
-                
-                // Group item data (for TOEIC-style grouped questions with shared passage/audio/image)
-                // Only included for Parts 3, 4, 6, 7
+                ToeicPart = question.ToeicPart,
                 GroupItem = groupItem != null ? new
                 {
                     Id = groupItem.Id,
@@ -90,7 +79,6 @@ namespace QuizUpLearn.API.Hubs
             };
         }
 
-        // ==================== CONNECTION LIFECYCLE ====================
         public override async Task OnConnectedAsync()
         {
             _logger.LogInformation($"Client connected: {Context.ConnectionId}");
@@ -107,23 +95,18 @@ namespace QuizUpLearn.API.Hubs
                     var room = await _gameService.GetRoomAsync(roomPin);
                     if (room != null)
                     {
-                        // Lưu thông tin player đang rời trước khi gọi PlayerLeaveAsync
                         var leavingPlayer = room.Players.FirstOrDefault(p => p.ConnectionId == Context.ConnectionId);
                         var isHost = room.Player1?.ConnectionId == Context.ConnectionId;
                         var wasInProgress = room.Status == OneVsOneRoomStatus.InProgress;
                         
                         await _gameService.PlayerLeaveAsync(roomPin, Context.ConnectionId);
-                        
-                        // Lấy room state sau khi player rời để kiểm tra status
                         var updatedRoom = await _gameService.GetRoomAsync(roomPin);
                         
-                        // ========== CASE 1: HOST RỜI (áp dụng cho cả 1vs1 và Multiplayer) ==========
                         if (isHost && updatedRoom != null && updatedRoom.Status == OneVsOneRoomStatus.Cancelled)
                         {
                             var gameMode = updatedRoom.Mode == GameModeEnum.OneVsOne ? "1vs1" : "Multiplayer";
                             _logger.LogInformation($"🚨 Host '{leavingPlayer?.PlayerName}' left {gameMode} room {roomPin} - Cancelling game immediately");
                             
-                            // ✨ Gửi RoomCancelled ngay lập tức để tránh game stuck
                             await Clients.Group($"Room_{roomPin}").SendAsync("RoomCancelled", new
                             {
                                 RoomPin = roomPin,
@@ -133,7 +116,6 @@ namespace QuizUpLearn.API.Hubs
                                 Timestamp = DateTime.UtcNow
                             });
                             
-                            // Cleanup room sau 30 giây để players có thời gian nhận thông báo
                             _ = Task.Run(async () =>
                             {
                                 await Task.Delay(30000);
@@ -141,13 +123,10 @@ namespace QuizUpLearn.API.Hubs
                                 _logger.LogInformation($"✅ Cleaned up cancelled {gameMode} room {roomPin} after host left");
                             });
                             
-                            // ✨ QUAN TRỌNG: Không xử lý thêm logic gameplay nếu host rời
-                            return; // Exit early để tránh xử lý logic gameplay
+                            return;
                         }
-                        // ========== CASE 2: PLAYER KHÁC RỜI (không phải host) ==========
                         else if (updatedRoom != null)
                         {
-                            // Gửi PlayerDisconnected event
                             _logger.LogInformation($"Player '{leavingPlayer?.PlayerName}' left room {roomPin} - Updating room state");
                             
                             await Clients.Group($"Room_{roomPin}").SendAsync("PlayerDisconnected", new
@@ -157,16 +136,12 @@ namespace QuizUpLearn.API.Hubs
                                 Timestamp = DateTime.UtcNow
                             });
                             
-                            // ✨ QUAN TRỌNG: Cập nhật room state cho các players còn lại (đặc biệt là host)
-                            // Để host biết player đã rời và room đã về trạng thái Waiting (nếu < 2 players)
                             await NotifyRoomStateChangedAsync(roomPin);
                             
-                            // GAMEPLAY PHASE: Nếu đang trong game và player rời
                             if (wasInProgress && updatedRoom.Status == OneVsOneRoomStatus.InProgress)
                             {
                                 var remainingPlayers = updatedRoom.Players.Where(p => !string.IsNullOrEmpty(p.ConnectionId)).ToList();
                                 
-                                // ✨ Nếu không còn players nào (trừ host), end game
                                 if (remainingPlayers.Count == 0)
                                 {
                                     _logger.LogInformation($"⚠️ No remaining players in room {roomPin} - Ending game");
@@ -174,18 +149,14 @@ namespace QuizUpLearn.API.Hubs
                                     return;
                                 }
                                 
-                                // ✨ Nếu chỉ còn 1 player (host), tiếp tục game với 1 player
                                 if (remainingPlayers.Count == 1)
                                 {
                                     _logger.LogInformation($"⚠️ Only 1 player remaining in room {roomPin} - Game continues with host only");
                                 }
                                 
-                                // Check if all remaining connected players have answered
                                 var answeredCount = updatedRoom.CurrentAnswers.Count;
-                                
                                 _logger.LogInformation($"🔄 Player disconnected during gameplay. Room {roomPin}: {answeredCount}/{remainingPlayers.Count} remaining players answered");
                                 
-                                // ✨ Nếu tất cả players còn lại đã trả lời → Show result ngay
                                 if (remainingPlayers.Count > 0 && answeredCount >= remainingPlayers.Count)
                                 {
                                     _logger.LogInformation($"✅ All remaining players have answered. Triggering round result for room {roomPin}");
@@ -194,18 +165,13 @@ namespace QuizUpLearn.API.Hubs
                                     if (result != null)
                                     {
                                         await _gameService.MarkResultShownAsync(roomPin);
-                                        
                                         var currentQuestion = updatedRoom.Questions[updatedRoom.CurrentQuestionIndex];
                                         var payload = BuildShowQuestionPayload(currentQuestion, updatedRoom);
                                         
                                         await Clients.Group($"Room_{roomPin}").SendAsync("ShowRoundResult", result);
-                                        
-                                        // ✨ Auto next question sau 5 giây (game tiếp tục mượt mà)
                                         _ = AutoNextQuestionAsync(roomPin);
                                     }
                                 }
-                                // ✨ Nếu chưa đủ players trả lời, game vẫn tiếp tục chờ timer 30s
-                                // Timer sẽ tự động show result khi hết thời gian
                             }
                         }
                     }
@@ -221,12 +187,10 @@ namespace QuizUpLearn.API.Hubs
             await base.OnDisconnectedAsync(exception);
         }
 
-        // ==================== PLAYER1 CREATES ROOM ====================
         public async Task Player1Connect(string roomPin)
         {
             try
             {
-                // Lấy user đã xác thực
                 var user = await GetAuthenticatedUserAsync();
                 if (user == null) return; 
 
@@ -237,7 +201,6 @@ namespace QuizUpLearn.API.Hubs
                     return;
                 }
 
-                // Add vào SignalR Group
                 await Groups.AddToGroupAsync(Context.ConnectionId, $"Room_{roomPin}");
                 _logger.LogInformation($"Player1 connected to room {roomPin}");
 
@@ -247,7 +210,6 @@ namespace QuizUpLearn.API.Hubs
                     Message = "Successfully connected as Player1"
                 });
 
-                // Gửi trạng thái phòng hiện tại
                 await NotifyRoomStateChangedAsync(roomPin);
             }
             catch (Exception ex)
@@ -257,16 +219,10 @@ namespace QuizUpLearn.API.Hubs
             }
         }
 
-        // ==================== PLAYERS JOIN ROOM ====================
-        /// <summary>
-        /// Player join vào phòng (Player2, Player3, Player4, ...)
-        /// Dùng chung cho cả 1vs1 và Multiplayer
-        /// </summary>
         public async Task PlayerJoin(string roomPin, string playerName)
         {
             try
             {
-                // Lấy user đã xác thực
                 var user = await GetAuthenticatedUserAsync();
                 if (user == null) return; 
 
@@ -283,7 +239,6 @@ namespace QuizUpLearn.API.Hubs
                 }
                 catch (InvalidOperationException ex) when (ex.Message.StartsWith("DUPLICATE_NAME:"))
                 {
-                    // Extract player name from exception message
                     var duplicateName = ex.Message.Replace("DUPLICATE_NAME:", "");
                     await Clients.Caller.SendAsync("Error", $"DUPLICATE_NAME:{duplicateName}");
                     return;
@@ -295,13 +250,11 @@ namespace QuizUpLearn.API.Hubs
                     return;
                 }
 
-                // Add vào SignalR Group
                 await Groups.AddToGroupAsync(Context.ConnectionId, $"Room_{roomPin}");
                 
                 var room = await _gameService.GetRoomAsync(roomPin);
                 _logger.LogInformation($"Player '{playerName}' joined room {roomPin} ({room?.Players.Count ?? 0} players total)");
 
-                // Gửi xác nhận cho player vừa join
                 await Clients.Caller.SendAsync("PlayerJoined", new
                 {
                     RoomPin = roomPin,
@@ -309,14 +262,12 @@ namespace QuizUpLearn.API.Hubs
                     Message = "Successfully joined the room"
                 });
 
-                // Thông báo cho tất cả trong room
                 await Clients.Group($"Room_{roomPin}").SendAsync("PlayerJoinedRoom", new
                 {
                     PlayerName = playerName,
                     Timestamp = DateTime.UtcNow
                 });
 
-                // Gửi room info cập nhật
                 await NotifyRoomStateChangedAsync(roomPin);
             }
             catch (Exception ex)
@@ -326,11 +277,6 @@ namespace QuizUpLearn.API.Hubs
             }
         }
 
-        // ==================== RECONNECT DURING GAME ====================
-        /// <summary>
-        /// Allow player to reconnect during an active game (update ConnectionId)
-        /// Called automatically by frontend when detecting connection issues during gameplay
-        /// </summary>
         public async Task ReconnectToGame(string roomPin)
         {
             try
@@ -345,7 +291,6 @@ namespace QuizUpLearn.API.Hubs
                     return;
                 }
 
-                // Re-add to SignalR Group
                 await Groups.AddToGroupAsync(Context.ConnectionId, $"Room_{roomPin}");
                 
                 var room = await _gameService.GetRoomAsync(roomPin);
@@ -353,7 +298,6 @@ namespace QuizUpLearn.API.Hubs
                 
                 _logger.LogInformation($"✅ Player '{player?.PlayerName}' (UserId: {user.Id}) reconnected to game in room {roomPin}");
 
-                // Send confirmation
                 await Clients.Caller.SendAsync("ReconnectedToGame", new
                 {
                     RoomPin = roomPin,
@@ -363,7 +307,6 @@ namespace QuizUpLearn.API.Hubs
                     Message = "Successfully reconnected to game"
                 });
 
-                // Notify others (optional)
                 await Clients.OthersInGroup($"Room_{roomPin}").SendAsync("PlayerReconnected", new
                 {
                     PlayerName = player?.PlayerName,
@@ -377,7 +320,6 @@ namespace QuizUpLearn.API.Hubs
             }
         }
 
-        // ==================== START GAME ====================
         public async Task StartGame(string roomPin)
         {
             try
@@ -398,7 +340,6 @@ namespace QuizUpLearn.API.Hubs
 
                 _logger.LogInformation($"1v1 Game started in room {roomPin}");
 
-                // Gửi tín hiệu "GameStarted"
                 await Clients.Group($"Room_{roomPin}").SendAsync("GameStarted", new
                 {
                     RoomPin = roomPin,
@@ -408,7 +349,6 @@ namespace QuizUpLearn.API.Hubs
 
                 await Task.Delay(4000);
 
-                // Send first question with group item data (for TOEIC-style grouped questions)
                 var firstQuestion = room.Questions[0];
                 var questionPayload = BuildShowQuestionPayload(firstQuestion, room);
                 await Clients.Group($"Room_{roomPin}").SendAsync("ShowQuestion", questionPayload);
@@ -422,10 +362,6 @@ namespace QuizUpLearn.API.Hubs
             }
         }
 
-        // ==================== SUBMIT ANSWER ====================
-        /// <summary>
-        /// Player submit câu trả lời
-        /// </summary>
         public async Task SubmitAnswer(string roomPin, string questionId, string answerId)
         {
             try
@@ -440,7 +376,6 @@ namespace QuizUpLearn.API.Hubs
                 
                 if (result == null)
                 {
-                    // Chưa đủ người trả lời
                     var room = await _gameService.GetRoomAsync(roomPin);
                     var answeredCount = room?.CurrentAnswers.Count ?? 0;
                     var totalPlayers = room?.Players.Count ?? 0;
@@ -471,11 +406,7 @@ namespace QuizUpLearn.API.Hubs
                     Timestamp = DateTime.UtcNow
                 });
 
-
-
-                // Tự động chuyển câu hỏi sau 5 giây
                 _logger.LogInformation($"🔄 Starting AutoNextQuestionAsync for room {roomPin} (will execute in 5 seconds)");
-                
                 _ = AutoNextQuestionAsync(roomPin);
             }
             catch (Exception ex)
@@ -485,17 +416,11 @@ namespace QuizUpLearn.API.Hubs
             }
         }
 
-        // ==================== NEXT QUESTION ====================
-        /// <summary>
-        /// Chuyển sang câu tiếp theo (tự động hoặc manual)
-        /// </summary>
         private async Task AutoNextQuestionAsync(string roomPin)
         {
             try
             {
                 _logger.LogInformation($"🔄 AutoNextQuestionAsync started for room {roomPin} - Waiting 5 seconds...");
-                
-                // 5 giây trước khi chuyển câu hỏi
                 await Task.Delay(5000);
 
                 _logger.LogInformation($"🔄 AutoNextQuestionAsync: 5s delay completed, calling NextQuestionAsync for room {roomPin}");
@@ -504,7 +429,6 @@ namespace QuizUpLearn.API.Hubs
                 if (!success)
                 {
                     _logger.LogInformation($"🔄 AutoNextQuestionAsync: No more questions, ending game for room {roomPin}");
-                    // Hết câu hỏi → Kết thúc game
                     await EndGame(roomPin);
                     return;
                 }
@@ -518,7 +442,6 @@ namespace QuizUpLearn.API.Hubs
 
                 _logger.LogInformation($"✅ Room {roomPin} auto-moving to next question (Index: {room.CurrentQuestionIndex + 1}/{room.Questions.Count})");
 
-                // Send next question with group item data (for TOEIC-style grouped questions)
                 var nextQuestion = room.Questions[room.CurrentQuestionIndex];
                 var questionPayload = BuildShowQuestionPayload(nextQuestion, room);
                 await _hubContext.Clients.Group($"Room_{roomPin}").SendAsync("ShowQuestion", questionPayload);
@@ -534,10 +457,6 @@ namespace QuizUpLearn.API.Hubs
             }
         }
 
-        /// <summary>
-        /// Timer 30 giây cho mỗi câu hỏi - tự động show result nếu chưa có
-        /// Game tiếp tục mượt mà ngay cả khi có players rời
-        /// </summary>
         private async Task StartQuestionTimerAsync(string roomPin, Guid questionId)
         {
             try
@@ -551,14 +470,12 @@ namespace QuizUpLearn.API.Hubs
                     return;
                 }
 
-                // ✨ Chỉ xử lý nếu game vẫn đang chạy và đúng question
                 if (room.Status == OneVsOneRoomStatus.InProgress && 
                     room.CurrentQuestionIndex < room.Questions.Count &&
                     room.Questions[room.CurrentQuestionIndex].QuestionId == questionId)
                 {
                     var remainingPlayers = room.Players.Where(p => !string.IsNullOrEmpty(p.ConnectionId)).ToList();
                     
-                    // ✨ Nếu không còn players nào, end game
                     if (remainingPlayers.Count == 0)
                     {
                         _logger.LogInformation($"⚠️ Timer expired but no players remaining in room {roomPin} - Ending game");
@@ -573,8 +490,6 @@ namespace QuizUpLearn.API.Hubs
                     {
                         await _hubContext.Clients.Group($"Room_{roomPin}").SendAsync("ShowRoundResult", result);
                         await _gameService.MarkResultShownAsync(roomPin);
-
-                        // ✨ Game tiếp tục mượt mà - auto next question sau 5 giây
                         _ = AutoNextQuestionAsync(roomPin);
                     }
                 }
@@ -589,10 +504,6 @@ namespace QuizUpLearn.API.Hubs
             }
         }
 
-        // ==================== GAME END ====================
-        /// <summary>
-        /// Kết thúc game và hiển thị kết quả cuối cùng
-        /// </summary>
         private async Task EndGame(string roomPin)
         {
             try
@@ -609,8 +520,6 @@ namespace QuizUpLearn.API.Hubs
                 await _hubContext.Clients.Group($"Room_{roomPin}").SendAsync("GameEnded", finalResult);
                 _logger.LogInformation($"✅ GameEnded sent for room {roomPin}");
 
-                // ✨ Lưu lịch sử chơi cho tất cả players
-                // Dùng IServiceScopeFactory để tạo scope mới cho background task (tránh dispose)
                 _ = Task.Run(async () =>
                 {
                     using (var scope = _serviceScopeFactory.CreateScope())
@@ -638,15 +547,10 @@ namespace QuizUpLearn.API.Hubs
             }
         }
 
-        /// <summary>
-        /// Lưu lịch sử chơi cho tất cả players trong room
-        /// ✨ Dùng serviceProvider từ scope mới để tránh dispose issues
-        /// </summary>
         private async Task SaveGameHistoryAsync(string roomPin, IServiceProvider serviceProvider)
         {
             try
             {
-                // ✨ Lấy services từ scope mới (tránh dispose)
                 var gameService = serviceProvider.GetRequiredService<IOneVsOneGameService>();
                 var quizAttemptService = serviceProvider.GetRequiredService<IQuizAttemptService>();
                 var quizAttemptDetailService = serviceProvider.GetRequiredService<IQuizAttemptDetailService>();
@@ -658,29 +562,44 @@ namespace QuizUpLearn.API.Hubs
                     return;
                 }
 
-                // Xác định AttemptType dựa trên Mode
-                string attemptType = room.Mode == GameModeEnum.OneVsOne ? "1vs1" : "Multi";
+                string attemptType;
+                switch (room.Mode)
+                {
+                    case GameModeEnum.OneVsOne:
+                        attemptType = "1vs1";
+                        _logger.LogInformation($"✅ Room {roomPin}: Mode=OneVsOne → AttemptType='1vs1'");
+                        break;
+                    case GameModeEnum.Multiplayer:
+                        attemptType = "Multi";
+                        _logger.LogInformation($"✅ Room {roomPin}: Mode=Multiplayer → AttemptType='Multi'");
+                        break;
+                    default:
+                        _logger.LogWarning($"⚠️ Unknown GameMode: {room.Mode} for room {roomPin}, defaulting to 'Multi'");
+                        attemptType = "Multi";
+                        break;
+                }
 
-                _logger.LogInformation($"💾 Saving game history for {room.Players.Count} players in room {roomPin} (Mode: {room.Mode}, AttemptType: {attemptType})");
+                if (string.IsNullOrWhiteSpace(attemptType))
+                {
+                    _logger.LogError($"❌ AttemptType is null or empty for room {roomPin} (Mode: {room.Mode})");
+                    attemptType = "Multi";
+                }
 
-                // Lưu lịch sử cho mỗi player
+                _logger.LogInformation($"💾 Saving game history for {room.Players.Count} players in room {roomPin} (Mode: {room.Mode}, AttemptType: '{attemptType}')");
+
                 foreach (var player in room.Players)
                 {
                     try
                     {
-                        // Tính toán thống kê từ AllAnswers
                         int totalQuestions = room.Questions.Count;
                         int correctAnswers = player.CorrectAnswers;
                         int wrongAnswers = totalQuestions - correctAnswers;
                         int score = player.Score;
                         decimal accuracy = totalQuestions > 0 ? (decimal)correctAnswers / totalQuestions : 0;
                         
-                        // Tính tổng thời gian (từ AllAnswers)
-                        // ✨ Dùng UserId thay vì ConnectionId để tránh lỗi khi player disconnect
                         int totalTimeSpent = 0;
                         foreach (var questionAnswers in room.AllAnswers.Values)
                         {
-                            // Tìm answer của player này bằng UserId (không dùng ConnectionId vì có thể null khi disconnect)
                             var playerAnswer = questionAnswers.Values.FirstOrDefault(a => a.UserId == player.UserId);
                             if (playerAnswer != null)
                             {
@@ -688,7 +607,6 @@ namespace QuizUpLearn.API.Hubs
                             }
                         }
 
-                        // Xác định IsWinner (nếu có winner và player này là winner)
                         bool? isWinner = null;
                         var rankings = room.Players
                             .OrderByDescending(p => p.Score)
@@ -699,7 +617,6 @@ namespace QuizUpLearn.API.Hubs
                         if (rankings.Count > 0)
                         {
                             var topPlayer = rankings[0];
-                            // Nếu chỉ có 1 người có điểm cao nhất thì đó là winner
                             if (rankings.Count(p => p.Score == topPlayer.Score) == 1 && player.UserId == topPlayer.UserId)
                             {
                                 isWinner = true;
@@ -710,37 +627,42 @@ namespace QuizUpLearn.API.Hubs
                             }
                         }
 
-                        // Tạo QuizAttempt
+                        var finalAttemptType = attemptType;
+                        
+                        if (string.IsNullOrWhiteSpace(finalAttemptType))
+                        {
+                            _logger.LogError($"❌ AttemptType is null/empty for player {player.PlayerName} (UserId: {player.UserId}) in room {roomPin}. Mode: {room.Mode}");
+                            finalAttemptType = room.Mode == GameModeEnum.OneVsOne ? "1vs1" : "Multi";
+                            _logger.LogWarning($"⚠️ Fixed AttemptType to '{finalAttemptType}' for player {player.PlayerName}");
+                        }
+
                         var attemptDto = new RequestQuizAttemptDto
                         {
                             UserId = player.UserId,
                             QuizSetId = room.QuizSetId,
-                            AttemptType = attemptType,
+                            AttemptType = finalAttemptType,
                             TotalQuestions = totalQuestions,
                             CorrectAnswers = correctAnswers,
                             WrongAnswers = wrongAnswers,
                             Score = score,
                             Accuracy = accuracy,
                             TimeSpent = totalTimeSpent > 0 ? totalTimeSpent : null,
-                            OpponentId = null, // Không dùng cho 1vs1/Multi
+                            OpponentId = null,
                             IsWinner = isWinner,
                             Status = "completed"
                         };
 
                         var createdAttempt = await quizAttemptService.CreateAsync(attemptDto);
-                        _logger.LogInformation($"✅ Created QuizAttempt {createdAttempt.Id} for player {player.PlayerName} (UserId: {player.UserId})");
+                        _logger.LogInformation($"✅ Created QuizAttempt {createdAttempt.Id} for player {player.PlayerName} (UserId: {player.UserId}, AttemptType: '{createdAttempt.AttemptType}')");
 
-                        // Tạo QuizAttemptDetail cho mỗi question
                         foreach (var question in room.Questions)
                         {
-                            // ✨ Tìm answer của player bằng UserId (không dùng ConnectionId vì có thể null khi disconnect)
                             if (room.AllAnswers.TryGetValue(question.QuestionId, out var questionAnswers))
                             {
                                 var playerAnswer = questionAnswers.Values.FirstOrDefault(a => a.UserId == player.UserId);
                                 
                                 if (playerAnswer != null)
                                 {
-                                    // Player đã trả lời câu này
                                     var detailDto = new RequestQuizAttemptDetailDto
                                     {
                                         AttemptId = createdAttempt.Id,
@@ -753,12 +675,11 @@ namespace QuizUpLearn.API.Hubs
                                 }
                                 else
                                 {
-                                    // Player không trả lời câu này (timeout hoặc skip)
                                     var detailDto = new RequestQuizAttemptDetailDto
                                     {
                                         AttemptId = createdAttempt.Id,
                                         QuestionId = question.QuestionId,
-                                        UserAnswer = string.Empty, // Không có answer
+                                        UserAnswer = string.Empty,
                                         TimeSpent = null
                                     };
 
@@ -767,7 +688,6 @@ namespace QuizUpLearn.API.Hubs
                             }
                             else
                             {
-                                // Không có answers nào cho question này (không nên xảy ra)
                                 var detailDto = new RequestQuizAttemptDetailDto
                                 {
                                     AttemptId = createdAttempt.Id,
@@ -797,10 +717,6 @@ namespace QuizUpLearn.API.Hubs
             }
         }
 
-        // ==================== CANCEL ROOM ====================
-        /// <summary>
-        /// Hủy phòng (chỉ Player1 có thể hủy)
-        /// </summary>
         public async Task CancelRoom(string roomPin)
         {
             try
@@ -823,17 +739,10 @@ namespace QuizUpLearn.API.Hubs
         }
         private async Task<ResponseUserDto?> GetAuthenticatedUserAsync()
         {
-            // JWT Token structure:
-            // - "sub" = Account ID (primary key for authentication)
-            // - "userId" = User ID (the actual User entity ID, different from Account)
-            // We need the Account ID to look up the user via GetByAccountIdAsync
-            
-            // Note: .NET JWT handler maps "sub" claim to ClaimTypes.NameIdentifier by default
-            // So we check multiple claim types to ensure compatibility
-            var accountIdClaim = Context.User?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value  // Raw "sub"
-                ?? Context.User?.FindFirst("sub")?.Value  // Also try raw string "sub"
-                ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value  // .NET mapped sub
-                ?? Context.User?.FindFirst("UserId")?.Value;  // Fallback to userId claim
+            var accountIdClaim = Context.User?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+                ?? Context.User?.FindFirst("sub")?.Value
+                ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? Context.User?.FindFirst("UserId")?.Value;
 
             if (string.IsNullOrEmpty(accountIdClaim) || !Guid.TryParse(accountIdClaim, out var accountId))
             {
@@ -856,9 +765,6 @@ namespace QuizUpLearn.API.Hubs
             return user;
         }
 
-        /// <summary>
-        /// Gửi thông báo cập nhật trạng thái phòng cho cả group (hỗ trợ cả 1vs1 và Multiplayer)
-        /// </summary>
         private async Task NotifyRoomStateChangedAsync(string roomPin)
         {
             var room = await _gameService.GetRoomAsync(roomPin);
@@ -868,15 +774,12 @@ namespace QuizUpLearn.API.Hubs
                 return;
             }
 
-            // 1. Gửi RoomUpdated với danh sách tất cả players
             await Clients.Group($"Room_{roomPin}").SendAsync("RoomUpdated", new
             {
                 Status = room.Status.ToString(),
                 Mode = room.Mode.ToString(),
                 MaxPlayers = room.MaxPlayers,
                 CurrentPlayers = room.Players.Count,
-                
-                // ✨ NEW: Universal Players list
                 Players = room.Players.Select(p => new
                 {
                     PlayerName = p.PlayerName,
@@ -884,8 +787,6 @@ namespace QuizUpLearn.API.Hubs
                     IsReady = p.IsReady,
                     IsHost = p.UserId == room.Player1?.UserId
                 }).ToList(),
-                
-                // Backward compatibility
                 Player1 = room.Player1 != null ? new
                 {
                     PlayerName = room.Player1.PlayerName,
@@ -900,7 +801,6 @@ namespace QuizUpLearn.API.Hubs
                 } : null
             });
 
-            // 2. Nếu đã sẵn sàng, gửi RoomReady
             if (room.Status == OneVsOneRoomStatus.Ready)
             {
                 var message = room.Mode == GameModeEnum.OneVsOne 
