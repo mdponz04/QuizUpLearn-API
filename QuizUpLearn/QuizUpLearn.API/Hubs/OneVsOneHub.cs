@@ -1,6 +1,7 @@
 using BusinessLogic.DTOs;
 using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.DependencyInjection;
 using Repository.Entities;
 using Repository.Enums;
 using System.IdentityModel.Tokens.Jwt;
@@ -21,6 +22,7 @@ namespace QuizUpLearn.API.Hubs
         private readonly IQuizAttemptDetailService _quizAttemptDetailService;
         private readonly ILogger<OneVsOneHub> _logger;
         private readonly IHubContext<OneVsOneHub> _hubContext;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
 
         public OneVsOneHub(
             IOneVsOneGameService gameService, 
@@ -28,7 +30,8 @@ namespace QuizUpLearn.API.Hubs
             IQuizAttemptService quizAttemptService,
             IQuizAttemptDetailService quizAttemptDetailService,
             ILogger<OneVsOneHub> logger,
-            IHubContext<OneVsOneHub> hubContext)
+            IHubContext<OneVsOneHub> hubContext,
+            IServiceScopeFactory serviceScopeFactory)
         {
             _gameService = gameService;
             _userService = userService;
@@ -36,6 +39,7 @@ namespace QuizUpLearn.API.Hubs
             _quizAttemptDetailService = quizAttemptDetailService;
             _logger = logger;
             _hubContext = hubContext;
+            _serviceScopeFactory = serviceScopeFactory;
         }
 
         // ==================== HELPER METHODS ====================
@@ -605,16 +609,20 @@ namespace QuizUpLearn.API.Hubs
                 await _hubContext.Clients.Group($"Room_{roomPin}").SendAsync("GameEnded", finalResult);
                 _logger.LogInformation($"✅ GameEnded sent for room {roomPin}");
 
-                // Lưu lịch sử chơi cho tất cả players
+                // ✨ Lưu lịch sử chơi cho tất cả players
+                // Dùng IServiceScopeFactory để tạo scope mới cho background task (tránh dispose)
                 _ = Task.Run(async () =>
                 {
-                    try
+                    using (var scope = _serviceScopeFactory.CreateScope())
                     {
-                        await SaveGameHistoryAsync(roomPin);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, $"Error saving game history for room {roomPin}");
+                        try
+                        {
+                            await SaveGameHistoryAsync(roomPin, scope.ServiceProvider);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, $"Error saving game history for room {roomPin}");
+                        }
                     }
                 });
 
@@ -632,12 +640,18 @@ namespace QuizUpLearn.API.Hubs
 
         /// <summary>
         /// Lưu lịch sử chơi cho tất cả players trong room
+        /// ✨ Dùng serviceProvider từ scope mới để tránh dispose issues
         /// </summary>
-        private async Task SaveGameHistoryAsync(string roomPin)
+        private async Task SaveGameHistoryAsync(string roomPin, IServiceProvider serviceProvider)
         {
             try
             {
-                var room = await _gameService.GetRoomAsync(roomPin);
+                // ✨ Lấy services từ scope mới (tránh dispose)
+                var gameService = serviceProvider.GetRequiredService<IOneVsOneGameService>();
+                var quizAttemptService = serviceProvider.GetRequiredService<IQuizAttemptService>();
+                var quizAttemptDetailService = serviceProvider.GetRequiredService<IQuizAttemptDetailService>();
+                
+                var room = await gameService.GetRoomAsync(roomPin);
                 if (room == null)
                 {
                     _logger.LogWarning($"Room {roomPin} not found when saving game history");
@@ -662,12 +676,15 @@ namespace QuizUpLearn.API.Hubs
                         decimal accuracy = totalQuestions > 0 ? (decimal)correctAnswers / totalQuestions : 0;
                         
                         // Tính tổng thời gian (từ AllAnswers)
+                        // ✨ Dùng UserId thay vì ConnectionId để tránh lỗi khi player disconnect
                         int totalTimeSpent = 0;
                         foreach (var questionAnswers in room.AllAnswers.Values)
                         {
-                            if (questionAnswers.TryGetValue(player.ConnectionId, out var answer))
+                            // Tìm answer của player này bằng UserId (không dùng ConnectionId vì có thể null khi disconnect)
+                            var playerAnswer = questionAnswers.Values.FirstOrDefault(a => a.UserId == player.UserId);
+                            if (playerAnswer != null)
                             {
-                                totalTimeSpent += (int)Math.Round(answer.TimeSpent);
+                                totalTimeSpent += (int)Math.Round(playerAnswer.TimeSpent);
                             }
                         }
 
@@ -710,39 +727,56 @@ namespace QuizUpLearn.API.Hubs
                             Status = "completed"
                         };
 
-                        var createdAttempt = await _quizAttemptService.CreateAsync(attemptDto);
+                        var createdAttempt = await quizAttemptService.CreateAsync(attemptDto);
                         _logger.LogInformation($"✅ Created QuizAttempt {createdAttempt.Id} for player {player.PlayerName} (UserId: {player.UserId})");
 
                         // Tạo QuizAttemptDetail cho mỗi question
                         foreach (var question in room.Questions)
                         {
-                            // Tìm answer của player cho question này
-                            if (room.AllAnswers.TryGetValue(question.QuestionId, out var questionAnswers) &&
-                                questionAnswers.TryGetValue(player.ConnectionId, out var answer))
+                            // ✨ Tìm answer của player bằng UserId (không dùng ConnectionId vì có thể null khi disconnect)
+                            if (room.AllAnswers.TryGetValue(question.QuestionId, out var questionAnswers))
                             {
-                                // Player đã trả lời câu này
-                                var detailDto = new RequestQuizAttemptDetailDto
+                                var playerAnswer = questionAnswers.Values.FirstOrDefault(a => a.UserId == player.UserId);
+                                
+                                if (playerAnswer != null)
                                 {
-                                    AttemptId = createdAttempt.Id,
-                                    QuestionId = question.QuestionId,
-                                    UserAnswer = answer.AnswerId.ToString(),
-                                    TimeSpent = (int)Math.Round(answer.TimeSpent)
-                                };
+                                    // Player đã trả lời câu này
+                                    var detailDto = new RequestQuizAttemptDetailDto
+                                    {
+                                        AttemptId = createdAttempt.Id,
+                                        QuestionId = question.QuestionId,
+                                        UserAnswer = playerAnswer.AnswerId.ToString(),
+                                        TimeSpent = (int)Math.Round(playerAnswer.TimeSpent)
+                                    };
 
-                                await _quizAttemptDetailService.CreateAsync(detailDto);
+                                    await quizAttemptDetailService.CreateAsync(detailDto);
+                                }
+                                else
+                                {
+                                    // Player không trả lời câu này (timeout hoặc skip)
+                                    var detailDto = new RequestQuizAttemptDetailDto
+                                    {
+                                        AttemptId = createdAttempt.Id,
+                                        QuestionId = question.QuestionId,
+                                        UserAnswer = string.Empty, // Không có answer
+                                        TimeSpent = null
+                                    };
+
+                                    await quizAttemptDetailService.CreateAsync(detailDto);
+                                }
                             }
                             else
                             {
-                                // Player không trả lời câu này (timeout hoặc skip)
+                                // Không có answers nào cho question này (không nên xảy ra)
                                 var detailDto = new RequestQuizAttemptDetailDto
                                 {
                                     AttemptId = createdAttempt.Id,
                                     QuestionId = question.QuestionId,
-                                    UserAnswer = string.Empty, // Không có answer
+                                    UserAnswer = string.Empty,
                                     TimeSpent = null
                                 };
 
-                                await _quizAttemptDetailService.CreateAsync(detailDto);
+                                await quizAttemptDetailService.CreateAsync(detailDto);
                             }
                         }
 
