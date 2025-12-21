@@ -715,8 +715,15 @@ namespace BusinessLogic.Services
                 }
             }
 
-            // Players chưa submit sẽ KHÔNG có trong kết quả
-            var playerResults = room.CurrentAnswers.Values
+            // Chỉ lấy answers từ players còn lại (tránh hiển thị answers của players đã rời)
+            var remainingPlayerConnectionIds = room.Players
+                .Where(p => !string.IsNullOrEmpty(p.ConnectionId))
+                .Select(p => p.ConnectionId)
+                .ToHashSet();
+            
+            var playerResults = room.CurrentAnswers
+                .Where(kvp => remainingPlayerConnectionIds.Contains(kvp.Key))
+                .Select(kvp => kvp.Value)
                 .OrderByDescending(a => a.PointsEarned)
                 .ThenBy(a => a.TimeSpent)
                 .Select(a => new OneVsOnePlayerResult
