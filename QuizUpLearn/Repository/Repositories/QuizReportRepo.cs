@@ -16,6 +16,15 @@ namespace Repository.Repositories
 
         public async Task<QuizReport> CreateAsync(QuizReport entity)
         {
+            if (entity.QuizId == Guid.Empty)
+                throw new ArgumentException("QuizId is required");
+
+            var quizExists = await _context.Quizzes
+                .AnyAsync(q => q.Id == entity.QuizId);
+
+            if (!quizExists)
+                throw new ArgumentException("Quiz not found");
+
             await _context.QuizReports.AddAsync(entity);
             await _context.SaveChangesAsync();
             return entity;
