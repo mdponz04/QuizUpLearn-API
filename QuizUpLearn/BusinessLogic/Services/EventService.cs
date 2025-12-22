@@ -774,13 +774,22 @@ namespace BusinessLogic.Services
                     throw new ArgumentException($"Status không hợp lệ: {status}");
                 }
 
-                // Chỉ cho phép update từ Active sang Ended hoặc Cancelled
+                // Cho phép update từ Active sang Ended hoặc Cancelled
                 if (eventEntity.Status == "Active" && (status == "Ended" || status == "Cancelled"))
                 {
                     eventEntity.Status = status;
                     eventEntity.UpdatedAt = DateTime.UtcNow;
                     await _eventRepo.UpdateAsync(eventEntity);
                     _logger.LogInformation($"✅ Event {eventId} status updated from Active to {status}");
+                    return true;
+                }
+                // Cho phép update từ Cancelled sang Ended (khi game đã hoàn thành và có kết quả)
+                else if (eventEntity.Status == "Cancelled" && status == "Ended")
+                {
+                    eventEntity.Status = status;
+                    eventEntity.UpdatedAt = DateTime.UtcNow;
+                    await _eventRepo.UpdateAsync(eventEntity);
+                    _logger.LogInformation($"✅ Event {eventId} status updated from Cancelled to Ended (game completed with results)");
                     return true;
                 }
                 else if (eventEntity.Status != status)
@@ -1334,7 +1343,7 @@ Chúc bạn may mắn! 🍀
             </div>
             
             <center>
-                <a href=""https://quizuplearn.com/events/{eventEntity.Id}"" class=""cta-button"">
+                <a href=""https://quiz-up-learn.vercel.app/event/{eventEntity.Id}"" class=""cta-button"">
                     Tham Gia Ngay 🚀
                 </a>
             </center>
@@ -1353,7 +1362,6 @@ Chúc bạn may mắn! 🍀
             </p>
             <p style=""margin: 0; font-size: 12px;"">
                 Bạn nhận được email này vì bạn là thành viên của QuizUpLearn.<br>
-                Nếu không muốn nhận thông báo về Events, vui lòng cập nhật trong cài đặt tài khoản.
             </p>
         </div>
     </div>

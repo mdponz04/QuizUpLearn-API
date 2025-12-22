@@ -49,7 +49,7 @@ namespace Repository.Repositories
             account.UserId = newUser.Id;
             account.RoleId = defaultRole.Id;
             account.IsActive = true;
-            account.IsEmailVerified = false;
+            account.IsEmailVerified = true;
             account.IsBanned = false;
 
             await _context.Accounts.AddAsync(account);
