@@ -4,6 +4,7 @@ using BusinessLogic.DTOs;
 using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.Extensions.DependencyInjection;
+using Repository.Enums;
 
 namespace QuizUpLearn.API.Hubs
 {
