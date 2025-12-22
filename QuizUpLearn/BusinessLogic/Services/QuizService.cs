@@ -38,8 +38,9 @@ namespace BusinessLogic.Services
         {
             var quizzes = await _quizRepo.GetAllQuizzesAsync();
             var query = quizzes.AsQueryable();
-            
-            query = ApplyFilters(query, ExtractFilterValues(pagination).isDeleted, ExtractFilterValues(pagination).showActive);
+
+            var filters = ExtractFilterValues(pagination);
+            query = ApplyFilters(query, filters.isDeleted, filters.showActive, filters.isAiGenerated);
             query = ApplySearch(query, pagination.SearchTerm);
             query = ApplySortOrder(query, pagination.SortBy, pagination.GetNormalizedSortDirection());
             
@@ -53,7 +54,8 @@ namespace BusinessLogic.Services
             var quizzes = await _quizRepo.GetQuizzesByQuizSetIdAsync(quizSetId);
             var query = quizzes.AsQueryable();
 
-            query = ApplyFilters(query, ExtractFilterValues(pagination).isDeleted, ExtractFilterValues(pagination).showActive);
+            var filters = ExtractFilterValues(pagination);
+            query = ApplyFilters(query, filters.isDeleted, filters.showActive, filters.isAiGenerated);
             query = ApplySearch(query, pagination.SearchTerm);
             query = ApplySortOrder(query, pagination.SortBy, pagination.GetNormalizedSortDirection());
             
@@ -141,7 +143,7 @@ namespace BusinessLogic.Services
 
             bool? showActive = jsonExtractHelper.GetBoolFromFilter(pagination.Filters, "isActive");
             bool? showDeleted = jsonExtractHelper.GetBoolFromFilter(pagination.Filters, "isDeleted");
-            bool? showAiGenerated = jsonExtractHelper.GetBoolFromFilter(pagination.Filters, "isAIGenerated");
+            bool? showAiGenerated = jsonExtractHelper.GetBoolFromFilter(pagination.Filters, "isAiGenerated");
 
             return (showActive, showDeleted, showAiGenerated);
         }
