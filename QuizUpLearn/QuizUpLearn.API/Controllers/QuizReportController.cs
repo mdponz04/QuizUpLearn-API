@@ -45,7 +45,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpGet("{id}")]
-        [SubscriptionAndRoleAuthorize("Administrator", "Moderator")]
+        [SubscriptionAndRoleAuthorize]
         public async Task<ActionResult<ResponseQuizReportDto>> GetById(Guid id)
         {
             var result = await _quizReportService.GetByIdAsync(id);
