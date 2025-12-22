@@ -45,6 +45,20 @@ namespace BusinessLogic.Services
         public async Task<ResponseQuizAttemptDetailDto> CreateAsync(RequestQuizAttemptDetailDto dto)
         {
             var entity = _mapper.Map<QuizAttemptDetail>(dto);
+            
+            // Nếu IsCorrect chưa được set, tự động tính từ UserAnswer
+            if (!entity.IsCorrect.HasValue && !string.IsNullOrWhiteSpace(dto.UserAnswer))
+            {
+                if (Guid.TryParse(dto.UserAnswer, out Guid selectedAnswerOptionId))
+                {
+                    var selectedAnswerOption = await _answerOptionRepo.GetByIdAsync(selectedAnswerOptionId);
+                    if (selectedAnswerOption != null && selectedAnswerOption.QuizId == dto.QuestionId)
+                    {
+                        entity.IsCorrect = selectedAnswerOption.IsCorrect;
+                    }
+                }
+            }
+            
             var created = await _repo.CreateAsync(entity);
             return _mapper.Map<ResponseQuizAttemptDetailDto>(created);
         }

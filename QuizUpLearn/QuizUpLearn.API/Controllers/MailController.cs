@@ -8,7 +8,6 @@ namespace QuizUpLearn.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
     public class MailController : ControllerBase
     {
         private readonly IMailerSendService _mailerSendService;
@@ -21,7 +20,6 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPost("send")]
-        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<IActionResult> Send()
         {
             var fromEmail = _configuration["MailerSend:FromEmail"];

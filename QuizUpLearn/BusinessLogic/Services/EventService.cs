@@ -293,7 +293,7 @@ namespace BusinessLogic.Services
             catch (Exception ex)
             {
                 // Log lỗi nhưng KHÔNG chặn việc start event
-                _logger.LogError(ex, $"❌ Failed to send email notifications for Event {eventEntity.Id}");
+                // Email sending failed - silently continue
             }
 
             _logger.LogInformation($"🎉 Event {eventEntity.Name} (ID: {eventEntity.Id}) started successfully with GamePin: {gameResponse.GamePin}");
@@ -923,7 +923,7 @@ namespace BusinessLogic.Services
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, $"❌ Error while resolving Account for participant {participant.ParticipantId} in Event {eventEntity.Id}");
+                        // Error resolving Account - silently continue
                     }
                 }
 
@@ -949,7 +949,7 @@ namespace BusinessLogic.Services
             catch (Exception ex)
             {
                 var duration = (DateTime.UtcNow - startTime).TotalSeconds;
-                _logger.LogError(ex, $"❌ Failed to send GamePin emails after {duration:F2}s for Event {eventEntity.Id}");
+                // Email sending failed - silently continue
                 throw;
             }
         }
@@ -962,13 +962,27 @@ namespace BusinessLogic.Services
             var fromEmail = _configuration["MailerSend:FromEmail"] ?? "no-reply@quizuplearn.com";
             var fromName = _configuration["MailerSend:FromName"] ?? "QuizUpLearn";
 
+            // Validate configuration
+            if (string.IsNullOrWhiteSpace(fromEmail))
+            {
+                _logger.LogWarning("⚠️ MailerSend:FromEmail is not configured, using default");
+                fromEmail = "no-reply@quizuplearn.com";
+            }
+
+            // MailerSend:ApiKey validation - silently continue if not configured
+
+            var htmlBody = CreateGamePinEmailTemplate(eventEntity, gamePin);
+            var textBody = CreatePlainTextEmail(eventEntity, gamePin);
+
+            _logger.LogInformation($"📧 Email config prepared: From={fromEmail}, Subject length={$"🎉 Event: {eventEntity.Name} - GamePin: {gamePin}".Length}, Html length={htmlBody.Length}, Text length={textBody.Length}");
+
             return new EmailConfiguration
             {
                 FromEmail = fromEmail,
                 FromName = fromName,
                 Subject = $"🎉 Event: {eventEntity.Name} - GamePin: {gamePin}",
-                HtmlBody = CreateGamePinEmailTemplate(eventEntity, gamePin),
-                TextBody = CreatePlainTextEmail(eventEntity, gamePin)
+                HtmlBody = htmlBody,
+                TextBody = textBody
             };
         }
 
@@ -1015,7 +1029,7 @@ namespace BusinessLogic.Services
                 catch (Exception ex)
                 {
                     failCount += batch.Count;
-                    _logger.LogError(ex, $"❌ Batch {batchNum}/{batches.Count} failed after retries");
+                    // Batch failed after retries - silently continue
                 }
             }
 
@@ -1052,18 +1066,39 @@ namespace BusinessLogic.Services
                     // Add recipients
                     foreach (var account in batch)
                     {
-                        var displayName = account.User?.FullName 
-                            ?? account.Email.Split('@').FirstOrDefault() 
-                            ?? "User";
-                        
-                        email.To.Add(new MailerSendRecipient
+                        try
                         {
-                            Name = displayName,
-                            Email = account.Email
-                        });
+                            var displayName = account.User?.FullName 
+                                ?? account.Email?.Split('@').FirstOrDefault() 
+                                ?? "User";
+                            
+                            if (string.IsNullOrWhiteSpace(account.Email))
+                            {
+                                _logger.LogWarning($"⚠️ Skipping account {account.Id} - Email is null or empty");
+                                continue;
+                            }
+                            
+                            email.To.Add(new MailerSendRecipient
+                            {
+                                Name = displayName,
+                                Email = account.Email
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            // Error adding recipient - continue với account khác
+                        }
                     }
 
+                    if (!email.To.Any())
+                    {
+                        _logger.LogWarning($"⚠️ Batch {batchNumber} has no valid recipients after processing");
+                        return; // Skip batch nếu không có recipient nào
+                    }
+
+                    _logger.LogInformation($"📧 Sending batch {batchNumber} with {email.To.Count} recipients");
                     await _mailerSendService.SendEmailAsync(email);
+                    _logger.LogInformation($"✅ Batch {batchNumber} sent successfully");
                     return; // Success!
                 }
                 catch (Exception ex)

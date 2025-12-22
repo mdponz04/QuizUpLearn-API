@@ -97,13 +97,22 @@ namespace QuizUpLearn.API.Hubs
                     {
                         var leavingPlayer = room.Players.FirstOrDefault(p => p.ConnectionId == Context.ConnectionId);
                         var isHost = room.Player1?.ConnectionId == Context.ConnectionId;
+                        var isGameCompleted = room.Status == OneVsOneRoomStatus.Completed;
                         
                         await _gameService.PlayerLeaveAsync(roomPin, Context.ConnectionId);
                         var updatedRoom = await _gameService.GetRoomAsync(roomPin);
                         
-                        // Host rời → Cancel game ngay lập tức (áp dụng cho cả lobby và game phases)
+                        // Host rời → Cancel game (NHƯNG không cancel nếu game đã kết thúc - để players xem kết quả)
                         if (isHost && updatedRoom != null && updatedRoom.Status == OneVsOneRoomStatus.Cancelled)
                         {
+                            // Nếu game đã kết thúc (Completed), không cancel - để players xem kết quả
+                            if (isGameCompleted)
+                            {
+                                _logger.LogInformation($"✅ Host '{leavingPlayer?.PlayerName}' left room {roomPin} after game completed - Players can still view results");
+                                return; // Không làm gì, để players xem kết quả
+                            }
+                            
+                            // Game chưa kết thúc → Cancel ngay
                             var gameMode = updatedRoom.Mode == GameModeEnum.OneVsOne ? "1vs1" : "Multiplayer";
                             _logger.LogInformation($"🚨 Host '{leavingPlayer?.PlayerName}' left {gameMode} room {roomPin} - Cancelling game immediately (Status was: {room.Status})");
                             
@@ -147,13 +156,30 @@ namespace QuizUpLearn.API.Hubs
                                 return;
                             }
                             
+                            // Nếu chỉ còn host và game đang chạy → End game (không thể chơi 1 mình)
+                            var isGameActive = updatedRoom.Status == OneVsOneRoomStatus.InProgress || 
+                                             updatedRoom.Status == OneVsOneRoomStatus.ShowingResult ||
+                                             updatedRoom.Status == OneVsOneRoomStatus.Ready;
+                            
+                            if (remainingPlayers.Count == 1 && isGameActive)
+                            {
+                                var gameMode = updatedRoom.Mode == GameModeEnum.OneVsOne ? "1vs1" : "Multiplayer";
+                                _logger.LogInformation($"⚠️ All other players left {gameMode} room {roomPin} - Only host remains. Ending game.");
+                                
+                                await Clients.Group($"Room_{roomPin}").SendAsync("AllPlayersLeft", new
+                                {
+                                    RoomPin = roomPin,
+                                    Message = "Tất cả người chơi khác đã rời. Game đã kết thúc.",
+                                    Timestamp = DateTime.UtcNow
+                                });
+                                
+                                await EndGame(roomPin);
+                                return;
+                            }
+                            
                             // Handle player leaving during InProgress phase (showQuestion)
                             if (updatedRoom.Status == OneVsOneRoomStatus.InProgress)
                             {
-                                if (remainingPlayers.Count == 1)
-                                {
-                                    _logger.LogInformation($"⚠️ Only 1 player remaining in room {roomPin} - Game continues with host only");
-                                }
                                 
                                 var remainingPlayerConnectionIds = remainingPlayers.Select(p => p.ConnectionId).ToHashSet();
                                 var answeredCount = updatedRoom.CurrentAnswers.Keys.Count(connId => remainingPlayerConnectionIds.Contains(connId));
@@ -690,6 +716,7 @@ namespace QuizUpLearn.API.Hubs
                                         AttemptId = createdAttempt.Id,
                                         QuestionId = question.QuestionId,
                                         UserAnswer = playerAnswer.AnswerId.ToString(),
+                                        IsCorrect = playerAnswer.IsCorrect,
                                         TimeSpent = (int)Math.Round(playerAnswer.TimeSpent)
                                     };
 
@@ -702,6 +729,7 @@ namespace QuizUpLearn.API.Hubs
                                         AttemptId = createdAttempt.Id,
                                         QuestionId = question.QuestionId,
                                         UserAnswer = string.Empty,
+                                        IsCorrect = false,
                                         TimeSpent = null
                                     };
 
@@ -715,6 +743,7 @@ namespace QuizUpLearn.API.Hubs
                                     AttemptId = createdAttempt.Id,
                                     QuestionId = question.QuestionId,
                                     UserAnswer = string.Empty,
+                                    IsCorrect = false,
                                     TimeSpent = null
                                 };
 
