@@ -655,6 +655,149 @@ namespace BusinessLogic.Services
             }
         }
 
+        /// <summary>
+        /// End Event - Cập nhật status thành "Ended" và tính toán rank cho participants
+        /// </summary>
+        public async Task<EndEventResponseDto> EndEventAsync(Guid userId, EndEventRequestDto dto)
+        {
+            var eventEntity = await _eventRepo.GetByIdWithDetailsAsync(dto.EventId);
+            if (eventEntity == null)
+                throw new ArgumentException("Event không tồn tại");
+
+            // Check owner
+            if (eventEntity.CreatedBy != userId)
+                throw new UnauthorizedAccessException("Chỉ người tạo Event mới có thể end");
+
+            // Check status
+            if (eventEntity.Status != "Active")
+                throw new InvalidOperationException($"Không thể end Event với status '{eventEntity.Status}'. Chỉ có thể end Event đang Active.");
+
+            _logger.LogInformation($"🏁 Ending Event {eventEntity.Id}: {eventEntity.Name}");
+
+            // Step 1: Update Event status
+            eventEntity.Status = "Ended";
+            eventEntity.UpdatedAt = DateTime.UtcNow;
+            await _eventRepo.UpdateAsync(eventEntity);
+            _logger.LogInformation($"✅ Event {eventEntity.Id} status updated to 'Ended'");
+
+            // Step 2: Update participant ranks dựa trên score
+            await UpdateParticipantRanksAsync(eventEntity.Id);
+
+            // Step 3: Count participants
+            var totalParticipants = await _eventParticipantRepo.CountParticipantsByEventIdAsync(eventEntity.Id);
+
+            _logger.LogInformation($"🎉 Event {eventEntity.Id} ({eventEntity.Name}) ended successfully with {totalParticipants} participants");
+
+            return new EndEventResponseDto
+            {
+                EventId = eventEntity.Id,
+                EventName = eventEntity.Name,
+                Status = "Ended",
+                EndedAt = DateTime.UtcNow,
+                TotalParticipants = (int)totalParticipants
+            };
+        }
+
+        /// <summary>
+        /// Update rank cho tất cả participants của Event
+        /// Rank dựa trên Score (cao → thấp), sau đó Accuracy
+        /// </summary>
+        private async Task UpdateParticipantRanksAsync(Guid eventId)
+        {
+            try
+            {
+                // Lấy tất cả participants và sort
+                var participants = await _eventParticipantRepo.GetByEventIdAsync(eventId);
+                var sortedParticipants = participants
+                    .OrderByDescending(p => p.Score)
+                    .ThenByDescending(p => p.Accuracy)
+                    .ThenBy(p => p.JoinAt)
+                    .ToList();
+
+                if (!sortedParticipants.Any())
+                {
+                    _logger.LogDebug($"No participants found for Event {eventId}");
+                    return;
+                }
+
+                _logger.LogInformation($"📊 Updating ranks for {sortedParticipants.Count} participant(s)");
+
+                // Update rank cho từng participant
+                long currentRank = 1;
+                foreach (var participant in sortedParticipants)
+                {
+                    participant.Rank = currentRank;
+                    participant.UpdatedAt = DateTime.UtcNow;
+                    
+                    // Set FinishAt nếu chưa có
+                    if (!participant.FinishAt.HasValue)
+                    {
+                        participant.FinishAt = DateTime.UtcNow;
+                    }
+
+                    await _eventParticipantRepo.UpdateAsync(participant);
+                    
+                    _logger.LogDebug($"Updated Rank {currentRank} for Participant {participant.ParticipantId}");
+                    currentRank++;
+                }
+
+                _logger.LogInformation($"✅ Successfully updated ranks for {sortedParticipants.Count} participant(s)");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"❌ Failed to update participant ranks for Event {eventId}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Cập nhật status của Event (Ended, Cancelled, etc.)
+        /// </summary>
+        public async Task<bool> UpdateEventStatusAsync(Guid eventId, string status)
+        {
+            try
+            {
+                _logger.LogInformation($"🔄 Updating Event {eventId} status to {status}");
+
+                var eventEntity = await _eventRepo.GetByIdAsync(eventId);
+                if (eventEntity == null)
+                {
+                    _logger.LogWarning($"⚠️ Event {eventId} not found");
+                    return false;
+                }
+
+                // Validate status
+                var validStatuses = new[] { "Upcoming", "Active", "Ended", "Cancelled" };
+                if (!validStatuses.Contains(status))
+                {
+                    _logger.LogWarning($"⚠️ Invalid status: {status}. Valid statuses: {string.Join(", ", validStatuses)}");
+                    throw new ArgumentException($"Status không hợp lệ: {status}");
+                }
+
+                // Chỉ cho phép update từ Active sang Ended hoặc Cancelled
+                if (eventEntity.Status == "Active" && (status == "Ended" || status == "Cancelled"))
+                {
+                    eventEntity.Status = status;
+                    eventEntity.UpdatedAt = DateTime.UtcNow;
+                    await _eventRepo.UpdateAsync(eventEntity);
+                    _logger.LogInformation($"✅ Event {eventId} status updated from Active to {status}");
+                    return true;
+                }
+                else if (eventEntity.Status != status)
+                {
+                    _logger.LogWarning($"⚠️ Cannot update Event {eventId} status from {eventEntity.Status} to {status}");
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"❌ Failed to update Event {eventId} status to {status}");
+                throw;
+            }
+        }
+
         private async Task<EventResponseDto> MapToResponseDto(Event entity)
         {
             var currentParticipants = await _eventParticipantRepo.CountParticipantsByEventIdAsync(entity.Id);
