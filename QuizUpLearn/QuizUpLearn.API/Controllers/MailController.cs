@@ -32,7 +32,7 @@ namespace QuizUpLearn.API.Controllers
                 Text = "Đây là email text",
                 Html = "<h1>Hello 👋</h1><p>This is HTML content</p>"
             };
-            email.To.Add(new MailerSendRecipient { Name = "User One", Email = "lehoangminh20041108@gmail.com" });
+            email.To.Add(new MailerSendRecipient { Name = "User One", Email = "manhmanhd0402@gmail.com" });
 
             var result = await _mailerSendService.SendEmailAsync(email);
             return Ok(result);
