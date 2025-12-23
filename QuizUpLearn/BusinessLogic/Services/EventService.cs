@@ -738,6 +738,7 @@ namespace BusinessLogic.Services
                 if (player == null || !player.UserId.HasValue)
                 {
                     skippedCount++;
+                    _logger.LogWarning($"⚠️ Bỏ qua lưu history/score cho player '{ranking.PlayerName}' vì không tìm thấy UserId trong session.");
                     continue;
                 }
 
