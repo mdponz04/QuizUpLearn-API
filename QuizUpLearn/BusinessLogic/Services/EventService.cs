@@ -1,5 +1,6 @@
 using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.EventDtos;
+using BusinessLogic.DTOs.RealtimeGameDtos;
 using BusinessLogic.Interfaces;
 using Repository.Entities;
 using Repository.Enums;
@@ -45,6 +46,31 @@ namespace BusinessLogic.Services
             _configuration = configuration;
             _logger = logger;
             _quizAttemptRepo = quizAttemptRepo;
+        }
+
+        private FinalResultDto BuildFinalResultFromSession(string gamePin, GameSessionDto session)
+        {
+            var rankings = session.Players
+                .OrderByDescending(p => p.Score)
+                .Select((p, index) => new PlayerScore
+                {
+                    PlayerName = p.PlayerName,
+                    TotalScore = p.Score,
+                    CorrectAnswers = p.CorrectAnswers,
+                    TotalAnswered = p.TotalAnswered,
+                    Rank = index + 1
+                })
+                .ToList();
+
+            return new FinalResultDto
+            {
+                GamePin = gamePin,
+                FinalRankings = rankings,
+                Winner = rankings.FirstOrDefault(),
+                CompletedAt = DateTime.UtcNow,
+                TotalPlayers = session.Players.Count,
+                TotalQuestions = session.Questions.Count
+            };
         }
 
         public async Task<EventResponseDto> CreateEventAsync(Guid userId, CreateEventRequestDto dto)
@@ -678,15 +704,25 @@ namespace BusinessLogic.Services
 
             // Lấy final result và session từ Redis để sync điểm (không phụ thuộc Hub)
             var finalResult = await _realtimeGameService.GetFinalResultAsync(dto.GamePin);
-            if (finalResult == null)
-                throw new InvalidOperationException("Không thể lấy kết quả cuối cùng từ Redis. Vui lòng kiểm tra GamePin hoặc trạng thái game.");
-
             var session = await _realtimeGameService.GetGameSessionAsync(dto.GamePin);
-            if (session == null)
-                throw new InvalidOperationException("Không tìm thấy game session trong Redis để sync điểm.");
+
+            // Nếu finalResult null (có thể game chưa set Completed) thì fallback dựng từ session
+            if (finalResult == null)
+            {
+                if (session == null)
+                    throw new InvalidOperationException("Không thể lấy kết quả cuối cùng từ Redis. Vui lòng kiểm tra GamePin hoặc trạng thái game.");
+
+                finalResult = BuildFinalResultFromSession(dto.GamePin, session);
+                _logger.LogWarning($"⚠️ FinalResult null cho game {dto.GamePin}, dùng dữ liệu session để sync điểm.");
+            }
+            else if (session == null)
+            {
+                // finalResult có nhưng session bị cleanup? cố gắng tiếp tục với finalResult
+                _logger.LogWarning($"⚠️ Session không tồn tại nhưng có FinalResult cho game {dto.GamePin}, tiếp tục sync với FinalResult.");
+            }
 
             // Đảm bảo EventId khớp
-            if (!session.EventId.HasValue || session.EventId.Value != dto.EventId)
+            if (session != null && (!session.EventId.HasValue || session.EventId.Value != dto.EventId))
                 throw new InvalidOperationException("Game session không thuộc Event này hoặc thiếu EventId.");
 
             _logger.LogInformation($"🏁 Ending Event {eventEntity.Id}: {eventEntity.Name}");
