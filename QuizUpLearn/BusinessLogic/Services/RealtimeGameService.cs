@@ -108,10 +108,43 @@ namespace BusinessLogic.Services
             {
                 await _cache.RemoveAsync($"game:{gamePin}");
                 await _cache.RemoveAsync($"answers:{gamePin}");
+                await _cache.RemoveAsync($"final:{gamePin}");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error deleting game {gamePin} from Redis");
+            }
+        }
+
+        private async Task SaveFinalResultToRedisAsync(string gamePin, FinalResultDto finalResult)
+        {
+            try
+            {
+                var json = JsonSerializer.Serialize(finalResult);
+                var options = new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(2)
+                };
+                await _cache.SetStringAsync($"final:{gamePin}", json, options);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error saving final result for {gamePin} to Redis");
+            }
+        }
+
+        private async Task<FinalResultDto?> GetCachedFinalResultFromRedisAsync(string gamePin)
+        {
+            try
+            {
+                var json = await _cache.GetStringAsync($"final:{gamePin}");
+                if (string.IsNullOrEmpty(json)) return null;
+                return JsonSerializer.Deserialize<FinalResultDto>(json);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting cached final result for {gamePin} from Redis");
+                return null;
             }
         }
 
@@ -667,36 +700,45 @@ namespace BusinessLogic.Services
         /// </summary>
         public async Task<FinalResultDto?> GetFinalResultAsync(string gamePin)
         {
+            // Ưu tiên lấy từ session nếu còn
             var session = await GetGameSessionFromRedisAsync(gamePin);
-            if (session == null)
-                return null;
-
-            if (session.Status != GameStatus.Completed)
-                return null;
-
-            var rankings = session.Players
-                .OrderByDescending(p => p.Score)
-                .Select((p, index) => new PlayerScore
-                {
-                    PlayerName = p.PlayerName,
-                    TotalScore = p.Score,
-                    CorrectAnswers = p.CorrectAnswers,
-                    TotalAnswered = p.TotalAnswered,
-                    Rank = index + 1
-                })
-                .ToList();
-
-            var winner = rankings.FirstOrDefault();
-
-            return new FinalResultDto
+            if (session != null)
             {
-                GamePin = gamePin,
-                FinalRankings = rankings,
-                Winner = winner,
-                CompletedAt = DateTime.UtcNow,
-                TotalPlayers = session.Players.Count,
-                TotalQuestions = session.Questions.Count
-            };
+                if (session.Status == GameStatus.Completed)
+                {
+                    var rankings = session.Players
+                        .OrderByDescending(p => p.Score)
+                        .Select((p, index) => new PlayerScore
+                        {
+                            PlayerName = p.PlayerName,
+                            TotalScore = p.Score,
+                            CorrectAnswers = p.CorrectAnswers,
+                            TotalAnswered = p.TotalAnswered,
+                            Rank = index + 1
+                        })
+                        .ToList();
+
+                    var winner = rankings.FirstOrDefault();
+
+                    var finalResult = new FinalResultDto
+                    {
+                        GamePin = gamePin,
+                        FinalRankings = rankings,
+                        Winner = winner,
+                        CompletedAt = DateTime.UtcNow,
+                        TotalPlayers = session.Players.Count,
+                        TotalQuestions = session.Questions.Count
+                    };
+
+                    // Lưu cache final result để API EndEvent có thể dùng nếu session bị cleanup sau đó
+                    await SaveFinalResultToRedisAsync(gamePin, finalResult);
+                    return finalResult;
+                }
+            }
+
+            // Fallback: nếu session không còn, thử lấy finalResult đã cache
+            var cachedFinal = await GetCachedFinalResultFromRedisAsync(gamePin);
+            return cachedFinal;
         }
 
         /// <summary>

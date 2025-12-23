@@ -1,5 +1,6 @@
 using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.EventDtos;
+using BusinessLogic.DTOs.RealtimeGameDtos;
 using BusinessLogic.Interfaces;
 using Repository.Entities;
 using Repository.Enums;
