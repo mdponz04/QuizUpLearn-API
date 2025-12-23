@@ -197,7 +197,7 @@ namespace QuizUpLearn.API.Hubs
                 var player = await _gameService.PlayerJoinAsync(gamePin, playerName.Trim(), Context.ConnectionId, userId);
                 if (player == null)
                 {
-                    await Clients.Caller.SendAsync("Error", "Failed to join game. Game not found, already started, or name taken.");
+                    await Clients.Caller.SendAsync("Error", "Tham gia game thất bại. Game không tồn tại, đã bắt đầu, hoặc tên đã được sử dụng.");
                     return;
                 }
 

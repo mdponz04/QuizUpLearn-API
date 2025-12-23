@@ -143,6 +143,7 @@ namespace QuizUpLearn.API.Controllers
                 Id = accountIdGuid,
                 Email = email,
                 Username = string.Empty,
+                AvatarUrl = string.Empty,
                 UserId = Guid.TryParse(userIdStr, out var userId) ? userId : Guid.Empty,
                 RoleId = roleIdGuid,
                 RoleName = roleName,
