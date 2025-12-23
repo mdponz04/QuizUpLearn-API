@@ -1,6 +1,5 @@
 using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.EventDtos;
-using BusinessLogic.DTOs.RealtimeGameDtos;
 using BusinessLogic.Interfaces;
 using Repository.Entities;
 using Repository.Enums;
@@ -731,10 +730,12 @@ namespace BusinessLogic.Services
             int syncedCount = 0;
             int skippedCount = 0;
 
+            var players = session?.Players ?? new List<PlayerInfo>();
+
             foreach (var ranking in finalResult.FinalRankings)
             {
                 // Tìm player theo PlayerName trong session để lấy UserId
-                var player = session.Players.FirstOrDefault(p => p.PlayerName == ranking.PlayerName);
+                var player = players.FirstOrDefault(p => p.PlayerName == ranking.PlayerName);
                 if (player == null || !player.UserId.HasValue)
                 {
                     skippedCount++;
