@@ -668,11 +668,69 @@ namespace BusinessLogic.Services
             if (eventEntity.CreatedBy != userId)
                 throw new UnauthorizedAccessException("Chỉ người tạo Event mới có thể end");
 
-            // Check status
-            if (eventEntity.Status != "Active")
-                throw new InvalidOperationException($"Không thể end Event với status '{eventEntity.Status}'. Chỉ có thể end Event đang Active.");
+            // Check status: cho phép Active hoặc Cancelled (để hỗ trợ trường hợp bị cancel trước đó)
+            if (eventEntity.Status != "Active" && eventEntity.Status != "Cancelled")
+                throw new InvalidOperationException($"Không thể end Event với status '{eventEntity.Status}'. Chỉ có thể end Event đang Active hoặc Cancelled.");
+
+            // Bắt buộc có GamePin để lấy kết quả từ Redis
+            if (string.IsNullOrWhiteSpace(dto.GamePin))
+                throw new ArgumentException("GamePin không được để trống khi kết thúc Event.");
+
+            // Lấy final result và session từ Redis để sync điểm (không phụ thuộc Hub)
+            var finalResult = await _realtimeGameService.GetFinalResultAsync(dto.GamePin);
+            if (finalResult == null)
+                throw new InvalidOperationException("Không thể lấy kết quả cuối cùng từ Redis. Vui lòng kiểm tra GamePin hoặc trạng thái game.");
+
+            var session = await _realtimeGameService.GetGameSessionAsync(dto.GamePin);
+            if (session == null)
+                throw new InvalidOperationException("Không tìm thấy game session trong Redis để sync điểm.");
+
+            // Đảm bảo EventId khớp
+            if (!session.EventId.HasValue || session.EventId.Value != dto.EventId)
+                throw new InvalidOperationException("Game session không thuộc Event này hoặc thiếu EventId.");
 
             _logger.LogInformation($"🏁 Ending Event {eventEntity.Id}: {eventEntity.Name}");
+
+            // Step 0: Sync điểm từ finalResult vào EventParticipant + lưu history
+            int syncedCount = 0;
+            int skippedCount = 0;
+
+            foreach (var ranking in finalResult.FinalRankings)
+            {
+                // Tìm player theo PlayerName trong session để lấy UserId
+                var player = session.Players.FirstOrDefault(p => p.PlayerName == ranking.PlayerName);
+                if (player == null || !player.UserId.HasValue)
+                {
+                    skippedCount++;
+                    continue;
+                }
+
+                var accuracy = finalResult.TotalQuestions > 0
+                    ? (double)ranking.CorrectAnswers / finalResult.TotalQuestions * 100
+                    : 0;
+                var wrongAnswers = ranking.TotalAnswered - ranking.CorrectAnswers;
+
+                await SyncPlayerScoreAsync(
+                    eventEntity.Id,
+                    player.UserId.Value,
+                    ranking.TotalScore,
+                    accuracy);
+
+                await SaveEventGameHistoryAsync(
+                    eventEntity.Id,
+                    player.UserId.Value,
+                    session.QuizSetId,
+                    finalResult.TotalQuestions,
+                    ranking.CorrectAnswers,
+                    wrongAnswers,
+                    ranking.TotalScore,
+                    accuracy,
+                    timeSpent: null);
+
+                syncedCount++;
+            }
+
+            _logger.LogInformation($"📊 EndEvent sync completed. Synced={syncedCount}, Skipped={skippedCount}");
 
             // Step 1: Update Event status
             eventEntity.Status = "Ended";
@@ -685,6 +743,16 @@ namespace BusinessLogic.Services
 
             // Step 3: Count participants
             var totalParticipants = await _eventParticipantRepo.CountParticipantsByEventIdAsync(eventEntity.Id);
+
+            // Step 4: Cleanup game session trong Redis (sau khi đã sync)
+            try
+            {
+                await _realtimeGameService.CleanupGameAsync(dto.GamePin);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, $"⚠️ Cleanup game session failed for GamePin {dto.GamePin} (có thể đã bị dọn trước đó)");
+            }
 
             _logger.LogInformation($"🎉 Event {eventEntity.Id} ({eventEntity.Name}) ended successfully with {totalParticipants} participants");
 
