@@ -189,25 +189,13 @@ namespace BusinessLogic.Services
             if (quizSet == null)
                 throw new ArgumentException("Quiz set not found");
 
-            // Load quiz group items for TOEIC-style grouped questions (Parts 3,4,6,7)
-            //var quizGroupItems = await quizGroupItemRepository.GetAllByQuizSetIdAsync(dto.QuizSetId);
-            /*var quizGroupItemsMap = new Dictionary<Guid, QuizGroupItemDto>();
-            foreach (var groupItem in quizGroupItems)
-            {
-                quizGroupItemsMap[groupItem.Id] = new QuizGroupItemDto
-                {
-                    Id = groupItem.Id,
-                    Name = groupItem.Name,
-                    AudioUrl = groupItem.AudioUrl,
-                    ImageUrl = groupItem.ImageUrl,
-                    PassageText = groupItem.PassageText
-                };
-            }*/
-
-            // Load questions
+            // Load questions (đã include QuizGroupItem từ repository)
             var quizzes = await quizRepository.GetQuizzesByQuizSetIdAsync(dto.QuizSetId);
             var questionsList = new List<QuestionDto>();
             var correctAnswersMap = new Dictionary<Guid, bool>();
+            
+            // ✨ Build QuizGroupItems map from quizzes (for TOEIC-style grouped questions)
+            var quizGroupItemsMap = new Dictionary<Guid, QuizGroupItemDto>();
 
             int questionNumber = 1;
             foreach (var quiz in quizzes)
@@ -235,6 +223,19 @@ namespace BusinessLogic.Services
                 };
 
                 questionsList.Add(questionDto);
+
+                // ✨ Load QuizGroupItem nếu có (TOEIC Parts 3,4,6,7)
+                if (quiz.QuizGroupItemId.HasValue && quiz.QuizGroupItem != null && !quizGroupItemsMap.ContainsKey(quiz.QuizGroupItemId.Value))
+                {
+                    quizGroupItemsMap[quiz.QuizGroupItemId.Value] = new QuizGroupItemDto
+                    {
+                        Id = quiz.QuizGroupItem.Id,
+                        Name = quiz.QuizGroupItem.Name,
+                        AudioUrl = quiz.QuizGroupItem.AudioUrl,
+                        ImageUrl = quiz.QuizGroupItem.ImageUrl,
+                        PassageText = quiz.QuizGroupItem.PassageText
+                    };
+                }
 
                 // Lưu đáp án đúng vào map riêng
                 foreach (var ao in answerOptions)
@@ -267,7 +268,7 @@ namespace BusinessLogic.Services
                 EventId = dto.EventId, // Lưu EventId nếu có
                 Status = GameStatus.Lobby,
                 Questions = questionsList,
-                //QuizGroupItems = quizGroupItemsMap, // Store group items for TOEIC-style questions
+                QuizGroupItems = quizGroupItemsMap, // ✨ Store group items for TOEIC-style questions
                 CurrentQuestionIndex = 0,
                 CreatedAt = DateTime.UtcNow
             };
@@ -1020,21 +1021,28 @@ namespace BusinessLogic.Services
             if (totalQuestions == 0)
                 return null;
 
+            // Initialize shuffled order if not set (chỉ khi chưa hết câu hỏi)
+            if (player.ShuffledQuestionOrder == null || player.ShuffledQuestionOrder.Count == 0)
+            {
+                // ✨ Chỉ initialize nếu chưa hết câu hỏi
+                if (player.CurrentQuestionIndex >= totalQuestions)
+                {
+                    _logger.LogInformation($"✅ Player '{player.PlayerName}' has completed all {totalQuestions} questions. No more questions available.");
+                    return null;
+                }
+                
+                player.ShuffledQuestionOrder = GenerateShuffledQuestionOrder(totalQuestions);
+                player.CurrentQuestionIndex = 0;
+                player.QuestionLoopCount = 0;
+                player.AnsweredQuestionIds = new HashSet<Guid>();
+            }
+
             // ✨ Boss Fight là mini game của Event - không lặp lại câu hỏi
             // Nếu đã trả lời hết câu hỏi, không trả về câu hỏi nữa
             if (player.CurrentQuestionIndex >= totalQuestions)
             {
                 _logger.LogInformation($"✅ Player '{player.PlayerName}' has completed all {totalQuestions} questions. No more questions available.");
                 return null;
-            }
-
-            // Initialize shuffled order if not set
-            if (player.ShuffledQuestionOrder == null || player.ShuffledQuestionOrder.Count == 0)
-            {
-                player.ShuffledQuestionOrder = GenerateShuffledQuestionOrder(totalQuestions);
-                player.CurrentQuestionIndex = 0;
-                player.QuestionLoopCount = 0;
-                player.AnsweredQuestionIds = new HashSet<Guid>();
             }
 
             // Get current question index from shuffled order

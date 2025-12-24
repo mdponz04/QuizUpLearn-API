@@ -1026,10 +1026,25 @@ namespace QuizUpLearn.API.Hubs
                 var question = await _gameService.GetPlayerNextQuestionAsync(gamePin, Context.ConnectionId);
                 if (question == null)
                 {
+                    // Lấy session để check trạng thái
+                    var session = await _gameService.GetGameSessionAsync(gamePin);
+                    if (session == null)
+                    {
+                        await Clients.Caller.SendAsync("Error", "Game session not found");
+                        return;
+                    }
+
+                    var totalQuestions = session.Questions.Count;
+                    var player = session.Players.FirstOrDefault(p => p.ConnectionId == Context.ConnectionId);
+                    
+                    // ✨ Check nếu player này đã hoàn thành hết câu hỏi
+                    bool playerCompleted = player != null && player.CurrentQuestionIndex >= totalQuestions;
+                    
                     // ✨ Check if all players have completed all questions but boss not defeated
                     var questionsExhausted = await _gameService.CheckAndHandleQuestionsExhaustedAsync(gamePin);
                     if (questionsExhausted)
                     {
+                        // Tất cả players đã hoàn thành → gửi kết quả cuối cùng
                         var currentSession = await _gameService.GetGameSessionAsync(gamePin);
                         
                         // ✨ Nếu là Event game, tự động sync điểm ngay để đảm bảo tất cả players đều được lưu
@@ -1078,6 +1093,29 @@ namespace QuizUpLearn.API.Hubs
                         return;
                     }
                     
+                    // ✨ Nếu chỉ player này hoàn thành nhưng các players khác chưa → gửi thông báo đặc biệt
+                    if (playerCompleted)
+                    {
+                        var completedPlayersCount = session.Players.Count(p => p.CurrentQuestionIndex >= totalQuestions);
+                        var totalPlayersCount = session.Players.Count;
+                        
+                        _logger.LogInformation($"✅ Player '{player?.PlayerName}' đã hoàn thành tất cả {totalQuestions} câu hỏi. Đang chờ {totalPlayersCount - completedPlayersCount} player(s) khác hoàn thành.");
+                        
+                        // Gửi event đặc biệt để frontend biết player đã hoàn thành và đang chờ
+                        await Clients.Caller.SendAsync("PlayerCompletedAllQuestions", new
+                        {
+                            GamePin = gamePin,
+                            Message = $"Bạn đã hoàn thành tất cả {totalQuestions} câu hỏi! Đang chờ các players khác hoàn thành...",
+                            TotalQuestions = totalQuestions,
+                            CompletedQuestions = totalQuestions,
+                            CompletedPlayersCount = completedPlayersCount,
+                            TotalPlayersCount = totalPlayersCount,
+                            WaitingForOthers = true
+                        });
+                        return;
+                    }
+                    
+                    // Trường hợp khác (không có câu hỏi nhưng player chưa hoàn thành) → gửi error
                     await Clients.Caller.SendAsync("Error", "No question available");
                     return;
                 }
@@ -1174,7 +1212,7 @@ namespace QuizUpLearn.API.Hubs
                 var questionsExhausted = await _gameService.CheckAndHandleQuestionsExhaustedAsync(gamePin);
                 if (questionsExhausted)
                 {
-                    // All questions exhausted but boss survived - Boss wins
+                    // Tất cả players đã hoàn thành nhưng boss chưa bị defeat → xử lý kết quả cuối cùng
                     var currentSession = await _gameService.GetGameSessionAsync(gamePin);
                     
                     // ✨ Nếu là Event game, tự động sync điểm ngay để đảm bảo tất cả players đều được lưu
@@ -1222,6 +1260,38 @@ namespace QuizUpLearn.API.Hubs
                     }
                     return; // Game ended
                 }
+                
+                // ✨ Check nếu chỉ player này đã hoàn thành hết câu hỏi (nhưng các players khác chưa)
+                var updatedSession = await _gameService.GetGameSessionAsync(gamePin);
+                if (updatedSession != null)
+                {
+                    var totalQuestions = updatedSession.Questions.Count;
+                    var currentPlayer = updatedSession.Players.FirstOrDefault(p => p.ConnectionId == Context.ConnectionId);
+                    
+                    if (currentPlayer != null && currentPlayer.CurrentQuestionIndex >= totalQuestions)
+                    {
+                        // Player này đã hoàn thành hết câu hỏi nhưng các players khác chưa
+                        var completedPlayersCount = updatedSession.Players.Count(p => p.CurrentQuestionIndex >= totalQuestions);
+                        var totalPlayersCount = updatedSession.Players.Count;
+                        
+                        _logger.LogInformation($"✅ Player '{currentPlayer.PlayerName}' đã hoàn thành tất cả {totalQuestions} câu hỏi. Đang chờ {totalPlayersCount - completedPlayersCount} player(s) khác hoàn thành.");
+                        
+                        await Clients.Caller.SendAsync("PlayerCompletedAllQuestions", new
+                        {
+                            GamePin = gamePin,
+                            Message = $"Bạn đã hoàn thành tất cả {totalQuestions} câu hỏi! Đang chờ các players khác hoàn thành...",
+                            TotalQuestions = totalQuestions,
+                            CompletedQuestions = totalQuestions,
+                            CompletedPlayersCount = completedPlayersCount,
+                            TotalPlayersCount = totalPlayersCount,
+                            WaitingForOthers = true
+                        });
+                        return; // Không cần check tiếp, player đã hoàn thành và đang chờ
+                    }
+                }
+
+                // Player này chưa hoàn thành hết câu hỏi → tiếp tục bình thường
+                _logger.LogInformation($"⚔️ Player submitted boss fight answer. Correct: {result.IsCorrect}, Points: {result.PointsEarned}");
 
                 _logger.LogInformation($"⚔️ Player submitted boss fight answer. Correct: {result.IsCorrect}, Points: {result.PointsEarned}");
             }
