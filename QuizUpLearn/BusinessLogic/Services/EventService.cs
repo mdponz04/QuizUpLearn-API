@@ -652,18 +652,21 @@ namespace BusinessLogic.Services
             {
                 _logger.LogInformation($"📝 Saving Event game history for Event {eventId}, User {userId}: Score={score}, Accuracy={accuracy:F2}%");
 
-                // ✨ Check xem đã có QuizAttempt cho Event này chưa (tránh duplicate)
+                // ✨ Check duplicate: chỉ skip nếu đã có attempt gần đây (trong vòng 2 phút) với cùng QuizSetId
+                // Điều này cho phép lưu nhiều attempt cho cùng QuizSetId trong các Event khác nhau
+                // Nhưng vẫn tránh duplicate khi EndEvent được gọi nhiều lần
                 var existingAttempts = await _quizAttemptRepo.GetByUserIdAsync(userId, includeDeleted: false);
-                var existingEventAttempt = existingAttempts.FirstOrDefault(a => 
+                var recentAttempt = existingAttempts.FirstOrDefault(a => 
                     a.QuizSetId == quizSetId 
                     && a.AttemptType == "event" 
                     && a.Status == "completed"
-                    && a.DeletedAt == null);
+                    && a.DeletedAt == null
+                    && a.CreatedAt >= DateTime.UtcNow.AddMinutes(-2)); // Chỉ check trong vòng 2 phút gần đây
 
-                if (existingEventAttempt != null)
+                if (recentAttempt != null)
                 {
-                    _logger.LogInformation($"⏭️ User {userId} đã có QuizAttempt cho Event này (AttemptId: {existingEventAttempt.Id}, CreatedAt: {existingEventAttempt.CreatedAt}). Skip để tránh duplicate.");
-                    return; // Đã có rồi, không tạo mới
+                    _logger.LogInformation($"⏭️ User {userId} đã có QuizAttempt gần đây cho QuizSet này (AttemptId: {recentAttempt.Id}, CreatedAt: {recentAttempt.CreatedAt}). Skip để tránh duplicate khi EndEvent được gọi nhiều lần.");
+                    return; // Đã có attempt gần đây, skip để tránh duplicate
                 }
 
                 // Tính accuracy dạng decimal
@@ -817,32 +820,18 @@ namespace BusinessLogic.Services
                         player.Score,
                         accuracy);
 
-                    // ✨ Check xem đã có QuizAttempt cho Event này chưa (tránh duplicate)
-                    var existingAttempts = await _quizAttemptRepo.GetByUserIdAsync(player.UserId.Value, includeDeleted: false);
-                    var existingEventAttempt = existingAttempts.FirstOrDefault(a => 
-                        a.QuizSetId == session.QuizSetId 
-                        && a.AttemptType == "event" 
-                        && a.Status == "completed"
-                        && a.DeletedAt == null);
-
-                    if (existingEventAttempt != null)
-                    {
-                        _logger.LogInformation($"⏭️ Player '{player.PlayerName}' đã có QuizAttempt cho Event này (AttemptId: {existingEventAttempt.Id}). Skip để tránh duplicate.");
-                    }
-                    else
-                    {
-                        // Lưu lịch sử chơi Event vào QuizAttempt (chỉ nếu chưa có)
-                        await SaveEventGameHistoryAsync(
-                            eventEntity.Id,
-                            player.UserId.Value,
-                            session.QuizSetId,
-                            finalResult.TotalQuestions,
-                            player.CorrectAnswers,
-                            wrongAnswers,
-                            player.Score,
-                            accuracy,
-                            timeSpent: null);
-                    }
+                    // ✨ Lưu lịch sử chơi Event vào QuizAttempt (mỗi Event sẽ tạo một attempt riêng)
+                    // Logic check duplicate đã được xử lý trong SaveEventGameHistoryAsync
+                    await SaveEventGameHistoryAsync(
+                        eventEntity.Id,
+                        player.UserId.Value,
+                        session.QuizSetId,
+                        finalResult.TotalQuestions,
+                        player.CorrectAnswers,
+                        wrongAnswers,
+                        player.Score,
+                        accuracy,
+                        timeSpent: null);
 
                     syncedCount++;
                     _logger.LogInformation($"✅ Đã sync thành công cho player '{player.PlayerName}' (UserId: {player.UserId})");

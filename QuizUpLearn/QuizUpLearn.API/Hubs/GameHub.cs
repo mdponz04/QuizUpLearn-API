@@ -338,7 +338,15 @@ namespace QuizUpLearn.API.Hubs
                     AutoNextQuestion = session?.AutoNextQuestion ?? false
                 });
 
-                // Đợi 3 giây (countdown) rồi gửi câu hỏi đầu tiên
+                // ✨ Boss Fight mode sử dụng per-player flow: mỗi player tự request câu hỏi qua GetPlayerNextQuestion
+                // Không tự động gửi câu hỏi đầu tiên để tránh đếm sai số câu hỏi
+                if (session?.IsBossFightMode == true)
+                {
+                    _logger.LogInformation($"🎮 Boss Fight mode: Players will request questions individually via GetPlayerNextQuestion");
+                    return; // Không gửi ShowQuestion, để players tự request
+                }
+
+                // Normal mode: Đợi 3 giây (countdown) rồi gửi câu hỏi đầu tiên cho tất cả
                 await Task.Delay(3000);
 
                 // Send question with group item data (for TOEIC-style grouped questions)
