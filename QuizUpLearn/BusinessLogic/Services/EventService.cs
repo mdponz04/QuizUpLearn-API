@@ -369,7 +369,6 @@ namespace BusinessLogic.Services
             if (eventEntity == null)
                 throw new ArgumentException("Event không tồn tại");
 
-            // Lấy tất cả participants của Event
             var participants = await _eventParticipantRepo.GetByEventIdAsync(eventId);
             var participantList = participants.ToList();
 
@@ -608,7 +607,16 @@ namespace BusinessLogic.Services
                 }
                 else
                 {
-                    // Update điểm nếu đã có
+                    // ✨ Nếu đã có FinishAt và điểm/accuracy không thay đổi, skip để tránh duplicate update
+                    if (participant.FinishAt.HasValue 
+                        && participant.Score == score 
+                        && Math.Abs(participant.Accuracy - accuracy) < 0.01) // So sánh accuracy với tolerance
+                    {
+                        _logger.LogInformation($"⏭️ EventParticipant đã được sync trước đó (FinishAt: {participant.FinishAt}, Score: {participant.Score}, Accuracy: {participant.Accuracy:F2}%). Skip để tránh duplicate update.");
+                        return;
+                    }
+
+                    // Update điểm nếu đã có (hoặc điểm/accuracy có thay đổi)
                     participant.Score = score;
                     participant.Accuracy = accuracy;
                     participant.FinishAt = DateTime.UtcNow;
@@ -643,6 +651,20 @@ namespace BusinessLogic.Services
             try
             {
                 _logger.LogInformation($"📝 Saving Event game history for Event {eventId}, User {userId}: Score={score}, Accuracy={accuracy:F2}%");
+
+                // ✨ Check xem đã có QuizAttempt cho Event này chưa (tránh duplicate)
+                var existingAttempts = await _quizAttemptRepo.GetByUserIdAsync(userId, includeDeleted: false);
+                var existingEventAttempt = existingAttempts.FirstOrDefault(a => 
+                    a.QuizSetId == quizSetId 
+                    && a.AttemptType == "event" 
+                    && a.Status == "completed"
+                    && a.DeletedAt == null);
+
+                if (existingEventAttempt != null)
+                {
+                    _logger.LogInformation($"⏭️ User {userId} đã có QuizAttempt cho Event này (AttemptId: {existingEventAttempt.Id}, CreatedAt: {existingEventAttempt.CreatedAt}). Skip để tránh duplicate.");
+                    return; // Đã có rồi, không tạo mới
+                }
 
                 // Tính accuracy dạng decimal
                 var accuracyDecimal = totalQuestions > 0 
@@ -726,49 +748,114 @@ namespace BusinessLogic.Services
 
             _logger.LogInformation($"🏁 Ending Event {eventEntity.Id}: {eventEntity.Name}");
 
-            // Step 0: Sync điểm từ finalResult vào EventParticipant + lưu history
+            // Step 0: Sync điểm từ session.Players hoặc finalResult vào EventParticipant + lưu history
+            // ✨ Sync trực tiếp từ session.Players để đảm bảo không bỏ sót player nào
             int syncedCount = 0;
             int skippedCount = 0;
 
-            var players = session?.Players ?? new List<PlayerInfo>();
-
-            foreach (var ranking in finalResult.FinalRankings)
+            // Ưu tiên dùng session.Players (có UserId), fallback về finalResult.FinalRankings nếu session null
+            List<PlayerInfo> playersToSync = new List<PlayerInfo>();
+            
+            if (session != null && session.Players != null && session.Players.Count > 0)
             {
-                // Tìm player theo PlayerName trong session để lấy UserId
-                var player = players.FirstOrDefault(p => p.PlayerName == ranking.PlayerName);
-                if (player == null || !player.UserId.HasValue)
+                // Ưu tiên: sync từ session.Players (có đầy đủ thông tin UserId)
+                playersToSync = session.Players;
+                _logger.LogInformation($"📊 Bắt đầu sync điểm cho {playersToSync.Count} player(s) từ session");
+            }
+            else if (finalResult != null && finalResult.FinalRankings != null && finalResult.FinalRankings.Count > 0)
+            {
+                // Fallback: nếu session null, dùng finalResult nhưng cần match với players từ session (nếu có)
+                _logger.LogWarning($"⚠️ Session null hoặc không có players, dùng finalResult.FinalRankings. Sẽ cần match với UserId từ database.");
+                
+                // Nếu session null, không thể lấy UserId từ session, cần skip
+                if (session == null)
                 {
-                    skippedCount++;
-                    _logger.LogWarning($"⚠️ Bỏ qua lưu history/score cho player '{ranking.PlayerName}' vì không tìm thấy UserId trong session.");
-                    continue;
+                    _logger.LogError($"❌ Không thể sync điểm vì session null và không có cách nào lấy UserId. Cần session để lấy UserId.");
+                    throw new InvalidOperationException("Không thể sync điểm vì session đã bị cleanup. Vui lòng đảm bảo EndEvent được gọi trước khi session bị cleanup.");
                 }
-
-                var accuracy = finalResult.TotalQuestions > 0
-                    ? (double)ranking.CorrectAnswers / finalResult.TotalQuestions * 100
-                    : 0;
-                var wrongAnswers = ranking.TotalAnswered - ranking.CorrectAnswers;
-
-                await SyncPlayerScoreAsync(
-                    eventEntity.Id,
-                    player.UserId.Value,
-                    ranking.TotalScore,
-                    accuracy);
-
-                await SaveEventGameHistoryAsync(
-                    eventEntity.Id,
-                    player.UserId.Value,
-                    session.QuizSetId,
-                    finalResult.TotalQuestions,
-                    ranking.CorrectAnswers,
-                    wrongAnswers,
-                    ranking.TotalScore,
-                    accuracy,
-                    timeSpent: null);
-
-                syncedCount++;
+            }
+            else
+            {
+                _logger.LogWarning($"⚠️ Không có players nào để sync điểm. Session players: {session?.Players?.Count ?? 0}, FinalRankings: {finalResult?.FinalRankings?.Count ?? 0}");
             }
 
-            _logger.LogInformation($"📊 EndEvent sync completed. Synced={syncedCount}, Skipped={skippedCount}");
+            // ✨ Sync trực tiếp từ session.Players thay vì từ FinalRankings để đảm bảo không bỏ sót
+            foreach (var player in playersToSync)
+            {
+                try
+                {
+                    // Bỏ qua nếu không có UserId
+                    if (!player.UserId.HasValue)
+                    {
+                        skippedCount++;
+                        _logger.LogWarning($"⚠️ Bỏ qua lưu history/score cho player '{player.PlayerName}' vì không có UserId.");
+                        continue;
+                    }
+
+                    // ✨ Check xem đã sync chưa (tránh duplicate sync)
+                    var existingParticipant = await _eventParticipantRepo.GetByEventAndParticipantAsync(eventEntity.Id, player.UserId.Value);
+                    if (existingParticipant != null && existingParticipant.FinishAt.HasValue)
+                    {
+                        // Đã sync rồi (có FinishAt) - skip để tránh duplicate
+                        _logger.LogInformation($"⏭️ Player '{player.PlayerName}' (UserId: {player.UserId}) đã được sync trước đó (FinishAt: {existingParticipant.FinishAt}). Skip để tránh duplicate.");
+                        skippedCount++;
+                        continue;
+                    }
+
+                    // Tính toán accuracy và wrong answers
+                    var accuracy = finalResult.TotalQuestions > 0
+                        ? (double)player.CorrectAnswers / finalResult.TotalQuestions * 100
+                        : 0;
+                    var wrongAnswers = player.TotalAnswered - player.CorrectAnswers;
+
+                    _logger.LogInformation($"🔄 Syncing score for player '{player.PlayerName}' (UserId: {player.UserId}): Score={player.Score}, Correct={player.CorrectAnswers}/{finalResult.TotalQuestions}, Accuracy={accuracy:F2}%");
+
+                    // Sync điểm vào EventParticipant
+                    await SyncPlayerScoreAsync(
+                        eventEntity.Id,
+                        player.UserId.Value,
+                        player.Score,
+                        accuracy);
+
+                    // ✨ Check xem đã có QuizAttempt cho Event này chưa (tránh duplicate)
+                    var existingAttempts = await _quizAttemptRepo.GetByUserIdAsync(player.UserId.Value, includeDeleted: false);
+                    var existingEventAttempt = existingAttempts.FirstOrDefault(a => 
+                        a.QuizSetId == session.QuizSetId 
+                        && a.AttemptType == "event" 
+                        && a.Status == "completed"
+                        && a.DeletedAt == null);
+
+                    if (existingEventAttempt != null)
+                    {
+                        _logger.LogInformation($"⏭️ Player '{player.PlayerName}' đã có QuizAttempt cho Event này (AttemptId: {existingEventAttempt.Id}). Skip để tránh duplicate.");
+                    }
+                    else
+                    {
+                        // Lưu lịch sử chơi Event vào QuizAttempt (chỉ nếu chưa có)
+                        await SaveEventGameHistoryAsync(
+                            eventEntity.Id,
+                            player.UserId.Value,
+                            session.QuizSetId,
+                            finalResult.TotalQuestions,
+                            player.CorrectAnswers,
+                            wrongAnswers,
+                            player.Score,
+                            accuracy,
+                            timeSpent: null);
+                    }
+
+                    syncedCount++;
+                    _logger.LogInformation($"✅ Đã sync thành công cho player '{player.PlayerName}' (UserId: {player.UserId})");
+                }
+                catch (Exception ex)
+                {
+                    skippedCount++;
+                    _logger.LogError(ex, $"❌ Lỗi khi sync điểm cho player '{player.PlayerName}' (UserId: {player.UserId?.ToString() ?? "N/A"}). Tiếp tục với player tiếp theo.");
+                    // Tiếp tục với player tiếp theo, không throw để không dừng toàn bộ quá trình
+                }
+            }
+
+            _logger.LogInformation($"📊 EndEvent sync completed. Synced={syncedCount}, Skipped={skippedCount}, TotalPlayers={playersToSync.Count}");
 
             // Step 1: Update Event status
             eventEntity.Status = "Ended";

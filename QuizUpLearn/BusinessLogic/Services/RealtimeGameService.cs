@@ -988,7 +988,7 @@ namespace BusinessLogic.Services
         // ==================== BOSS FIGHT PER-PLAYER QUESTION FLOW ====================
         
         /// <summary>
-        /// Initialize shuffled question order for a player (called when game starts or player loops)
+        /// Initialize shuffled question order for a player (called when game starts)
         /// </summary>
         private List<int> GenerateShuffledQuestionOrder(int questionCount)
         {
@@ -1003,8 +1003,8 @@ namespace BusinessLogic.Services
         }
 
         /// <summary>
-        /// Get next question for a specific player (Boss Fight infinite loop mode)
-        /// Each player progresses independently with shuffled questions that loop infinitely
+        /// Get next question for a specific player (Boss Fight mode)
+        /// Boss Fight là mini game của Event - chỉ trả lời đúng số câu hỏi trong bộ đề, không lặp lại
         /// </summary>
         public async Task<QuestionDto?> GetPlayerNextQuestionAsync(string gamePin, string connectionId)
         {
@@ -1019,6 +1019,14 @@ namespace BusinessLogic.Services
             var totalQuestions = session.Questions.Count;
             if (totalQuestions == 0)
                 return null;
+
+            // ✨ Boss Fight là mini game của Event - không lặp lại câu hỏi
+            // Nếu đã trả lời hết câu hỏi, không trả về câu hỏi nữa
+            if (player.CurrentQuestionIndex >= totalQuestions)
+            {
+                _logger.LogInformation($"✅ Player '{player.PlayerName}' has completed all {totalQuestions} questions. No more questions available.");
+                return null;
+            }
 
             // Initialize shuffled order if not set
             if (player.ShuffledQuestionOrder == null || player.ShuffledQuestionOrder.Count == 0)
@@ -1041,8 +1049,8 @@ namespace BusinessLogic.Services
                 ImageUrl = question.ImageUrl,
                 AudioUrl = question.AudioUrl,
                 AnswerOptions = question.AnswerOptions,
-                QuestionNumber = player.CurrentQuestionIndex + 1 + (player.QuestionLoopCount * totalQuestions),
-                TotalQuestions = -1, // -1 indicates infinite (boss fight mode)
+                QuestionNumber = player.CurrentQuestionIndex + 1,
+                TotalQuestions = totalQuestions, // Boss Fight là mini game của Event - hiển thị tổng số câu hỏi
                 TimeLimit = session.QuestionTimeLimitSeconds > 0 ? session.QuestionTimeLimitSeconds : (question.TimeLimit ?? 30),
                 QuizGroupItemId = question.QuizGroupItemId // Include group item reference for TOEIC-style questions
             };
@@ -1052,7 +1060,7 @@ namespace BusinessLogic.Services
 
             await SaveGameSessionToRedisAsync(gamePin, session);
 
-            _logger.LogInformation($"📋 Player '{player.PlayerName}' getting question {player.CurrentQuestionIndex + 1} (loop {player.QuestionLoopCount + 1}), shuffled idx: {shuffledIndex}");
+            _logger.LogInformation($"📋 Player '{player.PlayerName}' getting question {player.CurrentQuestionIndex + 1}/{totalQuestions}, shuffled idx: {shuffledIndex}");
 
             return questionDto;
         }
@@ -1070,7 +1078,7 @@ namespace BusinessLogic.Services
             if (player == null)
                 return false;
 
-            // Mark question as answered in current loop
+            // Mark question as answered
             player.AnsweredQuestionIds ??= new HashSet<Guid>();
             player.AnsweredQuestionIds.Add(answeredQuestionId);
 
@@ -1079,20 +1087,51 @@ namespace BusinessLogic.Services
 
             var totalQuestions = session.Questions.Count;
 
-            // If completed all questions in current loop, reshuffle and reset for next loop
+            // ✨ Boss Fight là mini game của Event - KHÔNG được lặp lại câu hỏi
+            // Chỉ trả lời đúng số câu trong bộ đề, không infinite loop
             if (player.CurrentQuestionIndex >= totalQuestions)
             {
-                player.QuestionLoopCount++;
-                player.CurrentQuestionIndex = 0;
-                player.ShuffledQuestionOrder = GenerateShuffledQuestionOrder(totalQuestions);
-                player.AnsweredQuestionIds.Clear();
-                
-                _logger.LogInformation($"🔄 Player '{player.PlayerName}' completed loop {player.QuestionLoopCount}, reshuffling questions");
+                _logger.LogInformation($"✅ Player '{player.PlayerName}' completed all {totalQuestions} questions. No more questions available.");
+                // Không reset, để player biết đã trả lời hết
             }
 
             await SaveGameSessionToRedisAsync(gamePin, session);
 
             return true;
+        }
+
+        /// <summary>
+        /// Check if all players have completed all questions and handle game end if boss not defeated
+        /// </summary>
+        public async Task<bool> CheckAndHandleQuestionsExhaustedAsync(string gamePin)
+        {
+            var session = await GetGameSessionFromRedisAsync(gamePin);
+            if (session == null || !session.IsBossFightMode || session.Status != GameStatus.InProgress)
+                return false;
+
+            // Check if boss is already defeated
+            if (session.BossDefeated)
+                return false;
+
+            var totalQuestions = session.Questions.Count;
+            if (totalQuestions == 0)
+                return false;
+
+            // Check if all players have completed all questions
+            bool allPlayersCompleted = session.Players.Count > 0 && session.Players.All(p => p.CurrentQuestionIndex >= totalQuestions);
+
+            if (allPlayersCompleted && session.BossCurrentHP > 0)
+            {
+                // All questions exhausted but boss not defeated - Boss wins
+                session.Status = GameStatus.Completed;
+                session.BossDefeated = false; // Boss wins
+                await SaveGameSessionToRedisAsync(gamePin, session);
+                
+                _logger.LogInformation($"🏁 All players completed all {totalQuestions} questions but boss survived (HP: {session.BossCurrentHP}/{session.BossMaxHP}). Boss wins!");
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>

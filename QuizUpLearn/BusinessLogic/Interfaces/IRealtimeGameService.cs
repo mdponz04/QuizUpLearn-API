@@ -51,6 +51,7 @@ namespace BusinessLogic.Interfaces
         Task<QuestionDto?> GetPlayerNextQuestionAsync(string gamePin, string connectionId);
         Task<bool> MovePlayerToNextQuestionAsync(string gamePin, string connectionId, Guid answeredQuestionId);
         Task<PlayerAnswerResult?> SubmitBossFightAnswerAsync(string gamePin, string connectionId, Guid questionId, Guid answerId);
+        Task<bool> CheckAndHandleQuestionsExhaustedAsync(string gamePin);
         
         // ==================== ADMIN ====================
         Task<FinalResultDto?> ForceEndGameAsync(string gamePin, string reason = "Game ended by moderator");

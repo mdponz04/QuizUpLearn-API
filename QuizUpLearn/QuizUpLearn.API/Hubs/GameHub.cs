@@ -181,17 +181,24 @@ namespace QuizUpLearn.API.Hubs
                     return;
                 }
 
-                // ✨ Lấy UserId từ JWT token (nếu có) để sync điểm vào EventParticipant
-                Guid? userId = null;
+                // ✨ BẮT BUỘC phải có JWT token để tham gia game
+                Guid userId;
                 try
                 {
                     var user = await GetAuthenticatedUserAsync();
-                    userId = user?.Id;
+                    if (user == null)
+                    {
+                        _logger.LogWarning($"❌ JoinGame failed: User không được xác thực hoặc không tìm thấy UserId");
+                        await Clients.Caller.SendAsync("Error", "Bạn phải đăng nhập để tham gia game. Vui lòng đăng nhập và thử lại.");
+                        return;
+                    }
+                    userId = user.Id;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogDebug(ex, $"Could not get authenticated user for JoinGame - continuing without UserId");
-                    // Continue without UserId - game vẫn có thể chơi được
+                    _logger.LogWarning(ex, $"❌ JoinGame failed: Không thể lấy thông tin user từ token");
+                    await Clients.Caller.SendAsync("Error", "Token không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.");
+                    return;
                 }
 
                 var player = await _gameService.PlayerJoinAsync(gamePin, playerName.Trim(), Context.ConnectionId, userId);
@@ -1019,6 +1026,58 @@ namespace QuizUpLearn.API.Hubs
                 var question = await _gameService.GetPlayerNextQuestionAsync(gamePin, Context.ConnectionId);
                 if (question == null)
                 {
+                    // ✨ Check if all players have completed all questions but boss not defeated
+                    var questionsExhausted = await _gameService.CheckAndHandleQuestionsExhaustedAsync(gamePin);
+                    if (questionsExhausted)
+                    {
+                        var currentSession = await _gameService.GetGameSessionAsync(gamePin);
+                        
+                        // ✨ Nếu là Event game, tự động sync điểm ngay để đảm bảo tất cả players đều được lưu
+                        if (currentSession != null && currentSession.EventId.HasValue)
+                        {
+                            try
+                            {
+                                _logger.LogInformation($"🔄 Auto-syncing scores for Event {currentSession.EventId} when questions exhausted");
+                                var finalResult = await _gameService.GetFinalResultAsync(gamePin);
+                                if (finalResult != null)
+                                {
+                                    using var scope = _serviceScopeFactory.CreateScope();
+                                    var eventService = scope.ServiceProvider.GetRequiredService<IEventService>();
+                                    await SyncEventScoresAsync(gamePin, finalResult, eventService, _gameService);
+                                    _logger.LogInformation($"✅ Auto-sync completed for Event {currentSession.EventId}");
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, $"❌ Failed to auto-sync scores for Event {currentSession.EventId} when questions exhausted");
+                                // Không throw, tiếp tục gửi thông báo cho players
+                            }
+                        }
+                        
+                        var questionsExhaustedResult = await _gameService.GetBossFightTimeUpResultAsync(gamePin);
+                        if (questionsExhaustedResult != null)
+                        {
+                            // Gửi thông báo cho tất cả players trong group
+                            await Clients.Group($"Game_{gamePin}").SendAsync("BossFightQuestionsExhausted", questionsExhaustedResult);
+                            _logger.LogInformation($"📢 Sent BossFightQuestionsExhausted to all players in group Game_{gamePin}");
+                        }
+                        else
+                        {
+                            // Gửi thông báo cho tất cả players trong group
+                            await Clients.Group($"Game_{gamePin}").SendAsync("BossFightQuestionsExhausted", new
+                            {
+                                GamePin = gamePin,
+                                Message = "Đã trả lời hết tất cả câu hỏi nhưng Boss vẫn còn sống! Boss thắng!",
+                                BossCurrentHP = currentSession?.BossCurrentHP ?? 0,
+                                BossMaxHP = currentSession?.BossMaxHP ?? 0,
+                                TotalDamageDealt = currentSession?.TotalDamageDealt ?? 0,
+                                BossWins = true
+                            });
+                            _logger.LogInformation($"📢 Sent BossFightQuestionsExhausted (fallback) to all players in group Game_{gamePin}");
+                        }
+                        return;
+                    }
+                    
                     await Clients.Caller.SendAsync("Error", "No question available");
                     return;
                 }
@@ -1110,6 +1169,59 @@ namespace QuizUpLearn.API.Hubs
 
                 // Move player to next question
                 await _gameService.MovePlayerToNextQuestionAsync(gamePin, Context.ConnectionId, questionGuid);
+
+                // ✨ Check if all players have completed all questions but boss not defeated
+                var questionsExhausted = await _gameService.CheckAndHandleQuestionsExhaustedAsync(gamePin);
+                if (questionsExhausted)
+                {
+                    // All questions exhausted but boss survived - Boss wins
+                    var currentSession = await _gameService.GetGameSessionAsync(gamePin);
+                    
+                    // ✨ Nếu là Event game, tự động sync điểm ngay để đảm bảo tất cả players đều được lưu
+                    if (currentSession != null && currentSession.EventId.HasValue)
+                    {
+                        try
+                        {
+                            _logger.LogInformation($"🔄 Auto-syncing scores for Event {currentSession.EventId} when questions exhausted");
+                            var finalResult = await _gameService.GetFinalResultAsync(gamePin);
+                            if (finalResult != null)
+                            {
+                                using var scope = _serviceScopeFactory.CreateScope();
+                                var eventService = scope.ServiceProvider.GetRequiredService<IEventService>();
+                                await SyncEventScoresAsync(gamePin, finalResult, eventService, _gameService);
+                                _logger.LogInformation($"✅ Auto-sync completed for Event {currentSession.EventId}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, $"❌ Failed to auto-sync scores for Event {currentSession.EventId} when questions exhausted");
+                            // Không throw, tiếp tục gửi thông báo cho players
+                        }
+                    }
+                    
+                    var questionsExhaustedResult = await _gameService.GetBossFightTimeUpResultAsync(gamePin);
+                    if (questionsExhaustedResult != null)
+                    {
+                        // Gửi thông báo cho tất cả players trong group
+                        await Clients.Group($"Game_{gamePin}").SendAsync("BossFightQuestionsExhausted", questionsExhaustedResult);
+                        _logger.LogInformation($"📢 Sent BossFightQuestionsExhausted to all players in group Game_{gamePin}");
+                    }
+                    else
+                    {
+                        // Gửi thông báo cho tất cả players trong group
+                        await Clients.Group($"Game_{gamePin}").SendAsync("BossFightQuestionsExhausted", new
+                        {
+                            GamePin = gamePin,
+                            Message = "Đã trả lời hết tất cả câu hỏi nhưng Boss vẫn còn sống! Boss thắng!",
+                            BossCurrentHP = currentSession?.BossCurrentHP ?? 0,
+                            BossMaxHP = currentSession?.BossMaxHP ?? 0,
+                            TotalDamageDealt = currentSession?.TotalDamageDealt ?? 0,
+                            BossWins = true
+                        });
+                        _logger.LogInformation($"📢 Sent BossFightQuestionsExhausted (fallback) to all players in group Game_{gamePin}");
+                    }
+                    return; // Game ended
+                }
 
                 _logger.LogInformation($"⚔️ Player submitted boss fight answer. Correct: {result.IsCorrect}, Points: {result.PointsEarned}");
             }
@@ -1258,36 +1370,45 @@ namespace QuizUpLearn.API.Hubs
                 var eventId = session.EventId.Value;
                 _logger.LogInformation($"📊 Syncing scores for Event {eventId}, GamePin: {gamePin}");
 
-                // Sync điểm cho từng player
+                // ✨ Sync điểm cho từng player - sync trực tiếp từ session.Players để đảm bảo không bỏ sót
                 int syncedCount = 0;
                 int skippedCount = 0;
 
-                foreach (var ranking in finalResult.FinalRankings)
+                if (session.Players == null || session.Players.Count == 0)
+                {
+                    _logger.LogWarning($"⚠️ Không có players nào trong session để sync điểm.");
+                }
+                else
+                {
+                    _logger.LogInformation($"📊 Bắt đầu sync điểm cho {session.Players.Count} player(s) từ session");
+                }
+
+                // ✨ Sync trực tiếp từ session.Players thay vì từ FinalRankings để đảm bảo không bỏ sót
+                foreach (var player in session.Players)
                 {
                     try
                     {
-                        // Tìm player trong session để lấy UserId
-                        var player = session.Players.FirstOrDefault(p => p.PlayerName == ranking.PlayerName);
-                        if (player == null || !player.UserId.HasValue)
+                        // Bỏ qua nếu không có UserId
+                        if (!player.UserId.HasValue)
                         {
-                            _logger.LogWarning($"⚠️ Player '{ranking.PlayerName}' has no UserId - skipping score sync");
                             skippedCount++;
+                            _logger.LogWarning($"⚠️ Bỏ qua lưu history/score cho player '{player.PlayerName}' vì không có UserId.");
                             continue;
                         }
 
-                        // Tính accuracy
+                        // Tính toán accuracy và wrong answers
                         var accuracy = finalResult.TotalQuestions > 0
-                            ? (double)ranking.CorrectAnswers / finalResult.TotalQuestions * 100
+                            ? (double)player.CorrectAnswers / finalResult.TotalQuestions * 100
                             : 0;
+                        var wrongAnswers = player.TotalAnswered - player.CorrectAnswers;
 
-                        // Tính wrong answers
-                        var wrongAnswers = ranking.TotalAnswered - ranking.CorrectAnswers;
+                        _logger.LogInformation($"🔄 Syncing score for player '{player.PlayerName}' (UserId: {player.UserId}): Score={player.Score}, Correct={player.CorrectAnswers}/{finalResult.TotalQuestions}, Accuracy={accuracy:F2}%");
 
                         // Sync vào EventParticipant
                         await eventService.SyncPlayerScoreAsync(
                             eventId,
                             player.UserId.Value,
-                            ranking.TotalScore,
+                            player.Score,
                             accuracy);
 
                         // Lưu lịch sử chơi Event vào QuizAttempt
@@ -1296,19 +1417,20 @@ namespace QuizUpLearn.API.Hubs
                             player.UserId.Value,
                             session.QuizSetId,
                             finalResult.TotalQuestions,
-                            ranking.CorrectAnswers,
+                            player.CorrectAnswers,
                             wrongAnswers,
-                            ranking.TotalScore,
+                            player.Score,
                             accuracy,
-                            timeSpent: null); // TimeSpent không có trong FinalResultDto, có thể tính sau nếu cần
+                            timeSpent: null);
 
                         syncedCount++;
-                        _logger.LogInformation($"✅ Synced score and saved history for User {player.UserId}: Score={ranking.TotalScore}, Accuracy={accuracy:F2}%");
+                        _logger.LogInformation($"✅ Đã sync thành công cho player '{player.PlayerName}' (UserId: {player.UserId})");
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, $"❌ Failed to sync score for player '{ranking.PlayerName}'");
                         skippedCount++;
+                        _logger.LogError(ex, $"❌ Lỗi khi sync điểm cho player '{player.PlayerName}' (UserId: {player.UserId?.ToString() ?? "N/A"}). Tiếp tục với player tiếp theo.");
+                        // Tiếp tục với player tiếp theo, không throw để không dừng toàn bộ quá trình
                     }
                 }
 
