@@ -1121,8 +1121,8 @@ namespace QuizUpLearn.API.Hubs
                 }
 
                 // Get session for group item lookup
-                var session = await _gameService.GetGameSessionAsync(gamePin);
-                var questionPayload = BuildShowQuestionPayload(question, session);
+                var gameSession = await _gameService.GetGameSessionAsync(gamePin);
+                var questionPayload = BuildShowQuestionPayload(question, gameSession);
 
                 await Clients.Caller.SendAsync("PlayerQuestion", questionPayload);
                 
