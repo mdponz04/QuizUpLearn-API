@@ -714,7 +714,11 @@ namespace BusinessLogic.Services
                             PlayerName = p.PlayerName,
                             TotalScore = p.Score,
                             CorrectAnswers = p.CorrectAnswers,
-                            TotalAnswered = p.TotalAnswered,
+                            // FIX: Use the maximum of TotalAnswered or actual answered questions count
+                            TotalAnswered = Math.Max(
+                                p.TotalAnswered, 
+                                p.AnsweredQuestionIds?.Count ?? 0
+                            ),
                             Rank = index + 1
                         })
                         .ToList();
@@ -864,7 +868,11 @@ namespace BusinessLogic.Services
                     PlayerName = p.PlayerName,
                     TotalDamage = p.TotalDamage,
                     CorrectAnswers = p.CorrectAnswers,
-                    TotalAnswered = p.TotalAnswered,
+                    // FIX: Use the maximum of TotalAnswered or actual answered questions count
+                    TotalAnswered = Math.Max(
+                        p.TotalAnswered, 
+                        p.AnsweredQuestionIds?.Count ?? 0
+                    ),
                     Rank = index + 1,
                     DamagePercent = totalDamage > 0 ? (double)p.TotalDamage / totalDamage * 100 : 0
                 })
@@ -917,7 +925,11 @@ namespace BusinessLogic.Services
                     PlayerName = p.PlayerName,
                     TotalDamage = p.TotalDamage,
                     CorrectAnswers = p.CorrectAnswers,
-                    TotalAnswered = p.TotalAnswered,
+                    // FIX: Use the maximum of TotalAnswered or actual answered questions count
+                    TotalAnswered = Math.Max(
+                        p.TotalAnswered, 
+                        p.AnsweredQuestionIds?.Count ?? 0
+                    ),
                     Rank = index + 1,
                     DamagePercent = totalDamage > 0 ? (double)p.TotalDamage / totalDamage * 100 : 0
                 })
@@ -1046,8 +1058,14 @@ namespace BusinessLogic.Services
             }
 
             // Get current question index from shuffled order
+            var currentQuestionNumber = player.CurrentQuestionIndex + 1; // Display number (1-based)
             var shuffledIndex = player.ShuffledQuestionOrder[player.CurrentQuestionIndex];
             var question = session.Questions[shuffledIndex];
+
+            // ✅ CRITICAL FIX: Increment index HERE (atomically with question retrieval)
+            // This prevents race condition where GetPlayerNextQuestion called multiple times
+            // returns the same question. Each call now atomically gets + increments.
+            player.CurrentQuestionIndex++;
 
             // Create question DTO for player
             var questionDto = new QuestionDto
@@ -1057,7 +1075,7 @@ namespace BusinessLogic.Services
                 ImageUrl = question.ImageUrl,
                 AudioUrl = question.AudioUrl,
                 AnswerOptions = question.AnswerOptions,
-                QuestionNumber = player.CurrentQuestionIndex + 1,
+                QuestionNumber = currentQuestionNumber, // Use saved value (before increment)
                 TotalQuestions = totalQuestions, // Boss Fight là mini game của Event - hiển thị tổng số câu hỏi
                 TimeLimit = session.QuestionTimeLimitSeconds > 0 ? session.QuestionTimeLimitSeconds : (question.TimeLimit ?? 30),
                 QuizGroupItemId = question.QuizGroupItemId // Include group item reference for TOEIC-style questions
@@ -1068,13 +1086,16 @@ namespace BusinessLogic.Services
 
             await SaveGameSessionToRedisAsync(gamePin, session);
 
-            _logger.LogInformation($"📋 Player '{player.PlayerName}' getting question {player.CurrentQuestionIndex + 1}/{totalQuestions}, shuffled idx: {shuffledIndex}");
+            _logger.LogInformation($"📋 Player '{player.PlayerName}' got question {currentQuestionNumber}/{totalQuestions} (shuffled idx: {shuffledIndex}). Next index: {player.CurrentQuestionIndex}");
 
             return questionDto;
         }
 
         /// <summary>
         /// Move player to next question (called after player submits answer)
+        /// ⚠️ DEPRECATED: This method is no longer used. CurrentQuestionIndex is now incremented
+        /// atomically inside GetPlayerNextQuestionAsync to prevent race conditions.
+        /// Kept for backwards compatibility but should not be called.
         /// </summary>
         public async Task<bool> MovePlayerToNextQuestionAsync(string gamePin, string connectionId, Guid answeredQuestionId)
         {
@@ -1223,8 +1244,11 @@ namespace BusinessLogic.Services
                 player.TotalDamage += points; // In boss fight, points = damage
             }
 
+            // ✅ NOTE: CurrentQuestionIndex is incremented in GetPlayerNextQuestion (atomically)
+            // We don't increment here - just track answer stats
+
             var totalQuestions = session.Questions.Count;
-            _logger.LogInformation($"⚔️ Player '{player.PlayerName}' answered Q:{questionId}. Correct: {isCorrect}, Points: {points}, Stats: {player.CorrectAnswers}/{player.TotalAnswered} (TotalQuestions: {totalQuestions})");
+            _logger.LogInformation($"⚔️ Player '{player.PlayerName}' answered Q:{questionId}. Correct: {isCorrect}, Points: {points}, Stats: {player.CorrectAnswers}/{player.TotalAnswered}/{totalQuestions}");
 
             await SaveGameSessionToRedisAsync(gamePin, session);
 
@@ -1235,7 +1259,8 @@ namespace BusinessLogic.Services
                 PointsEarned = points,
                 TimeSpent = timeSpent,
                 CorrectAnswers = player.CorrectAnswers,
-                TotalAnswered = player.TotalAnswered
+                TotalAnswered = player.TotalAnswered,
+                TotalQuestions = totalQuestions // Include total so frontend can check completion
             };
         }
 
@@ -1258,7 +1283,12 @@ namespace BusinessLogic.Services
                     PlayerName = p.PlayerName,
                     TotalScore = p.TotalDamage > 0 ? p.TotalDamage : p.Score,
                     CorrectAnswers = p.CorrectAnswers,
-                    TotalAnswered = p.TotalAnswered,
+                    // FIX: Use the maximum of TotalAnswered or actual answered questions count
+                    // This handles race conditions where TotalAnswered might not be updated yet
+                    TotalAnswered = Math.Max(
+                        p.TotalAnswered, 
+                        p.AnsweredQuestionIds?.Count ?? 0
+                    ),
                     Rank = index + 1
                 })
                 .ToList();

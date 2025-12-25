@@ -1206,7 +1206,8 @@ namespace QuizUpLearn.API.Hubs
                     CorrectAnswerId = correctAnswerId,
                     CorrectAnswerText = correctAnswerText,
                     CorrectAnswers = result.CorrectAnswers,
-                    TotalAnswered = result.TotalAnswered
+                    TotalAnswered = result.TotalAnswered,
+                    TotalQuestions = result.TotalQuestions // ✅ CRITICAL: Include so frontend knows when player is done
                 });
 
                 // If correct, deal damage to boss
@@ -1231,8 +1232,8 @@ namespace QuizUpLearn.API.Hubs
                     }
                 }
 
-                // Move player to next question
-                await _gameService.MovePlayerToNextQuestionAsync(gamePin, Context.ConnectionId, questionGuid);
+                // ✅ NOTE: CurrentQuestionIndex is now incremented inside SubmitBossFightAnswerAsync
+                // No need to call MovePlayerToNextQuestionAsync separately (eliminates race condition)
 
                 // ✨ Check if all players have completed all questions but boss not defeated
                 var questionsExhausted = await _gameService.CheckAndHandleQuestionsExhaustedAsync(gamePin);

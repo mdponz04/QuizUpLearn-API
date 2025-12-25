@@ -207,6 +207,7 @@ namespace BusinessLogic.DTOs
         public double TimeSpent { get; set; }
         public int CorrectAnswers { get; set; } // Cumulative correct answers
         public int TotalAnswered { get; set; } // Cumulative total answered
+        public int TotalQuestions { get; set; } // Total questions in quiz set (for completion check)
     }
 
     // ==================== LEADERBOARD ====================
