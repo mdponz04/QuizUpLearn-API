@@ -1057,15 +1057,26 @@ namespace BusinessLogic.Services
                 return null;
             }
 
+            // ✅ FIX: Không increment index ở đây nữa - chỉ lấy question hiện tại
+            // Index sẽ được increment khi player SUBMIT ANSWER (trong SubmitBossFightAnswerAsync)
+            // Điều này tránh race condition khi FE gọi GetPlayerNextQuestion nhiều lần
+            
             // Get current question index from shuffled order
             var currentQuestionNumber = player.CurrentQuestionIndex + 1; // Display number (1-based)
             var shuffledIndex = player.ShuffledQuestionOrder[player.CurrentQuestionIndex];
             var question = session.Questions[shuffledIndex];
 
-            // ✅ CRITICAL FIX: Increment index HERE (atomically with question retrieval)
-            // This prevents race condition where GetPlayerNextQuestion called multiple times
-            // returns the same question. Each call now atomically gets + increments.
-            player.CurrentQuestionIndex++;
+            // ✅ Check xem player đã nhận question này chưa (tránh duplicate)
+            // Nếu đã nhận rồi nhưng chưa submit, trả về lại question đó
+            // Nếu chưa nhận, trả về question mới và set PlayerQuestionStartedAt
+            
+            // Nếu chưa có PlayerQuestionStartedAt hoặc đã quá lâu (có thể là question mới)
+            // thì set lại thời gian bắt đầu
+            if (!player.PlayerQuestionStartedAt.HasValue || 
+                (DateTime.UtcNow - player.PlayerQuestionStartedAt.Value).TotalSeconds > 300) // 5 phút timeout
+            {
+                player.PlayerQuestionStartedAt = DateTime.UtcNow;
+            }
 
             // Create question DTO for player
             var questionDto = new QuestionDto
@@ -1075,18 +1086,15 @@ namespace BusinessLogic.Services
                 ImageUrl = question.ImageUrl,
                 AudioUrl = question.AudioUrl,
                 AnswerOptions = question.AnswerOptions,
-                QuestionNumber = currentQuestionNumber, // Use saved value (before increment)
+                QuestionNumber = currentQuestionNumber,
                 TotalQuestions = totalQuestions, // Boss Fight là mini game của Event - hiển thị tổng số câu hỏi
                 TimeLimit = session.QuestionTimeLimitSeconds > 0 ? session.QuestionTimeLimitSeconds : (question.TimeLimit ?? 30),
                 QuizGroupItemId = question.QuizGroupItemId // Include group item reference for TOEIC-style questions
             };
 
-            // Set the time when player receives this question (for accurate time-based scoring)
-            player.PlayerQuestionStartedAt = DateTime.UtcNow;
-
             await SaveGameSessionToRedisAsync(gamePin, session);
 
-            _logger.LogInformation($"📋 Player '{player.PlayerName}' got question {currentQuestionNumber}/{totalQuestions} (shuffled idx: {shuffledIndex}). Next index: {player.CurrentQuestionIndex}");
+            _logger.LogInformation($"📋 Player '{player.PlayerName}' got question {currentQuestionNumber}/{totalQuestions} (shuffled idx: {shuffledIndex}). Current index: {player.CurrentQuestionIndex}");
 
             return questionDto;
         }
@@ -1235,6 +1243,8 @@ namespace BusinessLogic.Services
             // ✨ Mark question as answered TRƯỚC KHI update stats
             player.AnsweredQuestionIds.Add(questionId);
 
+            player.CurrentQuestionIndex++;
+
             // Update player stats
             player.TotalAnswered++; // Track total questions answered
             player.Score += points;
@@ -1244,11 +1254,11 @@ namespace BusinessLogic.Services
                 player.TotalDamage += points; // In boss fight, points = damage
             }
 
-            // ✅ NOTE: CurrentQuestionIndex is incremented in GetPlayerNextQuestion (atomically)
-            // We don't increment here - just track answer stats
+            // Reset PlayerQuestionStartedAt để câu hỏi tiếp theo tính thời gian đúng
+            player.PlayerQuestionStartedAt = null;
 
             var totalQuestions = session.Questions.Count;
-            _logger.LogInformation($"⚔️ Player '{player.PlayerName}' answered Q:{questionId}. Correct: {isCorrect}, Points: {points}, Stats: {player.CorrectAnswers}/{player.TotalAnswered}/{totalQuestions}");
+            _logger.LogInformation($"⚔️ Player '{player.PlayerName}' answered Q:{questionId}. Correct: {isCorrect}, Points: {points}, Stats: {player.CorrectAnswers}/{player.TotalAnswered}/{totalQuestions}, NextIndex: {player.CurrentQuestionIndex}");
 
             await SaveGameSessionToRedisAsync(gamePin, session);
 
