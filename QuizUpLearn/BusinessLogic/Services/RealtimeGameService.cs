@@ -1156,6 +1156,23 @@ namespace BusinessLogic.Services
             if (player == null)
                 return null;
 
+            // ✨ VALIDATION: Kiểm tra xem player đã trả lời câu hỏi này chưa (tránh duplicate submit)
+            player.AnsweredQuestionIds ??= new HashSet<Guid>();
+            if (player.AnsweredQuestionIds.Contains(questionId))
+            {
+                _logger.LogWarning($"⚠️ Player '{player.PlayerName}' đã trả lời câu hỏi {questionId} rồi. Bỏ qua duplicate submit.");
+                // Trả về kết quả hiện tại mà không tăng TotalAnswered
+                return new PlayerAnswerResult
+                {
+                    PlayerName = player.PlayerName,
+                    IsCorrect = false, // Không biết đúng/sai vì đã trả lời rồi
+                    PointsEarned = 0,
+                    TimeSpent = 0,
+                    CorrectAnswers = player.CorrectAnswers,
+                    TotalAnswered = player.TotalAnswered
+                };
+            }
+
             // Calculate time spent using player's individual question start time
             var timeSpent = player.PlayerQuestionStartedAt.HasValue 
                 ? (DateTime.UtcNow - player.PlayerQuestionStartedAt.Value).TotalSeconds 
@@ -1194,6 +1211,9 @@ namespace BusinessLogic.Services
                 points = (int)(500 + (500 * timeRemainingRatio)); // Base 500 + bonus up to 500 = max 1000
             }
 
+            // ✨ Mark question as answered TRƯỚC KHI update stats
+            player.AnsweredQuestionIds.Add(questionId);
+
             // Update player stats
             player.TotalAnswered++; // Track total questions answered
             player.Score += points;
@@ -1203,9 +1223,10 @@ namespace BusinessLogic.Services
                 player.TotalDamage += points; // In boss fight, points = damage
             }
 
-            await SaveGameSessionToRedisAsync(gamePin, session);
+            var totalQuestions = session.Questions.Count;
+            _logger.LogInformation($"⚔️ Player '{player.PlayerName}' answered Q:{questionId}. Correct: {isCorrect}, Points: {points}, Stats: {player.CorrectAnswers}/{player.TotalAnswered} (TotalQuestions: {totalQuestions})");
 
-            _logger.LogInformation($"⚔️ Player '{player.PlayerName}' answered Q:{questionId}. Correct: {isCorrect}, Points: {points}, Total: {player.CorrectAnswers}/{player.TotalAnswered}");
+            await SaveGameSessionToRedisAsync(gamePin, session);
 
             return new PlayerAnswerResult
             {

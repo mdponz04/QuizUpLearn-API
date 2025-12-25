@@ -50,13 +50,24 @@ namespace QuizUpLearn.API.Hubs
             
             if (shouldIncludeGroup && 
                 question.QuizGroupItemId.HasValue && 
-                session?.QuizGroupItems != null && 
-                session.QuizGroupItems.TryGetValue(question.QuizGroupItemId.Value, out var foundGroupItem))
+                session?.QuizGroupItems != null)
             {
-                groupItem = foundGroupItem;
+                if (session.QuizGroupItems.TryGetValue(question.QuizGroupItemId.Value, out var foundGroupItem))
+                {
+                    groupItem = foundGroupItem;
+                    _logger.LogInformation($"✅ Found QuizGroupItem {question.QuizGroupItemId} for question {question.QuestionId} (TOEIC Part: {toeicPart})");
+                }
+                else
+                {
+                    _logger.LogWarning($"⚠️ QuizGroupItem {question.QuizGroupItemId} not found in session.QuizGroupItems for question {question.QuestionId}. Available keys: {string.Join(", ", session.QuizGroupItems.Keys)}");
+                }
+            }
+            else if (question.QuizGroupItemId.HasValue)
+            {
+                _logger.LogInformation($"ℹ️ Question {question.QuestionId} has QuizGroupItemId {question.QuizGroupItemId} but TOEIC Part is {toeicPart} (not in Parts 3,4,6,7) or session/QuizGroupItems is null");
             }
 
-            return new
+            var payload = new
             {
                 // Question data
                 QuestionId = question.QuestionId,
@@ -80,6 +91,13 @@ namespace QuizUpLearn.API.Hubs
                     PassageText = groupItem.PassageText
                 } : null
             };
+
+            if (groupItem != null)
+            {
+                _logger.LogInformation($"📦 Sending GroupItem data for question {question.QuestionId}: Id={groupItem.Id}, HasAudio={!string.IsNullOrEmpty(groupItem.AudioUrl)}, HasImage={!string.IsNullOrEmpty(groupItem.ImageUrl)}, HasPassage={!string.IsNullOrEmpty(groupItem.PassageText)}");
+            }
+
+            return payload;
         }
 
         // ==================== CONNECTION LIFECYCLE ====================

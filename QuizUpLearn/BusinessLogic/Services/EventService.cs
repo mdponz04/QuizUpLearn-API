@@ -805,13 +805,21 @@ namespace BusinessLogic.Services
                         continue;
                     }
 
+                    // ✨ Dùng session.Questions.Count thay vì finalResult.TotalQuestions để đảm bảo đúng số câu hỏi thực tế
+                    var totalQuestions = session.Questions?.Count ?? 0;
+                    if (totalQuestions == 0 && finalResult != null)
+                    {
+                        // Fallback nếu session không có questions
+                        totalQuestions = finalResult.TotalQuestions;
+                    }
+
                     // Tính toán accuracy và wrong answers
-                    var accuracy = finalResult.TotalQuestions > 0
-                        ? (double)player.CorrectAnswers / finalResult.TotalQuestions * 100
+                    var accuracy = totalQuestions > 0
+                        ? (double)player.CorrectAnswers / totalQuestions * 100
                         : 0;
                     var wrongAnswers = player.TotalAnswered - player.CorrectAnswers;
 
-                    _logger.LogInformation($"🔄 Syncing score for player '{player.PlayerName}' (UserId: {player.UserId}): Score={player.Score}, Correct={player.CorrectAnswers}/{finalResult.TotalQuestions}, Accuracy={accuracy:F2}%");
+                    _logger.LogInformation($"🔄 Syncing score for player '{player.PlayerName}' (UserId: {player.UserId}): Score={player.Score}, Correct={player.CorrectAnswers}/{totalQuestions}, TotalAnswered={player.TotalAnswered}, Accuracy={accuracy:F2}%");
 
                     // Sync điểm vào EventParticipant
                     await SyncPlayerScoreAsync(
@@ -822,11 +830,12 @@ namespace BusinessLogic.Services
 
                     // ✨ Lưu lịch sử chơi Event vào QuizAttempt (mỗi Event sẽ tạo một attempt riêng)
                     // Logic check duplicate đã được xử lý trong SaveEventGameHistoryAsync
+                    // ✨ Dùng totalQuestions từ session thay vì finalResult để đảm bảo đúng
                     await SaveEventGameHistoryAsync(
                         eventEntity.Id,
                         player.UserId.Value,
                         session.QuizSetId,
-                        finalResult.TotalQuestions,
+                        totalQuestions,
                         player.CorrectAnswers,
                         wrongAnswers,
                         player.Score,
