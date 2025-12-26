@@ -1057,26 +1057,44 @@ namespace BusinessLogic.Services
                 return null;
             }
 
-            // ✅ FIX: Không increment index ở đây nữa - chỉ lấy question hiện tại
-            // Index sẽ được increment khi player SUBMIT ANSWER (trong SubmitBossFightAnswerAsync)
-            // Điều này tránh race condition khi FE gọi GetPlayerNextQuestion nhiều lần
+            // ✅ CRITICAL FIX: Check xem player đã có question hiện tại chưa (tránh race condition)
+            // Nếu đã có CurrentQuestionId và chưa submit (chưa có trong AnsweredQuestionIds)
+            // thì trả về lại question đó thay vì question mới
+            if (player.CurrentQuestionId.HasValue && 
+                !player.AnsweredQuestionIds.Contains(player.CurrentQuestionId.Value))
+            {
+                // Player đã nhận question này nhưng chưa submit → trả về lại question đó
+                var existingQuestion = session.Questions.FirstOrDefault(q => q.QuestionId == player.CurrentQuestionId.Value);
+                if (existingQuestion != null)
+                {
+                    // Tìm question number từ CurrentQuestionIndex (đã được set khi lấy question lần đầu)
+                    var questionNumber = player.CurrentQuestionIndex + 1; // 1-based display number
+                    
+                    _logger.LogInformation($"🔄 Player '{player.PlayerName}' retrying question {player.CurrentQuestionId.Value}. Returning same question (retry protection). CurrentIndex: {player.CurrentQuestionIndex}");
+                    
+                    return new QuestionDto
+                    {
+                        QuestionId = existingQuestion.QuestionId,
+                        QuestionText = existingQuestion.QuestionText,
+                        ImageUrl = existingQuestion.ImageUrl,
+                        AudioUrl = existingQuestion.AudioUrl,
+                        AnswerOptions = existingQuestion.AnswerOptions,
+                        QuestionNumber = questionNumber,
+                        TotalQuestions = totalQuestions,
+                        TimeLimit = session.QuestionTimeLimitSeconds > 0 ? session.QuestionTimeLimitSeconds : (existingQuestion.TimeLimit ?? 30),
+                        QuizGroupItemId = existingQuestion.QuizGroupItemId
+                    };
+                }
+            }
             
             // Get current question index from shuffled order
             var currentQuestionNumber = player.CurrentQuestionIndex + 1; // Display number (1-based)
             var shuffledIndex = player.ShuffledQuestionOrder[player.CurrentQuestionIndex];
             var question = session.Questions[shuffledIndex];
 
-            // ✅ Check xem player đã nhận question này chưa (tránh duplicate)
-            // Nếu đã nhận rồi nhưng chưa submit, trả về lại question đó
-            // Nếu chưa nhận, trả về question mới và set PlayerQuestionStartedAt
-            
-            // Nếu chưa có PlayerQuestionStartedAt hoặc đã quá lâu (có thể là question mới)
-            // thì set lại thời gian bắt đầu
-            if (!player.PlayerQuestionStartedAt.HasValue || 
-                (DateTime.UtcNow - player.PlayerQuestionStartedAt.Value).TotalSeconds > 300) // 5 phút timeout
-            {
-                player.PlayerQuestionStartedAt = DateTime.UtcNow;
-            }
+            // ✅ Set CurrentQuestionId để track question hiện tại
+            player.CurrentQuestionId = question.QuestionId;
+            player.PlayerQuestionStartedAt = DateTime.UtcNow;
 
             // Create question DTO for player
             var questionDto = new QuestionDto
@@ -1243,7 +1261,19 @@ namespace BusinessLogic.Services
             // ✨ Mark question as answered TRƯỚC KHI update stats
             player.AnsweredQuestionIds.Add(questionId);
 
-            player.CurrentQuestionIndex++;
+            // ✅ CRITICAL FIX: Chỉ increment CurrentQuestionIndex nếu đây là question hiện tại
+            // Nếu player submit question khác (có thể do race condition), không increment
+            if (player.CurrentQuestionId == questionId)
+            {
+                player.CurrentQuestionIndex++;
+                // Reset CurrentQuestionId và PlayerQuestionStartedAt để câu hỏi tiếp theo
+                player.CurrentQuestionId = null;
+                player.PlayerQuestionStartedAt = null;
+            }
+            else
+            {
+                _logger.LogWarning($"⚠️ Player '{player.PlayerName}' submitted answer for question {questionId} but CurrentQuestionId is {player.CurrentQuestionId}. Possible race condition. Not incrementing index.");
+            }
 
             // Update player stats
             player.TotalAnswered++; // Track total questions answered
@@ -1253,9 +1283,6 @@ namespace BusinessLogic.Services
                 player.CorrectAnswers++;
                 player.TotalDamage += points; // In boss fight, points = damage
             }
-
-            // Reset PlayerQuestionStartedAt để câu hỏi tiếp theo tính thời gian đúng
-            player.PlayerQuestionStartedAt = null;
 
             var totalQuestions = session.Questions.Count;
             _logger.LogInformation($"⚔️ Player '{player.PlayerName}' answered Q:{questionId}. Correct: {isCorrect}, Points: {points}, Stats: {player.CorrectAnswers}/{player.TotalAnswered}/{totalQuestions}, NextIndex: {player.CurrentQuestionIndex}");
