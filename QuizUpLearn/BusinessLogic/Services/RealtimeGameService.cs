@@ -1033,88 +1033,92 @@ namespace BusinessLogic.Services
             if (totalQuestions == 0)
                 return null;
 
-            // Initialize shuffled order if not set (chỉ khi chưa hết câu hỏi)
-            if (player.ShuffledQuestionOrder == null || player.ShuffledQuestionOrder.Count == 0)
-            {
-                // ✨ Chỉ initialize nếu chưa hết câu hỏi
-                if (player.CurrentQuestionIndex >= totalQuestions)
-                {
-                    _logger.LogInformation($"✅ Player '{player.PlayerName}' has completed all {totalQuestions} questions. No more questions available.");
-                    return null;
-                }
-                
-                player.ShuffledQuestionOrder = GenerateShuffledQuestionOrder(totalQuestions);
-                player.CurrentQuestionIndex = 0;
-                player.QuestionLoopCount = 0;
-                player.AnsweredQuestionIds = new HashSet<Guid>();
-            }
+            player.AnsweredQuestionIds ??= new HashSet<Guid>();
 
-            // ✨ Boss Fight là mini game của Event - không lặp lại câu hỏi
-            // Nếu đã trả lời hết câu hỏi, không trả về câu hỏi nữa
+            // ❗ Nếu đã trả lời hết thì STOP
             if (player.CurrentQuestionIndex >= totalQuestions)
             {
                 _logger.LogInformation($"✅ Player '{player.PlayerName}' has completed all {totalQuestions} questions. No more questions available.");
                 return null;
             }
 
-            // ✅ CRITICAL FIX: Check xem player đã có question hiện tại chưa (tránh race condition)
-            // Nếu đã có CurrentQuestionId và chưa submit (chưa có trong AnsweredQuestionIds)
-            // thì trả về lại question đó thay vì question mới
-            if (player.CurrentQuestionId.HasValue && 
-                !player.AnsweredQuestionIds.Contains(player.CurrentQuestionId.Value))
+            // Init shuffled order nếu chưa có
+            if (player.ShuffledQuestionOrder == null || player.ShuffledQuestionOrder.Count == 0)
             {
-                // Player đã nhận question này nhưng chưa submit → trả về lại question đó
-                var existingQuestion = session.Questions.FirstOrDefault(q => q.QuestionId == player.CurrentQuestionId.Value);
-                if (existingQuestion != null)
+                player.ShuffledQuestionOrder = GenerateShuffledQuestionOrder(totalQuestions);
+                player.CurrentQuestionIndex = 0;
+                player.QuestionLoopCount = 0;
+            }
+
+            // ✅ CRITICAL FIX: Reset CurrentQuestionId nếu question đó đã được trả lời
+            // Điều này đảm bảo logic skip hoạt động đúng
+            if (player.CurrentQuestionId.HasValue && 
+                player.AnsweredQuestionIds.Contains(player.CurrentQuestionId.Value))
+            {
+                _logger.LogInformation($"🔄 Player '{player.PlayerName}' CurrentQuestionId {player.CurrentQuestionId.Value} already answered. Resetting to allow skip logic.");
+                player.CurrentQuestionId = null;
+            }
+
+            // ✅ LOOP: Skip tất cả questions đã được trả lời
+            // Đảm bảo chỉ trả về question chưa được trả lời
+            int attempts = 0;
+            int maxAttempts = totalQuestions; // Tránh infinite loop
+            
+            QuestionDto? targetQuestion = null;
+            int targetShuffledIndex = 0;
+            
+            while (player.CurrentQuestionIndex < totalQuestions && attempts < maxAttempts)
+            {
+                // Get question từ shuffled order
+                var shuffledIdx = player.ShuffledQuestionOrder[player.CurrentQuestionIndex];
+                var currentQuestion = session.Questions[shuffledIdx];
+                
+                // Nếu question này chưa được trả lời → dùng question này
+                if (!player.AnsweredQuestionIds.Contains(currentQuestion.QuestionId))
                 {
-                    // Tìm question number từ CurrentQuestionIndex (đã được set khi lấy question lần đầu)
-                    var questionNumber = player.CurrentQuestionIndex + 1; // 1-based display number
-                    
-                    _logger.LogInformation($"🔄 Player '{player.PlayerName}' retrying question {player.CurrentQuestionId.Value}. Returning same question (retry protection). CurrentIndex: {player.CurrentQuestionIndex}");
-                    
-                    return new QuestionDto
-                    {
-                        QuestionId = existingQuestion.QuestionId,
-                        QuestionText = existingQuestion.QuestionText,
-                        ImageUrl = existingQuestion.ImageUrl,
-                        AudioUrl = existingQuestion.AudioUrl,
-                        AnswerOptions = existingQuestion.AnswerOptions,
-                        QuestionNumber = questionNumber,
-                        TotalQuestions = totalQuestions,
-                        TimeLimit = session.QuestionTimeLimitSeconds > 0 ? session.QuestionTimeLimitSeconds : (existingQuestion.TimeLimit ?? 30),
-                        QuizGroupItemId = existingQuestion.QuizGroupItemId
-                    };
+                    targetQuestion = currentQuestion;
+                    targetShuffledIndex = shuffledIdx;
+                    break; // Tìm thấy question chưa trả lời
                 }
+                
+                // Question này đã được trả lời → skip và tiếp tục
+                _logger.LogInformation($"🔄 Player '{player.PlayerName}' question {currentQuestion.QuestionId} (index {player.CurrentQuestionIndex}) already answered. Skipping to next.");
+                player.CurrentQuestionIndex++;
+                attempts++;
             }
             
-            // Get current question index from shuffled order
-            var currentQuestionNumber = player.CurrentQuestionIndex + 1; // Display number (1-based)
-            var shuffledIndex = player.ShuffledQuestionOrder[player.CurrentQuestionIndex];
-            var question = session.Questions[shuffledIndex];
+            // Check nếu đã hết questions hoặc không tìm thấy question chưa trả lời
+            if (player.CurrentQuestionIndex >= totalQuestions || targetQuestion == null)
+            {
+                _logger.LogInformation($"✅ Player '{player.PlayerName}' has completed all {totalQuestions} questions. No more questions available.");
+                await SaveGameSessionToRedisAsync(gamePin, session);
+                return null;
+            }
+            
+            // Use the found question
+            var question = targetQuestion;
+            var shuffledIndex = targetShuffledIndex;
 
-            // ✅ Set CurrentQuestionId để track question hiện tại
+            // SET trạng thái CHO CÂU NÀY
             player.CurrentQuestionId = question.QuestionId;
             player.PlayerQuestionStartedAt = DateTime.UtcNow;
 
-            // Create question DTO for player
-            var questionDto = new QuestionDto
+            await SaveGameSessionToRedisAsync(gamePin, session);
+
+            _logger.LogInformation($"📋 Player '{player.PlayerName}' got question {player.CurrentQuestionIndex + 1}/{totalQuestions} (shuffled idx: {shuffledIndex})");
+
+            return new QuestionDto
             {
                 QuestionId = question.QuestionId,
                 QuestionText = question.QuestionText,
                 ImageUrl = question.ImageUrl,
                 AudioUrl = question.AudioUrl,
                 AnswerOptions = question.AnswerOptions,
-                QuestionNumber = currentQuestionNumber,
-                TotalQuestions = totalQuestions, // Boss Fight là mini game của Event - hiển thị tổng số câu hỏi
+                QuestionNumber = player.CurrentQuestionIndex + 1,
+                TotalQuestions = totalQuestions,
                 TimeLimit = session.QuestionTimeLimitSeconds > 0 ? session.QuestionTimeLimitSeconds : (question.TimeLimit ?? 30),
-                QuizGroupItemId = question.QuizGroupItemId // Include group item reference for TOEIC-style questions
+                QuizGroupItemId = question.QuizGroupItemId
             };
-
-            await SaveGameSessionToRedisAsync(gamePin, session);
-
-            _logger.LogInformation($"📋 Player '{player.PlayerName}' got question {currentQuestionNumber}/{totalQuestions} (shuffled idx: {shuffledIndex}). Current index: {player.CurrentQuestionIndex}");
-
-            return questionDto;
         }
 
         /// <summary>
@@ -1208,6 +1212,17 @@ namespace BusinessLogic.Services
             if (player.AnsweredQuestionIds.Contains(questionId))
             {
                 _logger.LogWarning($"⚠️ Player '{player.PlayerName}' đã trả lời câu hỏi {questionId} rồi. Bỏ qua duplicate submit.");
+                // ✅ CRITICAL FIX: Nếu đã trả lời rồi, vẫn phải check xem có cần tăng index không
+                // Nếu CurrentQuestionId vẫn là question này, có nghĩa là chưa chuyển sang question tiếp theo
+                // → Tăng index để player có thể lấy question tiếp theo
+                if (player.CurrentQuestionId == questionId)
+                {
+                    _logger.LogInformation($"🔄 Player '{player.PlayerName}' duplicate submit for current question. Incrementing index to allow next question.");
+                    player.CurrentQuestionIndex++;
+                    player.CurrentQuestionId = null;
+                    await SaveGameSessionToRedisAsync(gamePin, session);
+                }
+                
                 // Trả về kết quả hiện tại mà không tăng TotalAnswered
                 return new PlayerAnswerResult
                 {
@@ -1216,7 +1231,8 @@ namespace BusinessLogic.Services
                     PointsEarned = 0,
                     TimeSpent = 0,
                     CorrectAnswers = player.CorrectAnswers,
-                    TotalAnswered = player.TotalAnswered
+                    TotalAnswered = player.TotalAnswered,
+                    TotalQuestions = session.Questions.Count
                 };
             }
 
@@ -1261,22 +1277,12 @@ namespace BusinessLogic.Services
             // ✨ Mark question as answered TRƯỚC KHI update stats
             player.AnsweredQuestionIds.Add(questionId);
 
-            // ✅ CRITICAL FIX: Chỉ increment CurrentQuestionIndex nếu đây là question hiện tại
-            // Nếu player submit question khác (có thể do race condition), không increment
-            if (player.CurrentQuestionId == questionId)
-            {
-                player.CurrentQuestionIndex++;
-                // Reset CurrentQuestionId và PlayerQuestionStartedAt để câu hỏi tiếp theo
-                player.CurrentQuestionId = null;
-                player.PlayerQuestionStartedAt = null;
-            }
-            else
-            {
-                _logger.LogWarning($"⚠️ Player '{player.PlayerName}' submitted answer for question {questionId} but CurrentQuestionId is {player.CurrentQuestionId}. Possible race condition. Not incrementing index.");
-            }
+            // ✅ Submit chỉ làm 3 việc: Add vào AnsweredQuestionIds, tăng TotalAnswered, tăng CurrentQuestionIndex
+            player.TotalAnswered++;
+            player.CurrentQuestionIndex++; // ⬅️ TĂNG Ở ĐÂY
+            player.CurrentQuestionId = null; // Reset để câu hỏi tiếp theo
 
             // Update player stats
-            player.TotalAnswered++; // Track total questions answered
             player.Score += points;
             if (isCorrect)
             {
