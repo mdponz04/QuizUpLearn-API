@@ -108,10 +108,43 @@ namespace BusinessLogic.Services
             {
                 await _cache.RemoveAsync($"game:{gamePin}");
                 await _cache.RemoveAsync($"answers:{gamePin}");
+                await _cache.RemoveAsync($"final:{gamePin}");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error deleting game {gamePin} from Redis");
+            }
+        }
+
+        private async Task SaveFinalResultToRedisAsync(string gamePin, FinalResultDto finalResult)
+        {
+            try
+            {
+                var json = JsonSerializer.Serialize(finalResult);
+                var options = new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(2)
+                };
+                await _cache.SetStringAsync($"final:{gamePin}", json, options);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error saving final result for {gamePin} to Redis");
+            }
+        }
+
+        private async Task<FinalResultDto?> GetCachedFinalResultFromRedisAsync(string gamePin)
+        {
+            try
+            {
+                var json = await _cache.GetStringAsync($"final:{gamePin}");
+                if (string.IsNullOrEmpty(json)) return null;
+                return JsonSerializer.Deserialize<FinalResultDto>(json);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting cached final result for {gamePin} from Redis");
+                return null;
             }
         }
 
@@ -156,25 +189,13 @@ namespace BusinessLogic.Services
             if (quizSet == null)
                 throw new ArgumentException("Quiz set not found");
 
-            // Load quiz group items for TOEIC-style grouped questions (Parts 3,4,6,7)
-            //var quizGroupItems = await quizGroupItemRepository.GetAllByQuizSetIdAsync(dto.QuizSetId);
-            /*var quizGroupItemsMap = new Dictionary<Guid, QuizGroupItemDto>();
-            foreach (var groupItem in quizGroupItems)
-            {
-                quizGroupItemsMap[groupItem.Id] = new QuizGroupItemDto
-                {
-                    Id = groupItem.Id,
-                    Name = groupItem.Name,
-                    AudioUrl = groupItem.AudioUrl,
-                    ImageUrl = groupItem.ImageUrl,
-                    PassageText = groupItem.PassageText
-                };
-            }*/
-
-            // Load questions
+            // Load questions (đã include QuizGroupItem từ repository)
             var quizzes = await quizRepository.GetQuizzesByQuizSetIdAsync(dto.QuizSetId);
             var questionsList = new List<QuestionDto>();
             var correctAnswersMap = new Dictionary<Guid, bool>();
+            
+            // ✨ Build QuizGroupItems map from quizzes (for TOEIC-style grouped questions)
+            var quizGroupItemsMap = new Dictionary<Guid, QuizGroupItemDto>();
 
             int questionNumber = 1;
             foreach (var quiz in quizzes)
@@ -202,6 +223,19 @@ namespace BusinessLogic.Services
                 };
 
                 questionsList.Add(questionDto);
+
+                // ✨ Load QuizGroupItem nếu có (TOEIC Parts 3,4,6,7)
+                if (quiz.QuizGroupItemId.HasValue && quiz.QuizGroupItem != null && !quizGroupItemsMap.ContainsKey(quiz.QuizGroupItemId.Value))
+                {
+                    quizGroupItemsMap[quiz.QuizGroupItemId.Value] = new QuizGroupItemDto
+                    {
+                        Id = quiz.QuizGroupItem.Id,
+                        Name = quiz.QuizGroupItem.Name,
+                        AudioUrl = quiz.QuizGroupItem.AudioUrl,
+                        ImageUrl = quiz.QuizGroupItem.ImageUrl,
+                        PassageText = quiz.QuizGroupItem.PassageText
+                    };
+                }
 
                 // Lưu đáp án đúng vào map riêng
                 foreach (var ao in answerOptions)
@@ -234,7 +268,7 @@ namespace BusinessLogic.Services
                 EventId = dto.EventId, // Lưu EventId nếu có
                 Status = GameStatus.Lobby,
                 Questions = questionsList,
-                //QuizGroupItems = quizGroupItemsMap, // Store group items for TOEIC-style questions
+                QuizGroupItems = quizGroupItemsMap, // ✨ Store group items for TOEIC-style questions
                 CurrentQuestionIndex = 0,
                 CreatedAt = DateTime.UtcNow
             };
@@ -667,36 +701,49 @@ namespace BusinessLogic.Services
         /// </summary>
         public async Task<FinalResultDto?> GetFinalResultAsync(string gamePin)
         {
+            // Ưu tiên lấy từ session nếu còn
             var session = await GetGameSessionFromRedisAsync(gamePin);
-            if (session == null)
-                return null;
-
-            if (session.Status != GameStatus.Completed)
-                return null;
-
-            var rankings = session.Players
-                .OrderByDescending(p => p.Score)
-                .Select((p, index) => new PlayerScore
-                {
-                    PlayerName = p.PlayerName,
-                    TotalScore = p.Score,
-                    CorrectAnswers = p.CorrectAnswers,
-                    TotalAnswered = p.TotalAnswered,
-                    Rank = index + 1
-                })
-                .ToList();
-
-            var winner = rankings.FirstOrDefault();
-
-            return new FinalResultDto
+            if (session != null)
             {
-                GamePin = gamePin,
-                FinalRankings = rankings,
-                Winner = winner,
-                CompletedAt = DateTime.UtcNow,
-                TotalPlayers = session.Players.Count,
-                TotalQuestions = session.Questions.Count
-            };
+                if (session.Status == GameStatus.Completed)
+                {
+                    var rankings = session.Players
+                        .OrderByDescending(p => p.Score)
+                        .Select((p, index) => new PlayerScore
+                        {
+                            PlayerName = p.PlayerName,
+                            TotalScore = p.Score,
+                            CorrectAnswers = p.CorrectAnswers,
+                            // FIX: Use the maximum of TotalAnswered or actual answered questions count
+                            TotalAnswered = Math.Max(
+                                p.TotalAnswered, 
+                                p.AnsweredQuestionIds?.Count ?? 0
+                            ),
+                            Rank = index + 1
+                        })
+                        .ToList();
+
+                    var winner = rankings.FirstOrDefault();
+
+                    var finalResult = new FinalResultDto
+                    {
+                        GamePin = gamePin,
+                        FinalRankings = rankings,
+                        Winner = winner,
+                        CompletedAt = DateTime.UtcNow,
+                        TotalPlayers = session.Players.Count,
+                        TotalQuestions = session.Questions.Count
+                    };
+
+                    // Lưu cache final result để API EndEvent có thể dùng nếu session bị cleanup sau đó
+                    await SaveFinalResultToRedisAsync(gamePin, finalResult);
+                    return finalResult;
+                }
+            }
+
+            // Fallback: nếu session không còn, thử lấy finalResult đã cache
+            var cachedFinal = await GetCachedFinalResultFromRedisAsync(gamePin);
+            return cachedFinal;
         }
 
         /// <summary>
@@ -821,7 +868,11 @@ namespace BusinessLogic.Services
                     PlayerName = p.PlayerName,
                     TotalDamage = p.TotalDamage,
                     CorrectAnswers = p.CorrectAnswers,
-                    TotalAnswered = p.TotalAnswered,
+                    // FIX: Use the maximum of TotalAnswered or actual answered questions count
+                    TotalAnswered = Math.Max(
+                        p.TotalAnswered, 
+                        p.AnsweredQuestionIds?.Count ?? 0
+                    ),
                     Rank = index + 1,
                     DamagePercent = totalDamage > 0 ? (double)p.TotalDamage / totalDamage * 100 : 0
                 })
@@ -874,7 +925,11 @@ namespace BusinessLogic.Services
                     PlayerName = p.PlayerName,
                     TotalDamage = p.TotalDamage,
                     CorrectAnswers = p.CorrectAnswers,
-                    TotalAnswered = p.TotalAnswered,
+                    // FIX: Use the maximum of TotalAnswered or actual answered questions count
+                    TotalAnswered = Math.Max(
+                        p.TotalAnswered, 
+                        p.AnsweredQuestionIds?.Count ?? 0
+                    ),
                     Rank = index + 1,
                     DamagePercent = totalDamage > 0 ? (double)p.TotalDamage / totalDamage * 100 : 0
                 })
@@ -946,7 +1001,7 @@ namespace BusinessLogic.Services
         // ==================== BOSS FIGHT PER-PLAYER QUESTION FLOW ====================
         
         /// <summary>
-        /// Initialize shuffled question order for a player (called when game starts or player loops)
+        /// Initialize shuffled question order for a player (called when game starts)
         /// </summary>
         private List<int> GenerateShuffledQuestionOrder(int questionCount)
         {
@@ -961,8 +1016,8 @@ namespace BusinessLogic.Services
         }
 
         /// <summary>
-        /// Get next question for a specific player (Boss Fight infinite loop mode)
-        /// Each player progresses independently with shuffled questions that loop infinitely
+        /// Get next question for a specific player (Boss Fight mode)
+        /// Boss Fight là mini game của Event - chỉ trả lời đúng số câu hỏi trong bộ đề, không lặp lại
         /// </summary>
         public async Task<QuestionDto?> GetPlayerNextQuestionAsync(string gamePin, string connectionId)
         {
@@ -978,45 +1033,99 @@ namespace BusinessLogic.Services
             if (totalQuestions == 0)
                 return null;
 
-            // Initialize shuffled order if not set
+            player.AnsweredQuestionIds ??= new HashSet<Guid>();
+
+            // ❗ Nếu đã trả lời hết thì STOP
+            if (player.CurrentQuestionIndex >= totalQuestions)
+            {
+                _logger.LogInformation($"✅ Player '{player.PlayerName}' has completed all {totalQuestions} questions. No more questions available.");
+                return null;
+            }
+
+            // Init shuffled order nếu chưa có
             if (player.ShuffledQuestionOrder == null || player.ShuffledQuestionOrder.Count == 0)
             {
                 player.ShuffledQuestionOrder = GenerateShuffledQuestionOrder(totalQuestions);
                 player.CurrentQuestionIndex = 0;
                 player.QuestionLoopCount = 0;
-                player.AnsweredQuestionIds = new HashSet<Guid>();
             }
 
-            // Get current question index from shuffled order
-            var shuffledIndex = player.ShuffledQuestionOrder[player.CurrentQuestionIndex];
-            var question = session.Questions[shuffledIndex];
+            // ✅ CRITICAL FIX: Reset CurrentQuestionId nếu question đó đã được trả lời
+            // Điều này đảm bảo logic skip hoạt động đúng
+            if (player.CurrentQuestionId.HasValue && 
+                player.AnsweredQuestionIds.Contains(player.CurrentQuestionId.Value))
+            {
+                _logger.LogInformation($"🔄 Player '{player.PlayerName}' CurrentQuestionId {player.CurrentQuestionId.Value} already answered. Resetting to allow skip logic.");
+                player.CurrentQuestionId = null;
+            }
 
-            // Create question DTO for player
-            var questionDto = new QuestionDto
+            // ✅ LOOP: Skip tất cả questions đã được trả lời
+            // Đảm bảo chỉ trả về question chưa được trả lời
+            int attempts = 0;
+            int maxAttempts = totalQuestions; // Tránh infinite loop
+            
+            QuestionDto? targetQuestion = null;
+            int targetShuffledIndex = 0;
+            
+            while (player.CurrentQuestionIndex < totalQuestions && attempts < maxAttempts)
+            {
+                // Get question từ shuffled order
+                var shuffledIdx = player.ShuffledQuestionOrder[player.CurrentQuestionIndex];
+                var currentQuestion = session.Questions[shuffledIdx];
+                
+                // Nếu question này chưa được trả lời → dùng question này
+                if (!player.AnsweredQuestionIds.Contains(currentQuestion.QuestionId))
+                {
+                    targetQuestion = currentQuestion;
+                    targetShuffledIndex = shuffledIdx;
+                    break; // Tìm thấy question chưa trả lời
+                }
+                
+                // Question này đã được trả lời → skip và tiếp tục
+                _logger.LogInformation($"🔄 Player '{player.PlayerName}' question {currentQuestion.QuestionId} (index {player.CurrentQuestionIndex}) already answered. Skipping to next.");
+                player.CurrentQuestionIndex++;
+                attempts++;
+            }
+            
+            // Check nếu đã hết questions hoặc không tìm thấy question chưa trả lời
+            if (player.CurrentQuestionIndex >= totalQuestions || targetQuestion == null)
+            {
+                _logger.LogInformation($"✅ Player '{player.PlayerName}' has completed all {totalQuestions} questions. No more questions available.");
+                await SaveGameSessionToRedisAsync(gamePin, session);
+                return null;
+            }
+            
+            // Use the found question
+            var question = targetQuestion;
+            var shuffledIndex = targetShuffledIndex;
+
+            // SET trạng thái CHO CÂU NÀY
+            player.CurrentQuestionId = question.QuestionId;
+            player.PlayerQuestionStartedAt = DateTime.UtcNow;
+
+            await SaveGameSessionToRedisAsync(gamePin, session);
+
+            _logger.LogInformation($"📋 Player '{player.PlayerName}' got question {player.CurrentQuestionIndex + 1}/{totalQuestions} (shuffled idx: {shuffledIndex})");
+
+            return new QuestionDto
             {
                 QuestionId = question.QuestionId,
                 QuestionText = question.QuestionText,
                 ImageUrl = question.ImageUrl,
                 AudioUrl = question.AudioUrl,
                 AnswerOptions = question.AnswerOptions,
-                QuestionNumber = player.CurrentQuestionIndex + 1 + (player.QuestionLoopCount * totalQuestions),
-                TotalQuestions = -1, // -1 indicates infinite (boss fight mode)
+                QuestionNumber = player.CurrentQuestionIndex + 1,
+                TotalQuestions = totalQuestions,
                 TimeLimit = session.QuestionTimeLimitSeconds > 0 ? session.QuestionTimeLimitSeconds : (question.TimeLimit ?? 30),
-                QuizGroupItemId = question.QuizGroupItemId // Include group item reference for TOEIC-style questions
+                QuizGroupItemId = question.QuizGroupItemId
             };
-
-            // Set the time when player receives this question (for accurate time-based scoring)
-            player.PlayerQuestionStartedAt = DateTime.UtcNow;
-
-            await SaveGameSessionToRedisAsync(gamePin, session);
-
-            _logger.LogInformation($"📋 Player '{player.PlayerName}' getting question {player.CurrentQuestionIndex + 1} (loop {player.QuestionLoopCount + 1}), shuffled idx: {shuffledIndex}");
-
-            return questionDto;
         }
 
         /// <summary>
         /// Move player to next question (called after player submits answer)
+        /// ⚠️ DEPRECATED: This method is no longer used. CurrentQuestionIndex is now incremented
+        /// atomically inside GetPlayerNextQuestionAsync to prevent race conditions.
+        /// Kept for backwards compatibility but should not be called.
         /// </summary>
         public async Task<bool> MovePlayerToNextQuestionAsync(string gamePin, string connectionId, Guid answeredQuestionId)
         {
@@ -1028,7 +1137,7 @@ namespace BusinessLogic.Services
             if (player == null)
                 return false;
 
-            // Mark question as answered in current loop
+            // Mark question as answered
             player.AnsweredQuestionIds ??= new HashSet<Guid>();
             player.AnsweredQuestionIds.Add(answeredQuestionId);
 
@@ -1037,20 +1146,51 @@ namespace BusinessLogic.Services
 
             var totalQuestions = session.Questions.Count;
 
-            // If completed all questions in current loop, reshuffle and reset for next loop
+            // ✨ Boss Fight là mini game của Event - KHÔNG được lặp lại câu hỏi
+            // Chỉ trả lời đúng số câu trong bộ đề, không infinite loop
             if (player.CurrentQuestionIndex >= totalQuestions)
             {
-                player.QuestionLoopCount++;
-                player.CurrentQuestionIndex = 0;
-                player.ShuffledQuestionOrder = GenerateShuffledQuestionOrder(totalQuestions);
-                player.AnsweredQuestionIds.Clear();
-                
-                _logger.LogInformation($"🔄 Player '{player.PlayerName}' completed loop {player.QuestionLoopCount}, reshuffling questions");
+                _logger.LogInformation($"✅ Player '{player.PlayerName}' completed all {totalQuestions} questions. No more questions available.");
+                // Không reset, để player biết đã trả lời hết
             }
 
             await SaveGameSessionToRedisAsync(gamePin, session);
 
             return true;
+        }
+
+        /// <summary>
+        /// Check if all players have completed all questions and handle game end if boss not defeated
+        /// </summary>
+        public async Task<bool> CheckAndHandleQuestionsExhaustedAsync(string gamePin)
+        {
+            var session = await GetGameSessionFromRedisAsync(gamePin);
+            if (session == null || !session.IsBossFightMode || session.Status != GameStatus.InProgress)
+                return false;
+
+            // Check if boss is already defeated
+            if (session.BossDefeated)
+                return false;
+
+            var totalQuestions = session.Questions.Count;
+            if (totalQuestions == 0)
+                return false;
+
+            // Check if all players have completed all questions
+            bool allPlayersCompleted = session.Players.Count > 0 && session.Players.All(p => p.CurrentQuestionIndex >= totalQuestions);
+
+            if (allPlayersCompleted && session.BossCurrentHP > 0)
+            {
+                // All questions exhausted but boss not defeated - Boss wins
+                session.Status = GameStatus.Completed;
+                session.BossDefeated = false; // Boss wins
+                await SaveGameSessionToRedisAsync(gamePin, session);
+                
+                _logger.LogInformation($"🏁 All players completed all {totalQuestions} questions but boss survived (HP: {session.BossCurrentHP}/{session.BossMaxHP}). Boss wins!");
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -1066,6 +1206,35 @@ namespace BusinessLogic.Services
             var player = session.Players.FirstOrDefault(p => p.ConnectionId == connectionId);
             if (player == null)
                 return null;
+
+            // ✨ VALIDATION: Kiểm tra xem player đã trả lời câu hỏi này chưa (tránh duplicate submit)
+            player.AnsweredQuestionIds ??= new HashSet<Guid>();
+            if (player.AnsweredQuestionIds.Contains(questionId))
+            {
+                _logger.LogWarning($"⚠️ Player '{player.PlayerName}' đã trả lời câu hỏi {questionId} rồi. Bỏ qua duplicate submit.");
+                // ✅ CRITICAL FIX: Nếu đã trả lời rồi, vẫn phải check xem có cần tăng index không
+                // Nếu CurrentQuestionId vẫn là question này, có nghĩa là chưa chuyển sang question tiếp theo
+                // → Tăng index để player có thể lấy question tiếp theo
+                if (player.CurrentQuestionId == questionId)
+                {
+                    _logger.LogInformation($"🔄 Player '{player.PlayerName}' duplicate submit for current question. Incrementing index to allow next question.");
+                    player.CurrentQuestionIndex++;
+                    player.CurrentQuestionId = null;
+                    await SaveGameSessionToRedisAsync(gamePin, session);
+                }
+                
+                // Trả về kết quả hiện tại mà không tăng TotalAnswered
+                return new PlayerAnswerResult
+                {
+                    PlayerName = player.PlayerName,
+                    IsCorrect = false, // Không biết đúng/sai vì đã trả lời rồi
+                    PointsEarned = 0,
+                    TimeSpent = 0,
+                    CorrectAnswers = player.CorrectAnswers,
+                    TotalAnswered = player.TotalAnswered,
+                    TotalQuestions = session.Questions.Count
+                };
+            }
 
             // Calculate time spent using player's individual question start time
             var timeSpent = player.PlayerQuestionStartedAt.HasValue 
@@ -1105,8 +1274,15 @@ namespace BusinessLogic.Services
                 points = (int)(500 + (500 * timeRemainingRatio)); // Base 500 + bonus up to 500 = max 1000
             }
 
+            // ✨ Mark question as answered TRƯỚC KHI update stats
+            player.AnsweredQuestionIds.Add(questionId);
+
+            // ✅ Submit chỉ làm 3 việc: Add vào AnsweredQuestionIds, tăng TotalAnswered, tăng CurrentQuestionIndex
+            player.TotalAnswered++;
+            player.CurrentQuestionIndex++; // ⬅️ TĂNG Ở ĐÂY
+            player.CurrentQuestionId = null; // Reset để câu hỏi tiếp theo
+
             // Update player stats
-            player.TotalAnswered++; // Track total questions answered
             player.Score += points;
             if (isCorrect)
             {
@@ -1114,9 +1290,10 @@ namespace BusinessLogic.Services
                 player.TotalDamage += points; // In boss fight, points = damage
             }
 
-            await SaveGameSessionToRedisAsync(gamePin, session);
+            var totalQuestions = session.Questions.Count;
+            _logger.LogInformation($"⚔️ Player '{player.PlayerName}' answered Q:{questionId}. Correct: {isCorrect}, Points: {points}, Stats: {player.CorrectAnswers}/{player.TotalAnswered}/{totalQuestions}, NextIndex: {player.CurrentQuestionIndex}");
 
-            _logger.LogInformation($"⚔️ Player '{player.PlayerName}' answered Q:{questionId}. Correct: {isCorrect}, Points: {points}, Total: {player.CorrectAnswers}/{player.TotalAnswered}");
+            await SaveGameSessionToRedisAsync(gamePin, session);
 
             return new PlayerAnswerResult
             {
@@ -1125,7 +1302,8 @@ namespace BusinessLogic.Services
                 PointsEarned = points,
                 TimeSpent = timeSpent,
                 CorrectAnswers = player.CorrectAnswers,
-                TotalAnswered = player.TotalAnswered
+                TotalAnswered = player.TotalAnswered,
+                TotalQuestions = totalQuestions // Include total so frontend can check completion
             };
         }
 
@@ -1148,7 +1326,12 @@ namespace BusinessLogic.Services
                     PlayerName = p.PlayerName,
                     TotalScore = p.TotalDamage > 0 ? p.TotalDamage : p.Score,
                     CorrectAnswers = p.CorrectAnswers,
-                    TotalAnswered = p.TotalAnswered,
+                    // FIX: Use the maximum of TotalAnswered or actual answered questions count
+                    // This handles race conditions where TotalAnswered might not be updated yet
+                    TotalAnswered = Math.Max(
+                        p.TotalAnswered, 
+                        p.AnsweredQuestionIds?.Count ?? 0
+                    ),
                     Rank = index + 1
                 })
                 .ToList();

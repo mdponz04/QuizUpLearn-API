@@ -54,6 +54,7 @@ namespace BusinessLogic.DTOs
         public List<int> ShuffledQuestionOrder { get; set; } = new(); // Shuffled order of question indices
         public HashSet<Guid> AnsweredQuestionIds { get; set; } = new(); // Questions answered in current loop
         public DateTime? PlayerQuestionStartedAt { get; set; } // When the current question was sent to this player
+        public Guid? CurrentQuestionId { get; set; } // ✅ Track question ID currently shown to player (prevent duplicate on retry)
     }
 
     /// <summary>
@@ -207,6 +208,7 @@ namespace BusinessLogic.DTOs
         public double TimeSpent { get; set; }
         public int CorrectAnswers { get; set; } // Cumulative correct answers
         public int TotalAnswered { get; set; } // Cumulative total answered
+        public int TotalQuestions { get; set; } // Total questions in quiz set (for completion check)
     }
 
     // ==================== LEADERBOARD ====================

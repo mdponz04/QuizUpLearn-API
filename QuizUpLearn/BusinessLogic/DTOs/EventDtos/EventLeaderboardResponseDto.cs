@@ -24,6 +24,12 @@ namespace BusinessLogic.DTOs.EventDtos
         public long Rank { get; set; }
         public Guid ParticipantId { get; set; }
         public string ParticipantName { get; set; } = string.Empty;
+        // Alias cho FE dùng chung field tên player giữa nhiều màn hình
+        public string PlayerName
+        {
+            get => ParticipantName;
+            set => ParticipantName = value;
+        }
         public string? AvatarUrl { get; set; }
         public long Score { get; set; }
         public double Accuracy { get; set; }

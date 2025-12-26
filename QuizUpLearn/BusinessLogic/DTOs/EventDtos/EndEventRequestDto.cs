@@ -6,6 +6,7 @@ namespace BusinessLogic.DTOs.EventDtos
     public class EndEventRequestDto
     {
         public Guid EventId { get; set; }
+        public string GamePin { get; set; } = string.Empty;
     }
 }
 

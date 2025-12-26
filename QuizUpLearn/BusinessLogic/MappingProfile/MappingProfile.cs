@@ -18,6 +18,7 @@ namespace BusinessLogic.MappingProfile
             // Account Mappings
             CreateMap<Repository.Entities.Account, DTOs.ResponseAccountDto>()
                 .ForMember(dest => dest.Username, opt => opt.MapFrom(src => src.User != null ? src.User.Username : string.Empty))
+                .ForMember(dest => dest.AvatarUrl, opt => opt.MapFrom(src => src.User != null ? src.User.AvatarUrl : string.Empty))
                 .ForMember(dest => dest.RoleName, opt => opt.MapFrom(src => src.Role != null ? src.Role.RoleName : string.Empty))
                 .ReverseMap();
             CreateMap<Repository.Entities.Account, DTOs.RequestAccountDto>().ReverseMap();
