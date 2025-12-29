@@ -110,10 +110,9 @@ namespace QuizUpLearn.API.Controllers
         [HttpGet("by-grammar-vocab")]
         public async Task<IActionResult> GetByGrammarIdAndVocabularyIdAsync(
             [FromQuery] Guid grammarId,
-            [FromQuery] Guid vocabularyId,
-            [FromQuery] PaginationRequestDto pagination)
+            [FromQuery] Guid vocabularyId)
         {
-            var quizzes = await _quizService.GetByGrammarIdAndVocabularyIdAsync(grammarId, vocabularyId, pagination);
+            var quizzes = await _quizService.GetByGrammarIdAndVocabularyIdAsync(grammarId, vocabularyId);
             return Ok(quizzes);
         }
 
