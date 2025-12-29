@@ -7,9 +7,8 @@ namespace Repository.Entities
         public string Name { get; set; } = string.Empty;
         public long Price { get; set; } = 0; //in vnd
         public int DurationDays { get; set; }
-        public bool CanAccessPremiumContent { get; set; } = false; //Join tournament
+        public bool CanAccessPremiumContent { get; set; } = false;
         public bool CanAccessAiFeatures { get; set; } = false;
-        public int AiGenerateQuizSetMaxTimes { get; set; } = 0;
         public bool IsActive { get; set; } = true;
     }
 }

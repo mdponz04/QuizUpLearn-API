@@ -8,12 +8,8 @@ namespace QuizUpLearn.API.Attributes
 {
     public class SubscriptionAndRoleAuthorizeAttribute : Attribute, IAsyncActionFilter
     {
-        // Subscription requirements
         public bool RequireAiFeatures { get; set; } = false;
         public bool RequirePremiumContent { get; set; } = false;
-        public bool CheckRemainingUsage { get; set; } = false;
-        
-        // Role requirements
         public string[] AllowedRoles { get; set; } = [];
         public string[] AllowedPermissions { get; set; } = [];
         
@@ -119,7 +115,6 @@ namespace QuizUpLearn.API.Attributes
 
                     // Get user's subscription
                     var subscription = await subscriptionService.GetByUserIdAsync(user.Id);
-                    context.HttpContext.Items["RemainingUsage"] = subscription!.AiGenerateQuizSetRemaining;
 
                     if (subscription == null)
                     {
@@ -184,20 +179,6 @@ namespace QuizUpLearn.API.Attributes
                         {
                             Success = false,
                             Message = "Your subscription plan does not include premium content access."
-                        })
-                        {
-                            StatusCode = StatusCodes.Status403Forbidden
-                        };
-                        return;
-                    }
-
-                    // Check remaining AI usage
-                    if (CheckRemainingUsage && subscription.AiGenerateQuizSetRemaining <= 0)
-                    {
-                        context.Result = new JsonResult(new
-                        {
-                            Success = false,
-                            Message = "You have reached your AI quiz generation limit."
                         })
                         {
                             StatusCode = StatusCodes.Status403Forbidden

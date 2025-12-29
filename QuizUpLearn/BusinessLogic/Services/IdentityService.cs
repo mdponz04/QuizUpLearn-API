@@ -81,7 +81,6 @@ namespace BusinessLogic.Services
             {
                 UserId = created.UserId,
                 SubscriptionPlanId = freePlan.Id,
-                AiGenerateQuizSetRemaining = freePlan.AiGenerateQuizSetMaxTimes,
                 EndDate = DateTime.UtcNow.AddDays(freePlan.DurationDays)
             });
 
@@ -205,7 +204,6 @@ namespace BusinessLogic.Services
                     {
                         UserId = account.UserId,
                         SubscriptionPlanId = freePlan.Id,
-                        AiGenerateQuizSetRemaining = freePlan.AiGenerateQuizSetMaxTimes,
                         EndDate = DateTime.UtcNow.AddDays(freePlan.DurationDays)
                     });
 

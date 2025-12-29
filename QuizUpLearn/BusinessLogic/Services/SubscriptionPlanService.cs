@@ -67,9 +67,6 @@ namespace BusinessLogic.Services
             if(existing.IsActive != dto.IsActive)
                 existing.IsActive = dto.IsActive;
 
-            if(existing.AiGenerateQuizSetMaxTimes != dto.AiGenerateQuizSetMaxTimes)
-                existing.AiGenerateQuizSetMaxTimes = dto.AiGenerateQuizSetMaxTimes;
-
             existing.UpdatedAt = DateTime.UtcNow;
 
             var updated = await _repo.UpdateAsync(id, existing);

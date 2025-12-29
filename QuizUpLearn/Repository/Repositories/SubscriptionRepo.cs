@@ -41,9 +41,6 @@ namespace Repository.Repositories
             if(existing.EndDate != subscription.EndDate
                 && subscription.EndDate != null)
                 existing.EndDate = subscription.EndDate;
-            if(existing.AiGenerateQuizSetRemaining != subscription.AiGenerateQuizSetRemaining
-                && subscription.AiGenerateQuizSetRemaining > 0)
-                existing.AiGenerateQuizSetRemaining = subscription.AiGenerateQuizSetRemaining;
 
             existing.UpdatedAt = DateTime.UtcNow;
 
@@ -77,7 +74,6 @@ namespace Repository.Repositories
 
             if (existing == null) return null;
 
-            existing.AiGenerateQuizSetRemaining -= usedQuantity;
             existing.UpdatedAt = DateTime.UtcNow;
             _context.Subscriptions.Update(existing);
             await _context.SaveChangesAsync();
