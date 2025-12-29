@@ -65,7 +65,6 @@ namespace BusinessLogic.Services
 
             var subscription = _mapper.Map<ResponseSubscriptionDto>(entity);
 
-            // Check if subscription is expired and not already free
             if (subscription.EndDate.HasValue && 
                 subscription.EndDate.Value < DateTime.UtcNow)
             {
@@ -77,7 +76,6 @@ namespace BusinessLogic.Services
                     {
                         UserId = subscription.UserId,
                         SubscriptionPlanId = freePlan.Id,
-                        AiGenerateQuizSetRemaining = subscription.AiGenerateQuizSetRemaining,//Retain remaining usage
                         EndDate = DateTime.UtcNow.AddDays(freePlan.DurationDays)
                     });
 

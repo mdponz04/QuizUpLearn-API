@@ -66,7 +66,6 @@ namespace Repository.Repositories
                 DurationDays = 999999,
                 CanAccessPremiumContent = false,
                 CanAccessAiFeatures = true,
-                AiGenerateQuizSetMaxTimes = 10,
                 IsActive = true
             };
 

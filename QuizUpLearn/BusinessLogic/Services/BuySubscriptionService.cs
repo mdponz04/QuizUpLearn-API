@@ -77,7 +77,6 @@ namespace BusinessLogic.Services
                 {
                     UserId = transaction.UserId,
                     SubscriptionPlanId = plan.Id,
-                    AiGenerateQuizSetRemaining = plan.AiGenerateQuizSetMaxTimes,
                     EndDate = startDate.Value.AddDays(plan.DurationDays)
                 });
             }
@@ -93,7 +92,6 @@ namespace BusinessLogic.Services
                 await _subscriptionService.UpdateAsync(subscription.Id, new RequestSubscriptionDto
                 {
                     SubscriptionPlanId = transaction.SubscriptionPlanId,
-                    AiGenerateQuizSetRemaining = subscription.AiGenerateQuizSetRemaining + plan.AiGenerateQuizSetMaxTimes,
                     EndDate = startDate.Value.AddDays(plan.DurationDays)
                 });
             }

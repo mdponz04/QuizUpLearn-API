@@ -60,8 +60,7 @@ namespace BusinessLogic.Services
             {
                 await _subscriptionService.UpdateAsync(subscription.Id, new RequestSubscriptionDto
                 {
-                    SubscriptionPlanId = freePlan.Id,
-                    AiGenerateQuizSetRemaining = freePlan.AiGenerateQuizSetMaxTimes
+                    SubscriptionPlanId = freePlan.Id
                 });
             }
             return;
