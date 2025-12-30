@@ -23,6 +23,16 @@ namespace BusinessLogic.Helpers
 
             return null;
         }
+        public string? GetStringFromFilter(Dictionary<string, object> filters, string key)
+        {
+            if (!filters.TryGetValue(key, out var raw))
+                return null;
+            if (raw is JsonElement e && e.ValueKind == JsonValueKind.String)
+            {
+                return e.GetString();
+            }
+            return null;
+        }
         public QuizSetTypeEnum? GetEnumFromFilter(Dictionary<string, object> filters, string key)
         {
             if (!filters.TryGetValue(key, out var raw))
