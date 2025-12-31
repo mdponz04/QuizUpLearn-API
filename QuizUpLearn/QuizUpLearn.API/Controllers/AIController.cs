@@ -1,5 +1,4 @@
 ﻿using BusinessLogic.DTOs.AiDtos;
-using BusinessLogic.DTOs.QuizDtos;
 using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

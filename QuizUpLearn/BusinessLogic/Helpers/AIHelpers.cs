@@ -2,10 +2,7 @@
 using BusinessLogic.DTOs.AiDtos;
 using BusinessLogic.DTOs.QuizDtos;
 using BusinessLogic.DTOs.QuizGroupItemDtos;
-using BusinessLogic.DTOs.QuizSetDtos;
 using BusinessLogic.DTOs.UserMistakeDtos;
-using Repository.Entities;
-using static Microsoft.Extensions.Logging.EventSource.LoggingEventSource;
 
 namespace BusinessLogic.Helpers
 {
@@ -75,11 +72,10 @@ Return only 1 fields as JSON structure:
 ";
         }
 
-        //updated
         public string GetQuizSetPart1Prompt(AiGenerateQuizRequestDto inputData, string previousImageDescription, string previousQuestionText, string keyword, string grammar)
         {
             return $@"
-Topic: '{inputData.Topic}'.
+Topic: General TOEIC topic.
 Description: Focus on TOEIC Part 1.
 
 Vocabulary keyword: '{keyword}'
@@ -114,11 +110,10 @@ Only return in this structure no need any extended field/infor:
 }}
 ";
         }
-        //updated
         public string GetQuizSetPart2Prompt(AiGenerateQuizRequestDto inputData, string previousQuestionText, string keyword, string grammar)
         {
             return $@"
-Topic: '{inputData.Topic}'.
+Topic: General TOEIC topic.
 Description: Focus on TOEIC Part 2, 
 
 Vocabulary keyword: '{keyword}'
@@ -147,11 +142,10 @@ Only return in this structure no need any extended field/infor:
 }}
 ";
         }
-        //updated
         public string GetPart3AudioPrompt(AiGenerateQuizRequestDto inputData, string previousAudioScript, string keyword, string grammar)
         {
             return $@"
-Generate a TOEIC audio topic: '{inputData.Topic}'.
+Generate a TOEIC audio topic: General TOEIC topic.
 Description: Focus on TOEIC Part 3, 
 
 Vocabulary keyword: '{keyword}'
@@ -176,7 +170,6 @@ Only return in this structure:
 }}
 ";
         }
-        //updated
         public string GetPart3QuizPrompt(string audioScript, string previousQuizText, string keyword, string grammarName)
         {
             return $@"
@@ -208,11 +201,10 @@ Only return in this structure no need any extended field/infor:
 }}
 ";
         }
-        //updated
         public string GetPart4AudioPrompt(AiGenerateQuizRequestDto inputData, string previousAudioScript, string keyword, string grammar)
         {
             return $@"
-Generate a TOEIC audio topic: '{inputData.Topic}'.
+Generate a TOEIC audio topic: General TOEIC topic.
 Description: Focus on TOEIC Part 4
 
 Vocabulary keyword: '{keyword}'
@@ -230,7 +222,6 @@ Only return in this structure:
 }}
 ";
         }
-        //updated
         public string GetPart4QuizPrompt(string audioScript, string previousQuizText, string keyword, string grammarName)
         {
             return $@"
@@ -263,11 +254,10 @@ Only return in this structure no need any extended field/infor:
 }}
 ";
         }
-        //updated
         public string GetPart5Prompt(AiGenerateQuizRequestDto inputData, string previousQuestionText, string keyword, string grammar)
         {
             return $@"
-Topic: '{inputData.Topic}'.
+Topic: General TOEIC topic.
 Description: Focus on TOEIC Part 5 - in this part the question will be an incomplete sentence with 4 answer to fill in.
 
 Vocabulary keyword: '{keyword}'
@@ -295,12 +285,11 @@ Only return in this structure no need any extended field/infor:
 }}
 ";
         }
-        //updated
         public string GetPart6PassagePrompt(AiGenerateQuizRequestDto inputData, string previousPassages, string keyword, string grammar)
         {
             return $@"
 Generate a TOEIC passage: 
-- Title: {inputData.Topic}.
+- Title: General TOEIC topic
 - Description: Focus on TOEIC Part 6
 
 Vocabulary keyword: '{keyword}'
@@ -318,7 +307,6 @@ Only return in this structure:
 }}
 ";
         }
-        //updated
         public string GetPart6QuizPrompt(string passage, int blankNumber, string usedBlanks, string keyword, string grammarName)
         {
             return $@"
@@ -345,11 +333,10 @@ Only return in this structure no need any extended field/infor:
 }}
 ";
         }
-        //updated
         public string GetPart7PassagePrompt(AiGenerateQuizRequestDto inputData, string previousPassages, string keyword, string grammar)
         {
             return $@"
-Generate a TOEIC Part 7 reading passage about '{inputData.Topic}' 
+Generate a TOEIC Part 7 reading passage with topic: General TOEIC topic. 
 
 Vocabulary keyword: '{keyword}'
 Grammar: '{grammar}'
@@ -365,7 +352,6 @@ Return only JSON:
 }}
 ";
         }
-        //updated
         public string GetPart7QuizPrompt(string passage, string previousQuizText, string keyword, string grammarName)
         {
             return $@"

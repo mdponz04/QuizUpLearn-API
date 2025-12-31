@@ -84,17 +84,10 @@ namespace BusinessLogic.Services
             return await _quizRepo.RestoreQuizAsync(id);
         }
 
-        public async Task<PaginationResponseDto<QuizResponseDto>> GetByGrammarIdAndVocabularyIdAsync(Guid grammarId, Guid vocabularyId, PaginationRequestDto pagination = null!)
+        public async Task<IEnumerable<QuizResponseDto>> GetByGrammarIdAndVocabularyIdAsync(Guid grammarId, Guid vocabularyId)
         {
-            pagination ??= new PaginationRequestDto();
             var quizzes = await _quizRepo.GetByGrammarIdAndVocabularyId(grammarId, vocabularyId);
-            var query = quizzes.AsQueryable();
-            
-            query = ApplySearch(query, pagination.SearchTerm);
-            query = ApplySortOrder(query, pagination.SortBy, pagination.GetNormalizedSortDirection());
-            
-            var dtos = _mapper.Map<List<QuizResponseDto>>(query.ToList());
-            return PaginationHelper.CreatePagedResponse(dtos, pagination);
+            return _mapper.Map<List<QuizResponseDto>>(quizzes.ToList());
         }
 
         private static IQueryable<Quiz> ApplySearch(IQueryable<Quiz> query, string? searchTerm)

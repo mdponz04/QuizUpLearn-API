@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Repository.DBContext;
 using Repository.Entities;
 using Repository.Interfaces;
@@ -87,9 +88,13 @@ namespace Repository.Repositories
             if (existingQuiz == null || existingQuiz.DeletedAt != null)
                 return null;
 
-            if(existingQuiz.GrammarId != quiz.GrammarId)
+            if(existingQuiz.GrammarId != quiz.GrammarId
+                && quiz.GrammarId != Guid.Empty
+                && quiz.GrammarId != null)
                 existingQuiz.GrammarId = quiz.GrammarId;
-            if(existingQuiz.VocabularyId != quiz.VocabularyId)
+            if(existingQuiz.VocabularyId != quiz.VocabularyId
+                && quiz.VocabularyId != Guid.Empty
+                && quiz.VocabularyId != null)
                 existingQuiz.VocabularyId = quiz.VocabularyId;
             if (!string.IsNullOrEmpty(quiz.QuestionText))
                 existingQuiz.QuestionText = quiz.QuestionText;
