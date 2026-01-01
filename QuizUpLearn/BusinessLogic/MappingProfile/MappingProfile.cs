@@ -98,6 +98,9 @@ namespace BusinessLogic.MappingProfile
             //UserQuizSetLike mappings
             CreateMap<Repository.Entities.UserQuizSetLike, DTOs.UserQuizSetLikeDtos.ResponseUserQuizSetLikeDto>();
             CreateMap<Repository.Entities.UserQuizSetLike, DTOs.UserQuizSetLikeDtos.RequestUserQuizSetLikeDto>().ReverseMap();
+            //Notification mappings
+            CreateMap<Repository.Entities.Notification, DTOs.NotificationDtos.NotificationRequestDto>().ReverseMap();
+            CreateMap<Repository.Entities.Notification, DTOs.NotificationDtos.NotificationResponseDto>();
         }
     }
 }

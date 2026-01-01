@@ -29,6 +29,7 @@ namespace Repository.DBContext
         public DbSet<PaymentTransaction> PaymentTransactions { get; set; }
         public DbSet<SubscriptionPlan> SubscriptionPlans { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<UserNotification> UserNotifications { get; set; }
         public DbSet<AppSetting> AppSettings { get; set; }
         public DbSet<Grammar> Grammars { get; set; }
         public DbSet<Vocabulary> Vocabularies { get; set; }
@@ -37,8 +38,6 @@ namespace Repository.DBContext
         public DbSet<QuizSetComment> QuizSetComments { get; set; }
         public DbSet<UserQuizSetFavorite> UserQuizSetFavorites { get; set; }
         public DbSet<UserQuizSetLike> UserQuizSetLikes { get; set; }
-        public DbSet<Badge> Badges { get; set; }
-        public DbSet<BadgeDefinition> BadgeDefinitions { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Account>()
