@@ -121,7 +121,7 @@ namespace QuizUpLearn.API.Attributes
                         context.Result = new JsonResult(new
                         {
                             Success = false,
-                            Message = "No active subscription found."
+                            Message = "Bạn chưa có gói đăng ký. Vui lòng đăng ký gói VIP để sử dụng tính năng này."
                         })
                         {
                             StatusCode = StatusCodes.Status403Forbidden
@@ -135,7 +135,7 @@ namespace QuizUpLearn.API.Attributes
                         context.Result = new JsonResult(new
                         {
                             Success = false,
-                            Message = "Subscription has expired."
+                            Message = "Gói đăng ký của bạn đã hết hạn. Vui lòng gia hạn để tiếp tục sử dụng."
                         })
                         {
                             StatusCode = StatusCodes.Status403Forbidden
@@ -178,7 +178,7 @@ namespace QuizUpLearn.API.Attributes
                         context.Result = new JsonResult(new
                         {
                             Success = false,
-                            Message = "Your subscription plan does not include premium content access."
+                            Message = "Bạn cần nâng cấp lên gói VIP để tham gia tính năng này."
                         })
                         {
                             StatusCode = StatusCodes.Status403Forbidden

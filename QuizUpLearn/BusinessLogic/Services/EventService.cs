@@ -536,7 +536,12 @@ namespace BusinessLogic.Services
 
             // Check if event is in Upcoming state (cho phép đăng ký trước khi start)
             if (eventEntity.Status != "Upcoming")
-                throw new InvalidOperationException("Chỉ có thể đăng ký tham gia khi Event đang ở trạng thái 'Sắp diễn ra' (Upcoming).");
+            {
+                if (eventEntity.Status == "Active")
+                    throw new InvalidOperationException("Sự kiện đã bắt đầu. Bạn không thể tham gia sau khi sự kiện đã được bắt đầu.");
+                else
+                    throw new InvalidOperationException($"Sự kiện chưa bắt đầu hoặc đã kết thúc. Trạng thái hiện tại: {eventEntity.Status}");
+            }
 
             // Check if already joined
             if (await _eventParticipantRepo.IsParticipantInEventAsync(eventId, userId))
