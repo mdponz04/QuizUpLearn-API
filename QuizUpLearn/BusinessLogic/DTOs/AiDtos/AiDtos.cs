@@ -8,7 +8,6 @@ namespace BusinessLogic.DTOs.AiDtos
         public required Guid GrammarId { get; set; }
         public required Guid VocabularyId { get; set; }
         public int QuestionQuantity { get; set; }
-        public string Topic { get; set; } = "General";
         public Guid? CreatorId { get; set; }
     }
     public class AiGenerateResponseDto

@@ -1,3 +1,4 @@
+using BusinessLogic.DTOs;
 using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,11 +18,11 @@ namespace QuizUpLearn.API.Controllers
             _vocabularyGrammarService = vocabularyGrammarService;
         }
 
-        [HttpGet("unused-pairs")]
+        [HttpPost("search/unused-pairs")]
         [SubscriptionAndRoleAuthorize("Moderator")]
-        public async Task<IActionResult> GetUnusedPairs()
+        public async Task<IActionResult> GetUnusedPairs([FromBody] PaginationRequestDto pagination = null!)
         {
-            var unusedPairs = await _vocabularyGrammarService.GetUnusedPairVocabularyGrammar();
+            var unusedPairs = await _vocabularyGrammarService.GetUnusedPairVocabularyGrammar(pagination);
             return Ok(unusedPairs);
         }
     }

@@ -13,7 +13,7 @@ namespace BusinessLogic.Interfaces
         Task<bool> SoftDeleteQuizAsync(Guid id);
         Task<bool> HardDeleteQuizAsync(Guid id);
         Task<bool> RestoreQuizAsync(Guid id);
-        Task<PaginationResponseDto<QuizResponseDto>> GetByGrammarIdAndVocabularyIdAsync(Guid grammarId, Guid vocabularyId, PaginationRequestDto pagination = null!);
+        Task<IEnumerable<QuizResponseDto>> GetByGrammarIdAndVocabularyIdAsync(Guid grammarId, Guid vocabularyId);
         Task<NeedAmountQuizResponseDto> GetNeededQuizCountsForTOEICAsync(List<Guid> quizIds);
     }
 }

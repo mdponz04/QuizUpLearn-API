@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Repository.DBContext;
@@ -11,9 +12,11 @@ using Repository.DBContext;
 namespace Repository.Migrations
 {
     [DbContext(typeof(MyDbContext))]
-    partial class MyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251231032808_UpdateDatabase16")]
+    partial class UpdateDatabase16
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -138,6 +141,102 @@ namespace Repository.Migrations
                     b.HasKey("Key");
 
                     b.ToTable("AppSettings");
+                });
+
+            modelBuilder.Entity("Repository.Entities.Badge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BadgeDefinitionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("EventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("TournamentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BadgeDefinitionId");
+
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("TournamentId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Badges");
+                });
+
+            modelBuilder.Entity("Repository.Entities.BadgeDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("MinAccuracy")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MinQuizCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TargetValue")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("BadgeDefinitions");
                 });
 
             modelBuilder.Entity("Repository.Entities.Event", b =>
@@ -290,12 +389,18 @@ namespace Repository.Migrations
                     b.Property<string>("ImageUrl")
                         .HasColumnType("text");
 
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Metadata")
                         .HasColumnType("text");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("ScheduledAt")
                         .HasColumnType("timestamp with time zone");
@@ -310,7 +415,12 @@ namespace Repository.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("Notifications");
                 });
@@ -1121,42 +1231,6 @@ namespace Repository.Migrations
                     b.ToTable("UserMistakes");
                 });
 
-            modelBuilder.Entity("Repository.Entities.UserNotification", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsRead")
-                        .HasColumnType("boolean");
-
-                    b.Property<Guid>("NotificationId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("ReadAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NotificationId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("UserNotifications");
-                });
-
             modelBuilder.Entity("Repository.Entities.UserQuizSetFavorite", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1319,6 +1393,37 @@ namespace Repository.Migrations
                     b.Navigation("Question");
                 });
 
+            modelBuilder.Entity("Repository.Entities.Badge", b =>
+                {
+                    b.HasOne("Repository.Entities.BadgeDefinition", "BadgeDefinition")
+                        .WithMany()
+                        .HasForeignKey("BadgeDefinitionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Repository.Entities.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId");
+
+                    b.HasOne("Repository.Entities.Tournament", "Tournament")
+                        .WithMany()
+                        .HasForeignKey("TournamentId");
+
+                    b.HasOne("Repository.Entities.User", "User")
+                        .WithMany("Badges")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BadgeDefinition");
+
+                    b.Navigation("Event");
+
+                    b.Navigation("Tournament");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Repository.Entities.Event", b =>
                 {
                     b.HasOne("Repository.Entities.User", "Creator")
@@ -1353,6 +1458,17 @@ namespace Repository.Migrations
                     b.Navigation("Event");
 
                     b.Navigation("Participant");
+                });
+
+            modelBuilder.Entity("Repository.Entities.Notification", b =>
+                {
+                    b.HasOne("Repository.Entities.User", "User")
+                        .WithMany("Notifications")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Repository.Entities.OtpVerification", b =>
@@ -1604,25 +1720,6 @@ namespace Repository.Migrations
                     b.Navigation("UserWeakPoint");
                 });
 
-            modelBuilder.Entity("Repository.Entities.UserNotification", b =>
-                {
-                    b.HasOne("Repository.Entities.Notification", "Notification")
-                        .WithMany()
-                        .HasForeignKey("NotificationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Repository.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Notification");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("Repository.Entities.UserQuizSetFavorite", b =>
                 {
                     b.HasOne("Repository.Entities.QuizSet", "QuizSet")
@@ -1730,7 +1827,11 @@ namespace Repository.Migrations
                 {
                     b.Navigation("Account");
 
+                    b.Navigation("Badges");
+
                     b.Navigation("CreatedQuizSets");
+
+                    b.Navigation("Notifications");
 
                     b.Navigation("QuizAttempts");
 

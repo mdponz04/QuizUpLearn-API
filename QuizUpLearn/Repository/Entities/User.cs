@@ -5,7 +5,6 @@ namespace Repository.Entities
     public class User : BaseEntity
     {
         public Guid AccountId { get; set; }
-
         public required string Username { get; set; }
         public string FullName { get; set; } = string.Empty;
         public required string AvatarUrl { get; set; }
@@ -22,6 +21,5 @@ namespace Repository.Entities
         public virtual ICollection<QuizAttempt> QuizAttempts { get; set; } = new List<QuizAttempt>();
         public virtual ICollection<UserMistake> UserMistakes { get; set; } = new List<UserMistake>();
         public virtual ICollection<UserWeakPoint> UserWeakPoints { get; set; } = new List<UserWeakPoint>();
-        public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
     }
 }
