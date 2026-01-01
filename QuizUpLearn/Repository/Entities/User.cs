@@ -21,7 +21,5 @@ namespace Repository.Entities
         public virtual ICollection<QuizAttempt> QuizAttempts { get; set; } = new List<QuizAttempt>();
         public virtual ICollection<UserMistake> UserMistakes { get; set; } = new List<UserMistake>();
         public virtual ICollection<UserWeakPoint> UserWeakPoints { get; set; } = new List<UserWeakPoint>();
-        public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
-        public virtual ICollection<Badge> Badges { get; set; } = new List<Badge>();
     }
 }
