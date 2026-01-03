@@ -83,8 +83,21 @@ namespace QuizUpLearn.API.Controllers
         [HttpPost("single/start")]
         public async Task<IActionResult> StartSingle([FromBody] RequestSingleStartDto dto)
         {
-            var started = await _service.StartSingleAsync(dto);
-            return Ok(started);
+            try
+            {
+                var started = await _service.StartSingleAsync(dto);
+                return Ok(started);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Kiểm tra nếu là lỗi về UserMistake chưa hoàn thành khi làm Placement Test
+                if (ex.Message.Contains("chưa hoàn thành việc xử lý các câu sai") || 
+                    ex.Message.Contains("câu sai chưa xử lý"))
+                {
+                    throw new HttpException(HttpStatusCode.Conflict, ex.Message);
+                }
+                throw;
+            }
         }
 
         [HttpPut("{id}")]
