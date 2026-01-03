@@ -101,6 +101,9 @@ namespace BusinessLogic.MappingProfile
             //Notification mappings
             CreateMap<Repository.Entities.Notification, DTOs.NotificationDtos.NotificationRequestDto>().ReverseMap();
             CreateMap<Repository.Entities.Notification, DTOs.NotificationDtos.NotificationResponseDto>();
+            //UserNotification mappings
+            CreateMap<Repository.Entities.UserNotification, DTOs.UserNotificationDtos.UserNotificationRequestDto>().ReverseMap();
+            CreateMap<Repository.Entities.UserNotification, DTOs.UserNotificationDtos.UserNotificationResponseDto>();
         }
     }
 }

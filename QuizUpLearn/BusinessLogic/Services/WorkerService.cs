@@ -30,6 +30,14 @@ namespace BusinessLogic.Services
             _activeJobs[userId] = (jobId);
         }
 
+        public void RegisterActiveJob(List<Guid> userIds, Guid jobId)
+        {
+            foreach (var userId in userIds)
+            {
+                _activeJobs[userId] = (jobId);
+            }
+        }
+
         public void RemoveActiveJob(Guid jobId)
         {
             // Find and remove the job entry by jobId
