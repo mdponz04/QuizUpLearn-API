@@ -19,6 +19,7 @@ namespace BusinessLogic.Services
         private readonly IAIService _aiService;
         private readonly IMapper _mapper;
         private readonly IServiceScopeFactory _scopeFactory;
+        private readonly IUserRepo _userRepo;
 
         public QuizAttemptDetailService(
             IQuizAttemptDetailRepo repo,
@@ -29,7 +30,8 @@ namespace BusinessLogic.Services
             IUserMistakeRepo userMistakeRepo,
             IAIService aiService,
             IMapper mapper,
-            IServiceScopeFactory scopeFactory)
+            IServiceScopeFactory scopeFactory,
+            IUserRepo userRepo)
         {
             _repo = repo;
             _attemptRepo = attemptRepo;
@@ -40,6 +42,7 @@ namespace BusinessLogic.Services
             _aiService = aiService;
             _mapper = mapper;
             _scopeFactory = scopeFactory;
+            _userRepo = userRepo;
         }
 
         public async Task<ResponseQuizAttemptDetailDto> CreateAsync(RequestQuizAttemptDetailDto dto)
@@ -552,18 +555,31 @@ namespace BusinessLogic.Services
             // Quy đổi điểm TOEIC
             int lisPoint = ConvertToTOEICScore(correctLisCount, isListening: true);
             int reaPoint = ConvertToTOEICScore(correctReaCount, isListening: false);
+            int totalPlacementScore = lisPoint + reaPoint;
 
             // Cập nhật QuizAttempt để lưu vào history
             attempt.AttemptType = "placement";
             attempt.CorrectAnswers = correctLisCount + correctReaCount;
             attempt.WrongAnswers = attempt.TotalQuestions - attempt.CorrectAnswers;
-            attempt.Score = lisPoint + reaPoint;
+            attempt.Score = totalPlacementScore;
             attempt.Accuracy = attempt.TotalQuestions > 0 ? (decimal)attempt.CorrectAnswers / attempt.TotalQuestions : 0;
             attempt.Status = "completed";
             attempt.IsCompleted = true;
             attempt.TimeSpent = totalTimeSpent > 0 ? totalTimeSpent : (int?)null;
 
             await _attemptRepo.UpdateAsync(dto.AttemptId, attempt);
+
+            // Cập nhật User.TotalPoints nếu điểm placement test cao hơn điểm hiện tại
+            var userId = attempt.UserId;
+            if (userId != Guid.Empty)
+            {
+                var user = await _userRepo.GetByIdAsync(userId);
+                if (user != null && totalPlacementScore > user.TotalPoints)
+                {
+                    user.TotalPoints = totalPlacementScore;
+                    await _userRepo.UpdateAsync(userId, user);
+                }
+            }
 
             var response = new ResponsePlacementTestDto
             {
@@ -579,7 +595,6 @@ namespace BusinessLogic.Services
             // Nền 1: Tạo/update UserMistake cho các câu trả lời sai
             var wrongQuestionIds = wrongQuestionIdsSet.ToList();
             var wrongAnswersSnapshot = wrongAnswersByQuestion.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-            var userId = attempt.UserId;
             var attemptId = dto.AttemptId;
 
             var userMistakeTask = Task.Run(async () =>

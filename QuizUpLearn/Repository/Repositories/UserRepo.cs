@@ -79,6 +79,7 @@ namespace Repository.Repositories
             existing.Bio = user.Bio;
             existing.PreferredLanguage = user.PreferredLanguage;
             existing.Timezone = user.Timezone;
+            existing.TotalPoints = user.TotalPoints; // Cập nhật TotalPoints
             existing.UpdatedAt = DateTime.UtcNow;
 
             _context.Users.Update(existing);
