@@ -12,6 +12,7 @@ namespace BusinessLogic.DTOs.EventDtos
         public Guid GameSessionId { get; set; }
         public DateTime StartedAt { get; set; }
         public string Status { get; set; } = string.Empty;
+        public Guid? JobId { get; set; }
     }
 }
 
