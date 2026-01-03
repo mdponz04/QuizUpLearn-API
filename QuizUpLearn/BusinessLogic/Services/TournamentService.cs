@@ -144,7 +144,7 @@ namespace BusinessLogic.Services
 			// Chỉ cho phép join khi tournament đã Started
 			if (tournament.Status != "Started")
 			{
-				throw new ArgumentException($"Chỉ có thể join tournament khi status là 'Started'. Trạng thái hiện tại: {tournament.Status}");
+				throw new ArgumentException($"Giải đấu chưa bắt đầu. Chỉ có thể tham gia khi giải đấu đã được bắt đầu. Trạng thái hiện tại: {tournament.Status}");
 			}
 
 			// Kiểm tra đã join chưa

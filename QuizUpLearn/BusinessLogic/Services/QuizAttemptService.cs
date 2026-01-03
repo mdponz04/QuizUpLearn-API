@@ -2,6 +2,7 @@ using AutoMapper;
 using BusinessLogic.DTOs;
 using BusinessLogic.Interfaces;
 using Repository.Entities;
+using Repository.Enums;
 using Repository.Interfaces;
 using System.Linq;
 
@@ -61,6 +62,23 @@ namespace BusinessLogic.Services
             if (quizSet == null)
             {
                 throw new InvalidOperationException("Không tìm thấy bộ câu hỏi");
+            }
+
+            // Kiểm tra nếu đây là Placement Test - phải hoàn thành tất cả UserMistake trước
+            if (quizSet.QuizSetType == QuizSetTypeEnum.Placement)
+            {
+                // Lấy danh sách UserMistake của user
+                var userMistakes = await _userMistakeRepo.GetAlByUserIdAsync(dto.UserId);
+                var mistakeList = userMistakes.ToList();
+
+                // Kiểm tra xem user còn UserMistake nào không
+                if (mistakeList.Any())
+                {
+                    throw new InvalidOperationException(
+                        $"Bạn chưa hoàn thành việc xử lý các câu sai. " +
+                        $"Vui lòng hoàn thành TẤT CẢ các câu sai trước khi làm Placement Test. " +
+                        $"Bạn còn {mistakeList.Count} câu sai chưa xử lý.");
+                }
             }
 
             // Kiểm tra xem quiz set này có thuộc tournament đang "Started" không
