@@ -1,4 +1,9 @@
 using BusinessLogic.DTOs.EventDtos;
+using BusinessLogic.DTOs.NotificationDtos;
+using BusinessLogic.DTOs.UserNotificationDtos;
+using Microsoft.AspNetCore.SignalR;
+using QuizUpLearn.API.Hubs;
+using Repository.Enums;
 using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -23,17 +28,20 @@ namespace QuizUpLearn.API.Controllers
         private readonly IUserService _userService;
         private readonly IEventSchedulerService _schedulerService;
         private readonly ILogger<EventController> _logger;
+        private readonly IWorkerService _workerService;
 
         public EventController(
             IEventService eventService,
             IUserService userService,
             IEventSchedulerService schedulerService,
-            ILogger<EventController> logger)
+            ILogger<EventController> logger,
+            IWorkerService workerService)
         {
             _eventService = eventService;
             _userService = userService;
             _schedulerService = schedulerService;
             _logger = logger;
+            _workerService = workerService;
         }
 
         /// <summary>
@@ -280,15 +288,49 @@ namespace QuizUpLearn.API.Controllers
                 if (userId == Guid.Empty)
                     return Unauthorized(new ApiResponse<StartEventResponseDto> { Success = false, Message = "Người dùng chưa được xác thực" });
 
+                Guid jobId = Guid.NewGuid();
                 var result = await _eventService.StartEventAsync(userId, dto);
-                
+                result.JobId = jobId;
+                var eventParticipants = await _eventService.GetEventParticipantsAsync(result.EventId);
+
+                _workerService.RegisterActiveJob(eventParticipants.Select(ep => ep.ParticipantId).ToList(), jobId);
+
+                _ = _workerService.EnqueueJob(async (sp, token) =>
+                {
+                    var notificationService = sp.GetRequiredService<INotificationService>();
+                    var userNotificationService = sp.GetRequiredService<IUserNotificationService>();
+                    var hubContext = sp.GetRequiredService<IHubContext<BackgroundJobHub>>();
+
+                    var notification = await notificationService.CreateAsync(new NotificationRequestDto
+                    {
+                        Title = $"Event {result.EventName}",
+                        Message = $"Event {result.EventName} đã bắt đầu! Sử dụng GamePin: {result.GamePin} để tham gia ngay.",
+                        Type = NotificationType.Event
+                    });
+
+                    foreach (var participant in eventParticipants)
+                    {
+                        await userNotificationService.CreateAsync(new UserNotificationRequestDto
+                        {
+                            UserId = participant.ParticipantId,
+                            NotificationId = notification.Id
+                        });
+                    }
+
+                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
+                    {
+                        JobId = jobId,
+                        UserIds = eventParticipants.Select(ep => ep.ParticipantId).ToList(),
+                    });
+                });
+
                 _logger.LogInformation($"Event {dto.EventId} started successfully with GamePin: {result.GamePin}");
 
-                return Ok(new ApiResponse<StartEventResponseDto> 
+                return Ok(new ApiResponse<StartEventResponseDto>
                 { 
                     Success = true, 
                     Data = result, 
-                    Message = $"Sự kiện đã bắt đầu thành công! GamePin: {result.GamePin}" 
+                    Message = $"Sự kiện đã bắt đầu thành công! GamePin: {result.GamePin}"
                 });
             }
             catch (UnauthorizedAccessException ex)
