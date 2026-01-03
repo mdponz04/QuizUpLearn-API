@@ -71,14 +71,13 @@ namespace BusinessLogic.Services
                 var userMistakes = await _userMistakeRepo.GetAlByUserIdAsync(dto.UserId);
                 var mistakeList = userMistakes.ToList();
 
-                // Kiểm tra xem có UserMistake nào chưa được AI phân tích không
-                var unanalyzedMistakes = mistakeList.Where(um => !um.IsAnalyzed).ToList();
-                if (unanalyzedMistakes.Any())
+                // Kiểm tra xem user còn UserMistake nào không
+                if (mistakeList.Any())
                 {
                     throw new InvalidOperationException(
                         $"Bạn chưa hoàn thành việc xử lý các câu sai. " +
-                        $"Vui lòng đợi AI phân tích xong TẤT CẢ các câu sai trước khi làm Placement Test. " +
-                        $"Còn {unanalyzedMistakes.Count} câu chưa được phân tích.");
+                        $"Vui lòng hoàn thành TẤT CẢ các câu sai trước khi làm Placement Test. " +
+                        $"Bạn còn {mistakeList.Count} câu sai chưa xử lý.");
                 }
             }
 
