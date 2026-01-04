@@ -38,6 +38,9 @@ namespace Repository.DBContext
         public DbSet<QuizSetComment> QuizSetComments { get; set; }
         public DbSet<UserQuizSetFavorite> UserQuizSetFavorites { get; set; }
         public DbSet<UserQuizSetLike> UserQuizSetLikes { get; set; }
+        public DbSet<Badge> Badges { get; set; }
+        public DbSet<UserBadge> UserBadges { get; set; }
+        public DbSet<BadgeRule> badgeRules { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Account>()

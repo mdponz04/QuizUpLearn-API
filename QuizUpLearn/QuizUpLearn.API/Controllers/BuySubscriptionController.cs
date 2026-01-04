@@ -13,20 +13,40 @@ namespace QuizUpLearn.API.Controllers
     public class BuySubscriptionController : ControllerBase
     {
         private readonly IBuySubscriptionService _buySubscriptionService;
+        private readonly ISubscriptionPlanService _subscriptionPlanService;
         private readonly ILogger<BuySubscriptionController> _logger;
 
         public BuySubscriptionController(
             IBuySubscriptionService buySubscriptionService,
-            ILogger<BuySubscriptionController> logger)
+            ILogger<BuySubscriptionController> logger,
+            ISubscriptionPlanService subscriptionPlanService)
         {
             _buySubscriptionService = buySubscriptionService;
             _logger = logger;
+            _subscriptionPlanService = subscriptionPlanService;
         }
 
         [HttpPost("purchase")]
         [SubscriptionAndRoleAuthorize]
         public async Task<IActionResult> StartBuyingSubscription([FromBody] BuySubscriptionRequestDtos dto)
         {
+            var plan = await _subscriptionPlanService.GetByIdAsync(dto.planId);
+            if(plan == null || dto.planId == Guid.Empty)
+            {
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "Invalid subscription plan ID"
+                });
+            }
+            if(plan.IsBuyable == false)
+            {
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "This subscription plan is not available for purchase"
+                });
+            }
             var userId = (Guid)HttpContext.Items["UserId"]!;
             dto.userId = userId;
 
