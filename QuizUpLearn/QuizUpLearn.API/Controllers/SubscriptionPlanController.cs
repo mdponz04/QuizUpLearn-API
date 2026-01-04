@@ -12,10 +12,12 @@ namespace QuizUpLearn.API.Controllers
     public class SubscriptionPlanController : ControllerBase
     {
         private readonly ISubscriptionPlanService _service;
+        private readonly ISubscriptionService _subscriptionService;
 
-        public SubscriptionPlanController(ISubscriptionPlanService service)
+        public SubscriptionPlanController(ISubscriptionPlanService service, ISubscriptionService subscriptionService)
         {
             _service = service;
+            _subscriptionService = subscriptionService;
         }
         [HttpGet]
         [AllowAnonymous]
@@ -48,6 +50,11 @@ namespace QuizUpLearn.API.Controllers
         [SubscriptionAndRoleAuthorize("Administrator")]
         public async Task<ActionResult<ResponseSubscriptionPlanDto>> Update(Guid id, [FromBody] RequestSubscriptionPlanDto dto)
         {
+            var subscriptions = await _subscriptionService.GetByPlanIdAsync(id);
+            if (subscriptions.Any(s => s.DeletedAt == null))
+            {
+                return BadRequest("Cannot update subscription plan with active subscriptions.");
+            }
             var updated = await _service.UpdateAsync(id, dto);
             if (updated == null) return NotFound();
             return Ok(updated);
@@ -58,6 +65,11 @@ namespace QuizUpLearn.API.Controllers
         [SubscriptionAndRoleAuthorize("Administrator")]
         public async Task<ActionResult> Delete(Guid id)
         {
+            var subscriptions = await _subscriptionService.GetByPlanIdAsync(id);
+            if (subscriptions.Any(s => s.DeletedAt == null))
+            {
+                return BadRequest("Cannot update subscription plan with active subscriptions.");
+            }
             var deleted = await _service.DeleteAsync(id);
             if (!deleted) return NotFound();
             return NoContent();

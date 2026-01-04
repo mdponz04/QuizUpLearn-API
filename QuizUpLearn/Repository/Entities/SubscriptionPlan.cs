@@ -10,5 +10,6 @@ namespace Repository.Entities
         public bool CanAccessPremiumContent { get; set; } = false;
         public bool CanAccessAiFeatures { get; set; } = false;
         public bool IsActive { get; set; } = true;
+        public bool IsBuyable { get; set; } = true;
     }
 }

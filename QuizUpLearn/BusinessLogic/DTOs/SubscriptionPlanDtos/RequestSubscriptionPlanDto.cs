@@ -8,5 +8,6 @@
         public bool CanAccessPremiumContent { get; set; }
         public bool CanAccessAiFeatures { get; set; }
         public bool IsActive { get; set; }
+        public bool IsBuyable { get; set; } = true;
     }
 }
