@@ -40,7 +40,7 @@ namespace Repository.DBContext
         public DbSet<UserQuizSetLike> UserQuizSetLikes { get; set; }
         public DbSet<Badge> Badges { get; set; }
         public DbSet<UserBadge> UserBadges { get; set; }
-        public DbSet<BadgeRule> badgeRules { get; set; }
+        public DbSet<BadgeRule> BadgeRules { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Account>()
