@@ -1,3 +1,4 @@
+using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.EventDtos;
 using BusinessLogic.DTOs.NotificationDtos;
 using BusinessLogic.DTOs.UserNotificationDtos;
