@@ -175,5 +175,12 @@ namespace Repository.Repositories
             await _context.SaveChangesAsync();
             return true;
         }
+
+        public async Task<IEnumerable<Quiz>> GetQuizzesByPartAsync(string toeicPart)
+        {
+            return await _context.Quizzes
+                .Where(q => q.TOEICPart == toeicPart && q.DeletedAt == null && q.IsActive)
+                .ToListAsync();
+        }
     }
 }

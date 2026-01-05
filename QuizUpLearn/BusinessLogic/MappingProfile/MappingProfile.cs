@@ -104,6 +104,14 @@ namespace BusinessLogic.MappingProfile
             //UserNotification mappings
             CreateMap<Repository.Entities.UserNotification, DTOs.UserNotificationDtos.UserNotificationRequestDto>().ReverseMap();
             CreateMap<Repository.Entities.UserNotification, DTOs.UserNotificationDtos.UserNotificationResponseDto>();
+            //Badge mappings
+            CreateMap<Repository.Entities.Badge, DTOs.BadgeDtos.RequestBadgeDto>().ReverseMap();
+            CreateMap<Repository.Entities.Badge, DTOs.BadgeDtos.ResponseBadgeDto>();
+            //UserBadge mappings
+            CreateMap<DTOs.BadgeDtos.RequestUserBadgeDto, Repository.Entities.UserBadge>()
+                .ForMember(dest => dest.BadgeId, opt => opt.Ignore()); // BadgeId sẽ được set trong controller
+            CreateMap<Repository.Entities.UserBadge, DTOs.BadgeDtos.RequestUserBadgeDto>();
+            CreateMap<Repository.Entities.UserBadge, DTOs.BadgeDtos.ResponseUserBadgeDto>();
         }
     }
 }

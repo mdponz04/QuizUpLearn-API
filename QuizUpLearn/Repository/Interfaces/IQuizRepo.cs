@@ -16,5 +16,6 @@ namespace Repository.Interfaces
         Task<bool> HardDeleteQuizzesBatchAsync(IEnumerable<Quiz> quizzes);
         Task<bool> RestoreQuizAsync(Guid id);
         Task<IEnumerable<Quiz>> GetByGrammarIdAndVocabularyId(Guid grammarId, Guid vocabId);
+        Task<IEnumerable<Quiz>> GetQuizzesByPartAsync(string toeicPart);
     }
 }
