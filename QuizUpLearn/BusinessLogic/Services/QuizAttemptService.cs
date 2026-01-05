@@ -1,6 +1,7 @@
 using AutoMapper;
 using BusinessLogic.DTOs;
 using BusinessLogic.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 using Repository.Entities;
 using Repository.Enums;
 using Repository.Interfaces;
@@ -21,6 +22,7 @@ namespace BusinessLogic.Services
         private readonly ITournamentQuizSetRepo _tournamentQuizSetRepo;
         private readonly ITournamentParticipantRepo _tournamentParticipantRepo;
         private readonly IMapper _mapper;
+        private readonly IServiceProvider _serviceProvider;
 
         public QuizAttemptService(
             IQuizAttemptRepo repo,
@@ -33,7 +35,8 @@ namespace BusinessLogic.Services
             IAnswerOptionRepo answerOptionRepo,
             ITournamentQuizSetRepo tournamentQuizSetRepo,
             ITournamentParticipantRepo tournamentParticipantRepo,
-            IMapper mapper)
+            IMapper mapper,
+            IServiceProvider serviceProvider)
         {
             _repo = repo;
             _detailRepo = detailRepo;
@@ -46,6 +49,7 @@ namespace BusinessLogic.Services
             _tournamentQuizSetRepo = tournamentQuizSetRepo;
             _tournamentParticipantRepo = tournamentParticipantRepo;
             _mapper = mapper;
+            _serviceProvider = serviceProvider;
         }
 
         public async Task<ResponseQuizAttemptDto> CreateAsync(RequestQuizAttemptDto dto)
@@ -404,6 +408,26 @@ namespace BusinessLogic.Services
             attempt.Status = "completed";
 
             var updatedAttempt = await _repo.UpdateAsync(id, attempt);
+            
+            // Check và assign badges (chạy background, không block response)
+            if (updatedAttempt != null)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        using var scope = _serviceProvider.CreateScope();
+                        var badgeService = scope.ServiceProvider.GetRequiredService<IBadgeService>();
+                        await badgeService.CheckAndAssignBadgesAsync(attempt.UserId);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log error nhưng không throw
+                        // Có thể inject ILogger nếu cần
+                    }
+                });
+            }
+            
             return updatedAttempt == null ? null : _mapper.Map<ResponseQuizAttemptDto>(updatedAttempt);
         }
 

@@ -110,6 +110,8 @@ namespace QuizUpLearn.API.DI
             services.AddScoped<IUserQuizSetLikeRepo, UserQuizSetLikeRepo>();
             services.AddScoped<INotificationRepo, NotificationRepo>();
             services.AddScoped<IUserNotificationRepo, UserNotificationRepo>();
+            services.AddScoped<IBadgeRepo, BadgeRepo>();
+            services.AddScoped<IUserBadgeRepo, UserBadgeRepo>();
         }
 
         public static void AddServices(this IServiceCollection services)
@@ -153,6 +155,7 @@ namespace QuizUpLearn.API.DI
             services.AddScoped<IUserQuizSetLikeService, UserQuizSetLikeService>();
             services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<IUserNotificationService, UserNotificationService>();
+            services.AddScoped<IBadgeService, BadgeService>();
 
             // RealtimeGameService - Singleton để dùng Redis state
             services.AddSingleton<BusinessLogic.Interfaces.IRealtimeGameService, BusinessLogic.Services.RealtimeGameService>();

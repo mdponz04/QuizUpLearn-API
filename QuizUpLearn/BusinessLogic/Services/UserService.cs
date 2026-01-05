@@ -10,11 +10,13 @@ namespace BusinessLogic.Services
     {
         private readonly IUserRepo _repo;
         private readonly IMapper _mapper;
+        private readonly IBadgeService _badgeService;
 
-        public UserService(IUserRepo repo, IMapper mapper)
+        public UserService(IUserRepo repo, IMapper mapper, IBadgeService badgeService)
         {
             _repo = repo;
             _mapper = mapper;
+            _badgeService = badgeService;
         }
 
         public async Task<ResponseUserDto> CreateAsync(RequestUserDto dto)
@@ -33,7 +35,13 @@ namespace BusinessLogic.Services
         public async Task<ResponseUserDto?> GetByIdAsync(Guid id)
         {
             var entity = await _repo.GetByIdAsync(id);
-            return entity == null ? null : _mapper.Map<ResponseUserDto>(entity);
+            if (entity == null) return null;
+            
+            var userDto = _mapper.Map<ResponseUserDto>(entity);
+            // Lấy badges từ DB (đã được lưu sẵn, không cần check lại)
+            userDto.EarnedBadges = await _badgeService.GetUserBadgesAsync(id);
+            
+            return userDto;
         }
 
         public async Task<ResponseUserDto?> GetByUsernameAsync(string username)
