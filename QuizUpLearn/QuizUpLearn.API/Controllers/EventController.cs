@@ -304,17 +304,40 @@ namespace QuizUpLearn.API.Controllers
 
                     var notification = await notificationService.CreateAsync(new NotificationRequestDto
                     {
-                        Title = $"Event {result.EventName}",
-                        Message = $"Event {result.EventName} đã bắt đầu! Sử dụng GamePin: {result.GamePin} để tham gia ngay.",
-                        Type = NotificationType.Event
+                        Title = $"{result.EventName}",
+                        Message = $"{result.EventName} đã bắt đầu! Sử dụng GamePin: {result.GamePin} để tham gia ngay.",
+                        Type = NotificationType.Event,
+                        ActionUrl = "/event"
                     });
 
                     foreach (var participant in eventParticipants)
                     {
-                        await userNotificationService.CreateAsync(new UserNotificationRequestDto
+                        var userNotification = await userNotificationService.CreateAsync(new UserNotificationRequestDto
                         {
                             UserId = participant.ParticipantId,
                             NotificationId = notification.Id
+                        });
+
+                        // Send real-time notification to user's notification group
+                        var userGroupName = $"notifications_{participant.ParticipantId}";
+                        await hubContext.Clients.Group(userGroupName).SendAsync("NewNotification", new
+                        {
+                            id = userNotification.Id,
+                            userId = participant.ParticipantId,
+                            notificationId = notification.Id,
+                            isRead = false,
+                            readAt = (DateTime?)null,
+                            createdAt = userNotification.CreatedAt,
+                            notification = new
+                            {
+                                id = notification.Id,
+                                title = notification.Title,
+                                message = notification.Message,
+                                type = notification.Type.ToString(),
+                                actionUrl = notification.ActionUrl,
+                                imageUrl = notification.ImageUrl,
+                                createdAt = notification.CreatedAt
+                            }
                         });
                     }
 
