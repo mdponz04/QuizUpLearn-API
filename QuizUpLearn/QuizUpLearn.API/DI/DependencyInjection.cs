@@ -73,7 +73,6 @@ namespace QuizUpLearn.API.DI
 
         public static void AddAutoMapper(this IServiceCollection services)
         {
-            // Register AutoMapper with assemblies
             services.AddAutoMapper(cfg => { }, typeof(MappingProfile).Assembly);
         }
 
