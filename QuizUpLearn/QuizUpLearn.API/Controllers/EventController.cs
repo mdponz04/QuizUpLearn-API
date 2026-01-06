@@ -288,40 +288,60 @@ namespace QuizUpLearn.API.Controllers
                 if (userId == Guid.Empty)
                     return Unauthorized(new ApiResponse<StartEventResponseDto> { Success = false, Message = "Người dùng chưa được xác thực" });
 
-                Guid jobId = Guid.NewGuid();
                 var result = await _eventService.StartEventAsync(userId, dto);
-                result.JobId = jobId;
                 var eventParticipants = await _eventService.GetEventParticipantsAsync(result.EventId);
-
-                _workerService.RegisterActiveJob(eventParticipants.Select(ep => ep.ParticipantId).ToList(), jobId);
 
                 _ = _workerService.EnqueueJob(async (sp, token) =>
                 {
+                    var logger = sp.GetRequiredService<ILogger<EventController>>();
                     var notificationService = sp.GetRequiredService<INotificationService>();
                     var userNotificationService = sp.GetRequiredService<IUserNotificationService>();
                     var hubContext = sp.GetRequiredService<IHubContext<BackgroundJobHub>>();
-
-                    var notification = await notificationService.CreateAsync(new NotificationRequestDto
+                    
+                    try
                     {
-                        Title = $"Event {result.EventName}",
-                        Message = $"Event {result.EventName} đã bắt đầu! Sử dụng GamePin: {result.GamePin} để tham gia ngay.",
-                        Type = NotificationType.Event
-                    });
-
-                    foreach (var participant in eventParticipants)
-                    {
-                        await userNotificationService.CreateAsync(new UserNotificationRequestDto
+                        var notification = await notificationService.CreateAsync(new NotificationRequestDto
                         {
-                            UserId = participant.ParticipantId,
-                            NotificationId = notification.Id
+                            Title = $"Event {result.EventName}",
+                            Message = $"Event {result.EventName} đã bắt đầu! Sử dụng GamePin: {result.GamePin} để tham gia ngay.",
+                            Type = NotificationType.Event
                         });
-                    }
 
-                    await hubContext.Clients.Group(jobId.ToString()).SendAsync("JobCompleted", new
+                        var successfulNotifications = new List<Guid>();
+                        var failedNotifications = new List<Guid>();
+
+                        foreach (var participant in eventParticipants)
+                        {
+                            try
+                            {
+                                await userNotificationService.CreateAsync(new UserNotificationRequestDto
+                                {
+                                    UserId = participant.ParticipantId,
+                                    NotificationId = notification.Id
+                                });
+                                
+                                successfulNotifications.Add(participant.ParticipantId);
+
+                                logger.LogInformation($"Notification sent successfully to user {participant.ParticipantId}");
+
+                                await hubContext.Clients.Group($"user:{participant.ParticipantId}").SendAsync("NotificationCreated", new
+                                {
+                                    Message = "Notification send successfully"
+                                });
+                            }
+                            catch (Exception ex)
+                            {
+                                failedNotifications.Add(participant.ParticipantId);
+                                logger.LogError(ex, $"Failed to send notification to user {participant.ParticipantId}");
+                            }
+                        }
+
+                        logger.LogInformation($"Notification completed. Success: {successfulNotifications.Count}, Failed: {failedNotifications.Count}");
+                    }
+                    catch (Exception ex)
                     {
-                        JobId = jobId,
-                        UserIds = eventParticipants.Select(ep => ep.ParticipantId).ToList(),
-                    });
+                        logger.LogError($"Notification failed completely: " + ex.Message);
+                    }
                 });
 
                 _logger.LogInformation($"Event {dto.EventId} started successfully with GamePin: {result.GamePin}");

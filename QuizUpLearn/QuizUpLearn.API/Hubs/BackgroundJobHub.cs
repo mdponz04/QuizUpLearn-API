@@ -12,6 +12,19 @@ namespace QuizUpLearn.API.Hubs
         }
         public override async Task OnConnectedAsync()
         {
+            var role = Context.User?.FindFirst("roleName")?.Value;
+            var userId = Context.User?.FindFirst("userId")?.Value;
+            //group by role
+            if (!string.IsNullOrEmpty(role))
+            {
+                await Groups.AddToGroupAsync(Context.ConnectionId, role);
+            }
+            //personal group by userId
+            if (!string.IsNullOrEmpty(userId))
+            {
+                await Groups.AddToGroupAsync(Context.ConnectionId, $"user:{userId}");
+            }
+
             _logger.LogInformation($"Client connected: {Context.ConnectionId}");
             await Clients.Caller.SendAsync("Connected", $"Welcome! Your connection ID is {Context.ConnectionId}.");
             await base.OnConnectedAsync();
@@ -21,6 +34,12 @@ namespace QuizUpLearn.API.Hubs
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, jobId);
             _logger.LogInformation($"Client {Context.ConnectionId} joined job group {jobId}");
+        }
+        //Test purpose
+        public async Task JoinUserGroup(string userId)
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"user:{userId}");
+            _logger.LogInformation($"Client {Context.ConnectionId} joined user group: user:{userId}");
         }
         public async Task LeaveJobGroup(string jobId)
         {
