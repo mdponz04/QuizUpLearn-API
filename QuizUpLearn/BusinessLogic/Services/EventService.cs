@@ -492,11 +492,25 @@ namespace BusinessLogic.Services
                     _ => ""
                 };
 
+                // Map userName: ưu tiên FullName, nếu không có thì dùng Username
+                var participantName = "Unknown";
+                if (user != null)
+                {
+                    if (!string.IsNullOrWhiteSpace(user.FullName))
+                    {
+                        participantName = user.FullName;
+                    }
+                    else if (!string.IsNullOrWhiteSpace(user.Username))
+                    {
+                        participantName = user.Username;
+                    }
+                }
+
                 rankings.Add(new EventLeaderboardItemDto
                 {
                     Rank = currentRank,
                     ParticipantId = participant.ParticipantId,
-                    ParticipantName = user?.FullName ?? "Unknown",
+                    ParticipantName = participantName,
                     AvatarUrl = user?.AvatarUrl,
                     Score = score,
                     Accuracy = accuracy,

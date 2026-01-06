@@ -234,11 +234,29 @@ namespace BusinessLogic.Services
                             user.FullName = name;
                             updated = true;
                         }
-                        if (!string.IsNullOrEmpty(picture) && user.AvatarUrl != picture)
+                        
+                        // Chỉ cập nhật avatar từ Google nếu:
+                        // 1. User chưa có avatar (rỗng)
+                        // 2. Hoặc avatar hiện tại là Google avatar (chứa googleusercontent.com)
+                        // → Không ghi đè avatar custom của user
+                        if (!string.IsNullOrEmpty(picture))
                         {
-                            user.AvatarUrl = picture;
-                            updated = true;
+                            var isGoogleAvatar = !string.IsNullOrEmpty(user.AvatarUrl) && 
+                                                (user.AvatarUrl.Contains("googleusercontent.com") || 
+                                                 user.AvatarUrl.Contains("googleapis.com"));
+                            var isEmptyAvatar = string.IsNullOrEmpty(user.AvatarUrl) || user.AvatarUrl == string.Empty;
+                            
+                            if (isEmptyAvatar || isGoogleAvatar)
+                            {
+                                if (user.AvatarUrl != picture)
+                                {
+                                    user.AvatarUrl = picture;
+                                    updated = true;
+                                }
+                            }
+                            // Nếu user đã có avatar custom (không phải Google), giữ nguyên
                         }
+                        
                         if (updated)
                         {
                             await _userRepo.UpdateAsync(user.Id, user);
