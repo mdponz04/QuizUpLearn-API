@@ -36,7 +36,7 @@ namespace QuizUpLearn.API.Controllers
             return Ok(result);
         }
         [HttpGet("by-ordercode/{orderCode:long}")]
-        [SubscriptionAndRoleAuthorize("Administrator")]
+        [SubscriptionAndRoleAuthorize("Administrator", "User")]
         public async Task<ActionResult<ResponsePaymentTransactionDto>> GetByOrderCode(long orderCode)
         {
             var result = await _service.GetByPaymentGatewayTransactionOrderCodeAsync(orderCode.ToString());
@@ -61,7 +61,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpDelete("{id:guid}")]
-        [SubscriptionAndRoleAuthorize("Moderator")]
+        [SubscriptionAndRoleAuthorize("Administrator")]
         public async Task<ActionResult> Delete(Guid id)
         {
             var deleted = await _service.DeleteAsync(id);

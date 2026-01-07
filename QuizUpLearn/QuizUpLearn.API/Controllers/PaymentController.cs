@@ -1,4 +1,6 @@
-﻿using BusinessLogic.Interfaces;
+﻿using BusinessLogic.DTOs.PaymentDtos;
+using BusinessLogic.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QuizUpLearn.API.Attributes;
 
@@ -9,16 +11,18 @@ namespace QuizUpLearn.API.Controllers
     public class PaymentController : ControllerBase
     {
         private readonly IPaymentService _paymentService;
+        private readonly IBuySubscriptionService _buySubscriptionService;
 
-        public PaymentController(IPaymentService paymentService)
+        public PaymentController(IPaymentService paymentService, IBuySubscriptionService buySubscriptionService)
         {
             _paymentService = paymentService;
+            _buySubscriptionService = buySubscriptionService;
         }
         [HttpPost("create-payment")]
         [SubscriptionAndRoleAuthorize("Moderator")]
-        public async Task<IActionResult> CreatePayment(int amount, string description, string successUrl, string cancelUrl)
+        public async Task<IActionResult> CreatePayment(int amount, string description)
         {
-            var paymentResult = await _paymentService.CreatePaymentLinkAsync(amount, description, null!, successUrl, cancelUrl);
+            var paymentResult = await _paymentService.CreatePaymentLinkAsync(amount, description, null!);
             if (paymentResult != null)
             {
                 return Ok(paymentResult);
@@ -46,6 +50,19 @@ namespace QuizUpLearn.API.Controllers
                 return Ok(paymentInfo);
             }
             return NotFound("Payment request not found");
+        }
+        [HttpPost("os/webhook")]
+        [AllowAnonymous]
+        public async Task<IActionResult> Webhook([FromBody] PayosWebhookDto payload)
+        {
+            if (!payload.Success || payload.Code != "00")
+            {
+                await _buySubscriptionService.HandlePaymentCancelAsync(payload.Data.OrderCode);
+                return Ok();
+            }
+
+            await _buySubscriptionService.HandlePaymentSuccessAsync(payload.Data.OrderCode);
+            return Ok();
         }
     }
 }

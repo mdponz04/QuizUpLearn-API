@@ -70,7 +70,6 @@ namespace BusinessLogic.Services
             
             DateTime? startDate = DateTime.UtcNow;
 
-            // If subscription does not exist, create a new one
             if (subscription == null)
             {
                 subscription = await _subscriptionService.CreateAsync(new RequestSubscriptionDto
@@ -97,9 +96,9 @@ namespace BusinessLogic.Services
             }
         }
 
-        public async Task<(long, string)> StartSubscriptionPurchaseAsync(BuySubscriptionRequestDtos dto)
+        public async Task<(long, string)> StartSubscriptionPurchaseAsync(Guid userId, Guid planId)
         {
-            var plan = await _subscriptionPlanService.GetByIdAsync(dto.planId);
+            var plan = await _subscriptionPlanService.GetByIdAsync(planId);
 
             if (plan == null)
                 return (-1, "");
@@ -109,15 +108,15 @@ namespace BusinessLogic.Services
                 new ItemData(plan.Name, 1, (int)plan.Price)
             };
 
-            var paymentInfo = await _paymentService.CreatePaymentLinkAsync((int) plan.Price, $"QUL sub {plan.Name}", items, dto.successUrl, dto.cancelUrl);
+            var paymentInfo = await _paymentService.CreatePaymentLinkAsync((int) plan.Price, $"QUL sub {plan.Name}", items);
 
             if (paymentInfo == null)
                 return (-1, "");
 
             var transaction = await _paymentTransactionService.CreateAsync(new RequestPaymentTransactionDto
             {
-                UserId = dto.userId!.Value,
-                SubscriptionPlanId = dto.planId,
+                UserId = userId,
+                SubscriptionPlanId = planId,
                 Amount = plan.Price,
                 PaymentGatewayTransactionId = paymentInfo!.orderCode.ToString()
             });
