@@ -1,5 +1,4 @@
-﻿using BusinessLogic.DTOs;
-using BusinessLogic.DTOs.PaymentTransactionDtos;
+﻿using BusinessLogic.DTOs.PaymentTransactionDtos;
 using BusinessLogic.DTOs.SubscriptionDtos;
 using BusinessLogic.Interfaces;
 using Net.payOS.Types;
