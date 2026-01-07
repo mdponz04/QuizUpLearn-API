@@ -21,11 +21,8 @@ namespace BusinessLogic.Services
             _payOS = new PayOS(clientId, apiKey, checksumKey);
         }
 
-        public async Task<CreatePaymentResult?> CreatePaymentLinkAsync(int amount, string description, List<ItemData> items, string? successUrl, string? cancelUrl)
+        public async Task<CreatePaymentResult?> CreatePaymentLinkAsync(int amount, string description, List<ItemData> items)
         {
-            successUrl = successUrl ?? "https://www.google.com";
-            cancelUrl = cancelUrl ?? "https://www.youtube.com";
-
             items = items ?? new List<ItemData>();
             long orderCode = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             CreatePaymentResult? paymentLink;
@@ -36,8 +33,8 @@ namespace BusinessLogic.Services
                     amount,
                     description,
                     items,
-                    cancelUrl!,
-                    successUrl!
+                    "",
+                    ""
                 );
 
                 paymentLink = await _payOS.createPaymentLink(paymentData);
