@@ -1,4 +1,5 @@
-﻿using BusinessLogic.Interfaces;
+﻿using BusinessLogic.DTOs;
+using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QuizUpLearn.API.Attributes;
@@ -30,10 +31,10 @@ namespace QuizUpLearn.API.Controllers
 
         [HttpPost("purchase")]
         [SubscriptionAndRoleAuthorize]
-        public async Task<IActionResult> StartBuyingSubscription([FromQuery] Guid planId)
+        public async Task<IActionResult> StartBuyingSubscription([FromBody] BuySubscriptionDto dto)
         {
-            var plan = await _subscriptionPlanService.GetByIdAsync(planId);
-            if(plan == null || planId == Guid.Empty)
+            var plan = await _subscriptionPlanService.GetByIdAsync(dto.PlanId);
+            if(plan == null || dto.PlanId == Guid.Empty)
             {
                 return BadRequest(new ApiResponse<object>
                 {
@@ -53,7 +54,7 @@ namespace QuizUpLearn.API.Controllers
 
             try
             {
-                var result = await _buySubscriptionService.StartSubscriptionPurchaseAsync(userId, planId);
+                var result = await _buySubscriptionService.StartSubscriptionPurchaseAsync(userId, dto.PlanId, dto.SuccessUrl, dto.CanceledUrl);
                 return Ok(new ApiResponse<object>
                 {
                     Success = true,
@@ -63,7 +64,7 @@ namespace QuizUpLearn.API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error starting subscription purchase for plan {PlanId}", planId);
+                _logger.LogError(ex, "Error starting subscription purchase for plan {PlanId}", dto.PlanId);
                 return BadRequest(new ApiResponse<object>
                 {
                     Success = false,
