@@ -1,5 +1,4 @@
-﻿using BusinessLogic.DTOs;
-using BusinessLogic.Interfaces;
+﻿using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QuizUpLearn.API.Attributes;
@@ -14,16 +13,19 @@ namespace QuizUpLearn.API.Controllers
     {
         private readonly IBuySubscriptionService _buySubscriptionService;
         private readonly ISubscriptionPlanService _subscriptionPlanService;
+        private readonly IPaymentService _paymentService;
         private readonly ILogger<BuySubscriptionController> _logger;
 
         public BuySubscriptionController(
             IBuySubscriptionService buySubscriptionService,
             ILogger<BuySubscriptionController> logger,
-            ISubscriptionPlanService subscriptionPlanService)
+            ISubscriptionPlanService subscriptionPlanService,
+            IPaymentService paymentService)
         {
             _buySubscriptionService = buySubscriptionService;
             _logger = logger;
             _subscriptionPlanService = subscriptionPlanService;
+            _paymentService = paymentService;
         }
 
         [HttpPost("purchase")]
@@ -101,6 +103,7 @@ namespace QuizUpLearn.API.Controllers
             try
             {
                 await _buySubscriptionService.HandlePaymentCancelAsync(orderCode);
+                await _paymentService.CancelPaymentLinkAsync(orderCode, "User cancelled the payment");
                 return Ok(new ApiResponse<object>
                 {
                     Success = true,
