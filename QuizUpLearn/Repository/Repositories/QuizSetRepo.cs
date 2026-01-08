@@ -115,7 +115,7 @@ namespace Repository.Repositories
             return quizSet;
         }
 
-        public async Task<bool> RequestValidateByMod(Guid id)
+        public async Task<bool> RequestValidateByModAsync(Guid id)
         {
             var existingQuizSet = await _context.QuizSets.FindAsync(id);
             if(existingQuizSet == null || existingQuizSet.DeletedAt != null)
@@ -126,7 +126,7 @@ namespace Repository.Repositories
             return true;
         }
 
-        public async Task<bool> ValidateQuizSet(Guid id)
+        public async Task<bool> ValidateQuizSetAsync(Guid id)
         {
             var existingQuizSet = await _context.QuizSets.FindAsync(id);
             if (existingQuizSet == null || existingQuizSet.DeletedAt != null)

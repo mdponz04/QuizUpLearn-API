@@ -37,7 +37,6 @@ namespace QuizUpLearn.Test.UnitTest
         [Fact]
         public async Task CreateQuizSetAsync_WithValidRequest_ShouldReturnQuizSetResponse()
         {
-            // Arrange
             var request = new QuizSetRequestDto
             {
                 Title = "Sample Set",
@@ -64,10 +63,8 @@ namespace QuizUpLearn.Test.UnitTest
             _mockQuizSetRepo.Setup(r => r.CreateQuizSetAsync(It.IsAny<QuizSet>()))
                 .ReturnsAsync(createdQuizSet);
 
-            // Act
             var result = await _quizSetService.CreateQuizSetAsync(request);
 
-            // Assert
             result.Should().NotBeNull();
             result.Title.Should().Be(request.Title);
             result.Description.Should().Be(request.Description);
@@ -82,7 +79,6 @@ namespace QuizUpLearn.Test.UnitTest
         [Fact]
         public async Task GetQuizSetByIdAsync_WithValidId_ShouldReturnQuizSetResponse()
         {
-            // Arrange
             var quizSetId = Guid.NewGuid();
             var quizSet = new QuizSet
             {
@@ -99,10 +95,8 @@ namespace QuizUpLearn.Test.UnitTest
             _mockQuizSetRepo.Setup(r => r.GetQuizSetByIdAsync(quizSetId))
                 .ReturnsAsync(quizSet);
 
-            // Act
             var result = await _quizSetService.GetQuizSetByIdAsync(quizSetId);
 
-            // Assert
             result.Should().NotBeNull();
             result.Id.Should().Be(quizSetId);
             result.Title.Should().Be(quizSet.Title);
@@ -111,7 +105,6 @@ namespace QuizUpLearn.Test.UnitTest
         [Fact]
         public async Task GetAllQuizSetsAsync_WithValidPagination_ShouldReturnPaginatedQuizSets()
         {
-            // Arrange
             var pagination = new PaginationRequestDto { Page = 1, PageSize = 10 };
             var quizSets = new List<QuizSet>
             {
@@ -119,13 +112,11 @@ namespace QuizUpLearn.Test.UnitTest
                 new QuizSet { Id = Guid.NewGuid(), Title = "Set 2", CreatedAt = DateTime.UtcNow }
             };
 
-            _mockQuizSetRepo.Setup(r => r.GetAllQuizSetsAsync(pagination))
-                .ReturnsAsync((quizSets, 2));
+            _mockQuizSetRepo.Setup(r => r.GetAllQuizSetsAsync())
+                .ReturnsAsync(quizSets);
 
-            // Act
             var result = await _quizSetService.GetAllQuizSetsAsync(pagination);
 
-            // Assert
             result.Should().NotBeNull();
             result.Data.Should().HaveCount(2);
             result.Pagination.TotalCount.Should().Be(2);
@@ -134,7 +125,6 @@ namespace QuizUpLearn.Test.UnitTest
         [Fact]
         public async Task GetQuizSetsByCreatorAsync_WithValidCreatorId_ShouldReturnPaginatedQuizSets()
         {
-            // Arrange
             var creatorId = Guid.NewGuid();
             var pagination = new PaginationRequestDto { Page = 1, PageSize = 10 };
             var quizSets = new List<QuizSet>
@@ -142,13 +132,11 @@ namespace QuizUpLearn.Test.UnitTest
                 new QuizSet { Id = Guid.NewGuid(), Title = "Set 1", CreatedBy = creatorId, CreatedAt = DateTime.UtcNow }
             };
 
-            _mockQuizSetRepo.Setup(r => r.GetQuizSetsByCreatorAsync(creatorId, pagination))
-                .ReturnsAsync((quizSets, 1));
+            _mockQuizSetRepo.Setup(r => r.GetQuizSetsByCreatorAsync(creatorId))
+                .ReturnsAsync(quizSets);
 
-            // Act
             var result = await _quizSetService.GetQuizSetsByCreatorAsync(creatorId, pagination);
 
-            // Assert
             result.Should().NotBeNull();
             result.Data.Should().HaveCount(1);
             result.Data[0].CreatedBy.Should().Be(creatorId);
@@ -157,20 +145,17 @@ namespace QuizUpLearn.Test.UnitTest
         [Fact]
         public async Task GetPublishedQuizSetsAsync_WithValidPagination_ShouldReturnPaginatedQuizSets()
         {
-            // Arrange
             var pagination = new PaginationRequestDto { Page = 1, PageSize = 10 };
             var quizSets = new List<QuizSet>
             {
                 new QuizSet { Id = Guid.NewGuid(), Title = "Set 1", IsPublished = true, CreatedAt = DateTime.UtcNow }
             };
 
-            _mockQuizSetRepo.Setup(r => r.GetPublishedQuizSetsAsync(pagination))
-                .ReturnsAsync((quizSets, 1));
+            _mockQuizSetRepo.Setup(r => r.GetPublishedQuizSetsAsync())
+                .ReturnsAsync(quizSets);
 
-            // Act
             var result = await _quizSetService.GetPublishedQuizSetsAsync(pagination);
 
-            // Assert
             result.Should().NotBeNull();
             result.Data.Should().HaveCount(1);
             result.Data[0].IsPublished.Should().BeTrue();
@@ -179,7 +164,6 @@ namespace QuizUpLearn.Test.UnitTest
         [Fact]
         public async Task UpdateQuizSetAsync_WithValidData_ShouldReturnUpdatedQuizSetResponse()
         {
-            // Arrange
             var quizSetId = Guid.NewGuid();
             var request = new QuizSetRequestDto
             {
@@ -207,10 +191,8 @@ namespace QuizUpLearn.Test.UnitTest
             _mockQuizSetRepo.Setup(r => r.UpdateQuizSetAsync(quizSetId, It.IsAny<QuizSet>()))
                 .ReturnsAsync(updatedQuizSet);
 
-            // Act
             var result = await _quizSetService.UpdateQuizSetAsync(quizSetId, request);
 
-            // Assert
             result.Should().NotBeNull();
             result.Id.Should().Be(quizSetId);
             result.Title.Should().Be(request.Title);
@@ -220,67 +202,54 @@ namespace QuizUpLearn.Test.UnitTest
         [Fact]
         public async Task SoftDeleteQuizSetAsync_WithValidId_ShouldReturnTrue()
         {
-            // Arrange
             var quizSetId = Guid.NewGuid();
             _mockQuizSetRepo.Setup(r => r.SoftDeleteQuizSetAsync(quizSetId))
                 .ReturnsAsync(true);
 
-            // Act
             var result = await _quizSetService.SoftDeleteQuizSetAsync(quizSetId);
 
-            // Assert
             result.Should().BeTrue();
         }
 
         [Fact]
         public async Task HardDeleteQuizSetAsync_WithValidId_ShouldReturnTrue()
         {
-            // Arrange
             var quizSetId = Guid.NewGuid();
             _mockQuizSetRepo.Setup(r => r.HardDeleteQuizSetAsync(quizSetId))
                 .ReturnsAsync(true);
 
-            // Act
             var result = await _quizSetService.HardDeleteQuizSetAsync(quizSetId);
 
-            // Assert
             result.Should().BeTrue();
         }
 
         [Fact]
         public async Task RequestValidateByModAsync_WithValidId_ShouldReturnTrue()
         {
-            // Arrange
             var quizSetId = Guid.NewGuid();
             _mockQuizSetRepo.Setup(r => r.RequestValidateByModAsync(quizSetId))
                 .ReturnsAsync(true);
 
-            // Act
             var result = await _quizSetService.RequestValidateByModAsync(quizSetId);
 
-            // Assert
             result.Should().BeTrue();
         }
 
         [Fact]
         public async Task ValidateQuizSetAsync_WithValidId_ShouldReturnTrue()
         {
-            // Arrange
             var quizSetId = Guid.NewGuid();
             _mockQuizSetRepo.Setup(r => r.ValidateQuizSetAsync(quizSetId))
                 .ReturnsAsync(true);
 
-            // Act
             var result = await _quizSetService.ValidateQuizSetAsync(quizSetId);
 
-            // Assert
             result.Should().BeTrue();
         }
 
         [Fact]
         public async Task RestoreQuizSetAsync_WithValidId_ShouldReturnQuizSetResponse()
         {
-            // Arrange
             var quizSetId = Guid.NewGuid();
             var quizSet = new QuizSet
             {
@@ -292,10 +261,8 @@ namespace QuizUpLearn.Test.UnitTest
             _mockQuizSetRepo.Setup(r => r.RestoreQuizSetAsync(quizSetId))
                 .ReturnsAsync(quizSet);
 
-            // Act
             var result = await _quizSetService.RestoreQuizSetAsync(quizSetId);
 
-            // Assert
             result.Should().NotBeNull();
             result.Id.Should().Be(quizSetId);
             result.Title.Should().Be("Restored Set");

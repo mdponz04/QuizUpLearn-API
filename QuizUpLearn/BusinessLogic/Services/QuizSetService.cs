@@ -106,12 +106,12 @@ namespace BusinessLogic.Services
 
         public async Task<bool> RequestValidateByModAsync(Guid id)
         {
-            return await _quizSetRepo.RequestValidateByMod(id);
+            return await _quizSetRepo.RequestValidateByModAsync(id);
         }
 
         public async Task<bool> ValidateQuizSetAsync(Guid id)
         {
-            return await _quizSetRepo.ValidateQuizSet(id);
+            return await _quizSetRepo.ValidateQuizSetAsync(id);
         }
 
         private IQueryable<QuizSet> ApplyFilters(
