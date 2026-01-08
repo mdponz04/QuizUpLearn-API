@@ -14,24 +14,27 @@ namespace QuizUpLearn.API.Controllers
     {
         private readonly IBuySubscriptionService _buySubscriptionService;
         private readonly ISubscriptionPlanService _subscriptionPlanService;
+        private readonly IPaymentService _paymentService;
         private readonly ILogger<BuySubscriptionController> _logger;
 
         public BuySubscriptionController(
             IBuySubscriptionService buySubscriptionService,
             ILogger<BuySubscriptionController> logger,
-            ISubscriptionPlanService subscriptionPlanService)
+            ISubscriptionPlanService subscriptionPlanService,
+            IPaymentService paymentService)
         {
             _buySubscriptionService = buySubscriptionService;
             _logger = logger;
             _subscriptionPlanService = subscriptionPlanService;
+            _paymentService = paymentService;
         }
 
         [HttpPost("purchase")]
         [SubscriptionAndRoleAuthorize]
-        public async Task<IActionResult> StartBuyingSubscription([FromQuery] Guid planId)
+        public async Task<IActionResult> StartBuyingSubscription([FromBody] BuySubscriptionDto dto)
         {
-            var plan = await _subscriptionPlanService.GetByIdAsync(planId);
-            if(plan == null || planId == Guid.Empty)
+            var plan = await _subscriptionPlanService.GetByIdAsync(dto.PlanId);
+            if(plan == null || dto.PlanId == Guid.Empty)
             {
                 return BadRequest(new ApiResponse<object>
                 {
@@ -51,7 +54,7 @@ namespace QuizUpLearn.API.Controllers
 
             try
             {
-                var result = await _buySubscriptionService.StartSubscriptionPurchaseAsync(userId, planId);
+                var result = await _buySubscriptionService.StartSubscriptionPurchaseAsync(userId, dto.PlanId, dto.SuccessUrl, dto.CanceledUrl);
                 return Ok(new ApiResponse<object>
                 {
                     Success = true,
@@ -61,7 +64,7 @@ namespace QuizUpLearn.API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error starting subscription purchase for plan {PlanId}", planId);
+                _logger.LogError(ex, "Error starting subscription purchase for plan {PlanId}", dto.PlanId);
                 return BadRequest(new ApiResponse<object>
                 {
                     Success = false,
@@ -101,6 +104,7 @@ namespace QuizUpLearn.API.Controllers
             try
             {
                 await _buySubscriptionService.HandlePaymentCancelAsync(orderCode);
+                await _paymentService.CancelPaymentLinkAsync(orderCode, "User cancelled the payment");
                 return Ok(new ApiResponse<object>
                 {
                     Success = true,

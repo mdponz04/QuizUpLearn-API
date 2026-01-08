@@ -1,5 +1,4 @@
-﻿using BusinessLogic.DTOs;
-using BusinessLogic.DTOs.PaymentTransactionDtos;
+﻿using BusinessLogic.DTOs.PaymentTransactionDtos;
 using BusinessLogic.DTOs.SubscriptionDtos;
 using BusinessLogic.Interfaces;
 using Net.payOS.Types;
@@ -96,7 +95,7 @@ namespace BusinessLogic.Services
             }
         }
 
-        public async Task<(long, string)> StartSubscriptionPurchaseAsync(Guid userId, Guid planId)
+        public async Task<(long, string)> StartSubscriptionPurchaseAsync(Guid userId, Guid planId, string successUrl, string canceledUrl)
         {
             var plan = await _subscriptionPlanService.GetByIdAsync(planId);
 
@@ -108,7 +107,7 @@ namespace BusinessLogic.Services
                 new ItemData(plan.Name, 1, (int)plan.Price)
             };
 
-            var paymentInfo = await _paymentService.CreatePaymentLinkAsync((int) plan.Price, $"QUL sub {plan.Name}", items);
+            var paymentInfo = await _paymentService.CreatePaymentLinkAsync((int) plan.Price, $"QUL sub {plan.Name}", items, successUrl, canceledUrl);
 
             if (paymentInfo == null)
                 return (-1, "");

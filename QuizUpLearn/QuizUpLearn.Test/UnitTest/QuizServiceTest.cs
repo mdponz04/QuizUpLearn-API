@@ -20,7 +20,6 @@ namespace QuizUpLearn.Test.UnitTest
         {
             _mockQuizRepo = new Mock<IQuizRepo>();
 
-            // Setup real AutoMapper with the actual mapping profile
             var mapperConfig = new MapperConfiguration(cfg =>
             {
                 cfg.AddProfile<MappingProfile>();
