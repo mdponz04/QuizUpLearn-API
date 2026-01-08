@@ -18,7 +18,7 @@ namespace QuizUpLearn.API.Controllers
             _paymentService = paymentService;
             _buySubscriptionService = buySubscriptionService;
         }
-        [HttpPost("create-payment")]
+        /*[HttpPost("create-payment")]
         [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<IActionResult> CreatePayment(int amount, string description)
         {
@@ -50,7 +50,7 @@ namespace QuizUpLearn.API.Controllers
                 return Ok(paymentInfo);
             }
             return NotFound("Payment request not found");
-        }
+        }*/
         [HttpPost("os/webhook")]
         [AllowAnonymous]
         public async Task<IActionResult> Webhook([FromBody] PayosWebhookDto payload)
