@@ -22,6 +22,10 @@ namespace BusinessLogic.Services
 
         public async Task<QuizResponseDto> CreateQuizAsync(QuizRequestDto quizDto)
         {
+            if(quizDto.QuestionText == null || quizDto.TOEICPart == null)
+            {
+                throw new ArgumentException("QuestionText and TOEICPart cannot be null");
+            }
             var quiz = _mapper.Map<Quiz>(quizDto);
             var createdQuiz = await _quizRepo.CreateQuizAsync(quiz);
             return _mapper.Map<QuizResponseDto>(createdQuiz);
@@ -29,6 +33,10 @@ namespace BusinessLogic.Services
 
         public async Task<QuizResponseDto> GetQuizByIdAsync(Guid id)
         {
+            if(id == Guid.Empty)
+            {
+                throw new ArgumentNullException("Quiz ID cannot be empty");
+            }
             var quiz = await _quizRepo.GetQuizByIdAsync(id);
             if (quiz == null) return null!;
             return _mapper.Map<QuizResponseDto>(quiz);
