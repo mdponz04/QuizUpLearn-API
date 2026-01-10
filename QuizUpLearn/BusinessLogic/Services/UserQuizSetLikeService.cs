@@ -69,7 +69,8 @@ namespace BusinessLogic.Services
             if (existing != null)
             {
                 // Remove like
-                return await _userQuizSetLikeRepo.HardDeleteAsync(existing.Id);
+                await _userQuizSetLikeRepo.HardDeleteAsync(existing.Id);
+                return true;
             }
             else
             {

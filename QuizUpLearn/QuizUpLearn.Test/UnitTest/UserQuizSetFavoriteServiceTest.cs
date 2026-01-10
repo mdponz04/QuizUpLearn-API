@@ -1,0 +1,478 @@
+using AutoMapper;
+using BusinessLogic.DTOs;
+using BusinessLogic.DTOs.UserQuizSetFavoriteDtos;
+using BusinessLogic.MappingProfile;
+using BusinessLogic.Services;
+using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
+using Repository.Entities;
+using Repository.Interfaces;
+
+namespace QuizUpLearn.Test.UnitTest
+{
+    public class UserQuizSetFavoriteServiceTest
+    {
+        private readonly Mock<IUserQuizSetFavoriteRepo> _mockUserQuizSetFavoriteRepo;
+        private readonly IMapper _mapper;
+        private readonly UserQuizSetFavoriteService _userQuizSetFavoriteService;
+
+        public UserQuizSetFavoriteServiceTest()
+        {
+            _mockUserQuizSetFavoriteRepo = new Mock<IUserQuizSetFavoriteRepo>();
+
+            // Setup real AutoMapper with the actual mapping profile
+            var mapperConfig = new MapperConfiguration(cfg =>
+            {
+                cfg.AddProfile<MappingProfile>();
+            }, new NullLoggerFactory());
+            _mapper = mapperConfig.CreateMapper();
+
+            _userQuizSetFavoriteService = new UserQuizSetFavoriteService(
+                _mockUserQuizSetFavoriteRepo.Object,
+                _mapper);
+        }
+
+        [Fact]
+        public async Task CreateAsync_WithValidData_ShouldReturnResponseDto()
+        {
+            // Arrange
+            var userId = Guid.NewGuid();
+            var quizSetId = Guid.NewGuid();
+            var requestDto = new RequestUserQuizSetFavoriteDto
+            {
+                UserId = userId,
+                QuizSetId = quizSetId
+            };
+
+            var createdEntity = new UserQuizSetFavorite
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                QuizSetId = quizSetId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.IsExistAsync(userId, quizSetId))
+                .ReturnsAsync(false);
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.CreateAsync(It.IsAny<UserQuizSetFavorite>()))
+                .ReturnsAsync(createdEntity);
+
+            // Act
+            var result = await _userQuizSetFavoriteService.CreateAsync(requestDto);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Id.Should().Be(createdEntity.Id);
+            result.UserId.Should().Be(userId);
+            result.QuizSetId.Should().Be(quizSetId);
+            result.CreatedAt.Should().Be(createdEntity.CreatedAt);
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.IsExistAsync(userId, quizSetId), Times.Once);
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.CreateAsync(It.Is<UserQuizSetFavorite>(e =>
+                e.UserId == userId && e.QuizSetId == quizSetId)), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetByIdAsync_WithExistingId_ShouldReturnResponseDto()
+        {
+            // Arrange
+            var favoriteId = Guid.NewGuid();
+            var userId = Guid.NewGuid();
+            var quizSetId = Guid.NewGuid();
+            
+            var entity = new UserQuizSetFavorite
+            {
+                Id = favoriteId,
+                UserId = userId,
+                QuizSetId = quizSetId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.GetByIdAsync(favoriteId))
+                .ReturnsAsync(entity);
+
+            // Act
+            var result = await _userQuizSetFavoriteService.GetByIdAsync(favoriteId);
+
+            // Assert
+            result.Should().NotBeNull();
+            result!.Id.Should().Be(favoriteId);
+            result.UserId.Should().Be(userId);
+            result.QuizSetId.Should().Be(quizSetId);
+            result.CreatedAt.Should().Be(entity.CreatedAt);
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.GetByIdAsync(favoriteId), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetByIdAsync_WithNonExistingId_ShouldReturnNull()
+        {
+            // Arrange
+            var favoriteId = Guid.NewGuid();
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.GetByIdAsync(favoriteId))
+                .ReturnsAsync((UserQuizSetFavorite?)null);
+
+            // Act
+            var result = await _userQuizSetFavoriteService.GetByIdAsync(favoriteId);
+
+            // Assert
+            result.Should().BeNull();
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.GetByIdAsync(favoriteId), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetAllAsync_WithValidPagination_ShouldReturnPaginatedResponse()
+        {
+            // Arrange
+            var pagination = new PaginationRequestDto
+            {
+                Page = 1,
+                PageSize = 10
+            };
+
+            var favorites = new List<UserQuizSetFavorite>
+            {
+                new UserQuizSetFavorite
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = Guid.NewGuid(),
+                    QuizSetId = Guid.NewGuid(),
+                    CreatedAt = DateTime.UtcNow.AddHours(1)
+                },
+                new UserQuizSetFavorite
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = Guid.NewGuid(),
+                    QuizSetId = Guid.NewGuid(),
+                    CreatedAt = DateTime.UtcNow.AddHours(2)
+                }
+            };
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.GetAllAsync(false))
+                .ReturnsAsync(favorites);
+
+            // Act
+            var result = await _userQuizSetFavoriteService.GetAllAsync(pagination, false);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Data.Should().HaveCount(2);
+            result.Pagination.TotalCount.Should().Be(2);
+            //Default order = descending CreatedAt
+            var expectedOrder = favorites.OrderByDescending(f => f.CreatedAt).ToList();
+            result.Data[0].Id.Should().Be(expectedOrder[0].Id);
+            result.Data[1].Id.Should().Be(expectedOrder[1].Id);
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.GetAllAsync(false), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetByUserIdAsync_WithValidUserId_ShouldReturnPaginatedResponse()
+        {
+            // Arrange
+            var userId = Guid.NewGuid();
+            var pagination = new PaginationRequestDto
+            {
+                Page = 1,
+                PageSize = 10
+            };
+
+            var favorites = new List<UserQuizSetFavorite>
+            {
+                new UserQuizSetFavorite
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    QuizSetId = Guid.NewGuid(),
+                    CreatedAt = DateTime.UtcNow.AddDays(-1)
+                }
+            };
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.GetByUserIdAsync(userId, false))
+                .ReturnsAsync(favorites);
+
+            // Act
+            var result = await _userQuizSetFavoriteService.GetByUserIdAsync(userId, pagination, false);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Data.Should().HaveCount(1);
+            result.Data[0].UserId.Should().Be(userId);
+            result.Pagination.TotalCount.Should().Be(1);
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.GetByUserIdAsync(userId, false), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetByQuizSetIdAsync_WithValidQuizSetId_ShouldReturnPaginatedResponse()
+        {
+            // Arrange
+            var quizSetId = Guid.NewGuid();
+            var pagination = new PaginationRequestDto
+            {
+                Page = 1,
+                PageSize = 10
+            };
+
+            var favorites = new List<UserQuizSetFavorite>
+            {
+                new UserQuizSetFavorite
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = Guid.NewGuid(),
+                    QuizSetId = quizSetId,
+                    CreatedAt = DateTime.UtcNow.AddDays(-1)
+                },
+                new UserQuizSetFavorite
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = Guid.NewGuid(),
+                    QuizSetId = quizSetId,
+                    CreatedAt = DateTime.UtcNow.AddDays(-2)
+                }
+            };
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.GetByQuizSetIdAsync(quizSetId, false))
+                .ReturnsAsync(favorites);
+
+            // Act
+            var result = await _userQuizSetFavoriteService.GetByQuizSetIdAsync(quizSetId, pagination, false);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Data.Should().HaveCount(2);
+            result.Data.Should().OnlyContain(f => f.QuizSetId == quizSetId);
+            result.Pagination.TotalCount.Should().Be(2);
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.GetByQuizSetIdAsync(quizSetId, false), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetByUserAndQuizSetAsync_WithExistingFavorite_ShouldReturnResponseDto()
+        {
+            // Arrange
+            var userId = Guid.NewGuid();
+            var quizSetId = Guid.NewGuid();
+            var favoriteId = Guid.NewGuid();
+
+            var favorite = new UserQuizSetFavorite
+            {
+                Id = favoriteId,
+                UserId = userId,
+                QuizSetId = quizSetId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.GetByUserAndQuizSetAsync(userId, quizSetId, false))
+                .ReturnsAsync(favorite);
+
+            // Act
+            var result = await _userQuizSetFavoriteService.GetByUserAndQuizSetAsync(userId, quizSetId, false);
+
+            // Assert
+            result.Should().NotBeNull();
+            result!.Id.Should().Be(favoriteId);
+            result.UserId.Should().Be(userId);
+            result.QuizSetId.Should().Be(quizSetId);
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.GetByUserAndQuizSetAsync(userId, quizSetId, false), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetByUserAndQuizSetAsync_WithNonExistingFavorite_ShouldReturnNull()
+        {
+            // Arrange
+            var userId = Guid.NewGuid();
+            var quizSetId = Guid.NewGuid();
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.GetByUserAndQuizSetAsync(userId, quizSetId, false))
+                .ReturnsAsync((UserQuizSetFavorite?)null);
+
+            // Act
+            var result = await _userQuizSetFavoriteService.GetByUserAndQuizSetAsync(userId, quizSetId, false);
+
+            // Assert
+            result.Should().BeNull();
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.GetByUserAndQuizSetAsync(userId, quizSetId, false), Times.Once);
+        }
+
+        [Fact]
+        public async Task ToggleFavoriteAsync_WhenFavoriteDoesNotExist_ShouldCreateFavoriteAndReturnTrue()
+        {
+            // Arrange
+            var userId = Guid.NewGuid();
+            var quizSetId = Guid.NewGuid();
+
+            var createdEntity = new UserQuizSetFavorite
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                QuizSetId = quizSetId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.GetByUserAndQuizSetAsync(userId, quizSetId, It.IsAny<bool>()))
+                .ReturnsAsync((UserQuizSetFavorite?)null);
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.CreateAsync(It.IsAny<UserQuizSetFavorite>()))
+                .ReturnsAsync(createdEntity);
+
+            // Act
+            var result = await _userQuizSetFavoriteService.ToggleFavoriteAsync(userId, quizSetId);
+
+            // Assert
+            result.Should().BeTrue();
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.GetByUserAndQuizSetAsync(userId, quizSetId, It.IsAny<bool>()), Times.Once);
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.CreateAsync(It.Is<UserQuizSetFavorite>(e =>
+                e.UserId == userId && e.QuizSetId == quizSetId)), Times.Once);
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.HardDeleteAsync(It.IsAny<Guid>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task ToggleFavoriteAsync_WhenFavoriteExists_ShouldRemoveFavoriteAndReturnTrue()
+        {
+            // Arrange
+            var userId = Guid.NewGuid();
+            var quizSetId = Guid.NewGuid();
+            var favoriteId = Guid.NewGuid();
+
+            var existingFavorite = new UserQuizSetFavorite
+            {
+                Id = favoriteId,
+                UserId = userId,
+                QuizSetId = quizSetId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.GetByUserAndQuizSetAsync(userId, quizSetId, It.IsAny<bool>()))
+                .ReturnsAsync(existingFavorite);
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.HardDeleteAsync(favoriteId))
+                .ReturnsAsync(true);
+
+            // Act
+            var result = await _userQuizSetFavoriteService.ToggleFavoriteAsync(userId, quizSetId);
+
+            // Assert
+            result.Should().BeTrue();
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.GetByUserAndQuizSetAsync(userId, quizSetId, It.IsAny<bool>()), Times.Once);
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.HardDeleteAsync(favoriteId), Times.Once);
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.CreateAsync(It.IsAny<UserQuizSetFavorite>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task HardDeleteAsync_WithExistingId_ShouldReturnTrue()
+        {
+            // Arrange
+            var favoriteId = Guid.NewGuid();
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.HardDeleteAsync(favoriteId))
+                .ReturnsAsync(true);
+
+            // Act
+            var result = await _userQuizSetFavoriteService.HardDeleteAsync(favoriteId);
+
+            // Assert
+            result.Should().BeTrue();
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.HardDeleteAsync(favoriteId), Times.Once);
+        }
+
+        [Fact]
+        public async Task HardDeleteAsync_WithNonExistingId_ShouldReturnFalse()
+        {
+            // Arrange
+            var favoriteId = Guid.NewGuid();
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.HardDeleteAsync(favoriteId))
+                .ReturnsAsync(false);
+
+            // Act
+            var result = await _userQuizSetFavoriteService.HardDeleteAsync(favoriteId);
+
+            // Assert
+            result.Should().BeFalse();
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.HardDeleteAsync(favoriteId), Times.Once);
+        }
+
+        [Fact]
+        public async Task IsExistAsync_WhenFavoriteExists_ShouldReturnTrue()
+        {
+            // Arrange
+            var userId = Guid.NewGuid();
+            var quizSetId = Guid.NewGuid();
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.IsExistAsync(userId, quizSetId))
+                .ReturnsAsync(true);
+
+            // Act
+            var result = await _userQuizSetFavoriteService.IsExistAsync(userId, quizSetId);
+
+            // Assert
+            result.Should().BeTrue();
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.IsExistAsync(userId, quizSetId), Times.Once);
+        }
+
+        [Fact]
+        public async Task IsExistAsync_WhenFavoriteDoesNotExist_ShouldReturnFalse()
+        {
+            // Arrange
+            var userId = Guid.NewGuid();
+            var quizSetId = Guid.NewGuid();
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.IsExistAsync(userId, quizSetId))
+                .ReturnsAsync(false);
+
+            // Act
+            var result = await _userQuizSetFavoriteService.IsExistAsync(userId, quizSetId);
+
+            // Assert
+            result.Should().BeFalse();
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.IsExistAsync(userId, quizSetId), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetFavoriteCountByQuizSetAsync_WithValidQuizSetId_ShouldReturnCount()
+        {
+            // Arrange
+            var quizSetId = Guid.NewGuid();
+            var expectedCount = 5;
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.GetFavoriteCountByQuizSetAsync(quizSetId))
+                .ReturnsAsync(expectedCount);
+
+            // Act
+            var result = await _userQuizSetFavoriteService.GetFavoriteCountByQuizSetAsync(quizSetId);
+
+            // Assert
+            result.Should().Be(expectedCount);
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.GetFavoriteCountByQuizSetAsync(quizSetId), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetFavoriteCountByQuizSetAsync_WithNoFavorites_ShouldReturnZero()
+        {
+            // Arrange
+            var quizSetId = Guid.NewGuid();
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.GetFavoriteCountByQuizSetAsync(quizSetId))
+                .ReturnsAsync(0);
+
+            // Act
+            var result = await _userQuizSetFavoriteService.GetFavoriteCountByQuizSetAsync(quizSetId);
+
+            // Assert
+            result.Should().Be(0);
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.GetFavoriteCountByQuizSetAsync(quizSetId), Times.Once);
+        }
+    }
+}

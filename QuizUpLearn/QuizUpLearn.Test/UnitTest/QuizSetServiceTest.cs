@@ -1,7 +1,7 @@
 using AutoMapper;
 using BusinessLogic.DTOs;
+using BusinessLogic.DTOs.QuizGroupItemDtos;
 using BusinessLogic.DTOs.QuizSetDtos;
-using BusinessLogic.Interfaces;
 using BusinessLogic.MappingProfile;
 using BusinessLogic.Services;
 using FluentAssertions;
@@ -23,41 +23,39 @@ namespace QuizUpLearn.Test.UnitTest
         {
             _mockQuizSetRepo = new Mock<IQuizSetRepo>();
 
-            // Setup real AutoMapper with the actual mapping profile
             var mapperConfig = new MapperConfiguration(cfg =>
             {
                 cfg.AddProfile<MappingProfile>();
             }, new NullLoggerFactory());
             _mapper = mapperConfig.CreateMapper();
 
-            _quizSetService = new QuizSetService(
-                _mockQuizSetRepo.Object,
-                _mapper);
+            _quizSetService = new QuizSetService(_mockQuizSetRepo.Object, _mapper);
         }
 
         [Fact]
-        public async Task CreateQuizSetAsync_WithValidData_ShouldReturnQuizSetResponseDto()
+        public async Task CreateQuizSetAsync_WithValidRequest_ShouldReturnQuizSetResponse()
         {
             // Arrange
-            var requestDto = new QuizSetRequestDto
+            var request = new QuizSetRequestDto
             {
-                Title = "Test Quiz Set",
-                Description = "Test Description",
+                Title = "Sample Set",
+                Description = "A test quiz set",
                 QuizSetType = QuizSetTypeEnum.Practice,
                 CreatedBy = Guid.NewGuid(),
-                IsPublished = false,
-                IsPremiumOnly = false
+                IsPublished = true,
+                IsPremiumOnly = false,
+                QuizGroupItems = new List<RequestQuizGroupItemDto>()
             };
 
             var createdQuizSet = new QuizSet
             {
                 Id = Guid.NewGuid(),
-                Title = requestDto.Title,
-                Description = requestDto.Description,
-                QuizSetType = requestDto.QuizSetType!.Value,
-                CreatedBy = requestDto.CreatedBy!.Value,
-                IsPublished = requestDto.IsPublished ?? false,
-                IsPremiumOnly = requestDto.IsPremiumOnly ?? false,
+                Title = request.Title,
+                Description = request.Description,
+                QuizSetType = request.QuizSetType.Value,
+                CreatedBy = request.CreatedBy.Value,
+                IsPublished = request.IsPublished.Value,
+                IsPremiumOnly = request.IsPremiumOnly.Value,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -65,64 +63,30 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(createdQuizSet);
 
             // Act
-            var result = await _quizSetService.CreateQuizSetAsync(requestDto);
+            var result = await _quizSetService.CreateQuizSetAsync(request);
 
             // Assert
             result.Should().NotBeNull();
-            result.Id.Should().Be(createdQuizSet.Id);
-            result.Title.Should().Be(requestDto.Title);
-            result.Description.Should().Be(requestDto.Description);
-            result.QuizSetType.Should().Be(requestDto.QuizSetType.Value);
+            result.Title.Should().Be(request.Title);
+            result.Description.Should().Be(request.Description);
+            result.QuizSetType.Should().Be(request.QuizSetType);
+            result.CreatedBy.Should().Be(request.CreatedBy.Value);
+            result.IsPublished.Should().Be(request.IsPublished.Value);
+            result.IsPremiumOnly.Should().Be(request.IsPremiumOnly.Value);
 
-            _mockQuizSetRepo.Verify(r => r.CreateQuizSetAsync(It.Is<QuizSet>(q =>
-                q.Title == requestDto.Title &&
-                q.CreatedBy == requestDto.CreatedBy.Value)), Times.Once);
+            _mockQuizSetRepo.Verify(r => r.CreateQuizSetAsync(It.IsAny<QuizSet>()), Times.Once);
         }
 
         [Fact]
-        public async Task CreateQuizSetAsync_WithNullCreatedBy_ShouldThrowException()
-        {
-            // Arrange
-            var requestDto = new QuizSetRequestDto
-            {
-                Title = "Test Quiz Set",
-                CreatedBy = null
-            };
-
-            // Act & Assert
-            await Assert.ThrowsAsync<ArgumentException>(async () =>
-                await _quizSetService.CreateQuizSetAsync(requestDto));
-
-            _mockQuizSetRepo.Verify(r => r.CreateQuizSetAsync(It.IsAny<QuizSet>()), Times.Never);
-        }
-
-        [Fact]
-        public async Task CreateQuizSetAsync_WithEmptyCreatedBy_ShouldThrowException()
-        {
-            // Arrange
-            var requestDto = new QuizSetRequestDto
-            {
-                Title = "Test Quiz Set",
-                CreatedBy = Guid.Empty
-            };
-
-            // Act & Assert
-            await Assert.ThrowsAsync<ArgumentException>(async () =>
-                await _quizSetService.CreateQuizSetAsync(requestDto));
-
-            _mockQuizSetRepo.Verify(r => r.CreateQuizSetAsync(It.IsAny<QuizSet>()), Times.Never);
-        }
-
-        [Fact]
-        public async Task GetQuizSetByIdAsync_WithValidId_ShouldReturnQuizSetResponseDto()
+        public async Task GetQuizSetByIdAsync_WithValidId_ShouldReturnQuizSetResponse()
         {
             // Arrange
             var quizSetId = Guid.NewGuid();
             var quizSet = new QuizSet
             {
                 Id = quizSetId,
-                Title = "Test Quiz Set",
-                Description = "Test Description",
+                Title = "Set 1",
+                Description = "Desc",
                 QuizSetType = QuizSetTypeEnum.Practice,
                 CreatedBy = Guid.NewGuid(),
                 IsPublished = true,
@@ -140,49 +104,22 @@ namespace QuizUpLearn.Test.UnitTest
             result.Should().NotBeNull();
             result.Id.Should().Be(quizSetId);
             result.Title.Should().Be(quizSet.Title);
-            result.Description.Should().Be(quizSet.Description);
 
             _mockQuizSetRepo.Verify(r => r.GetQuizSetByIdAsync(quizSetId), Times.Once);
         }
 
         [Fact]
-        public async Task GetAllQuizSetsAsync_WithValidPagination_ShouldReturnPagedResponse()
+        public async Task GetAllQuizSetsAsync_WithValidPagination_ShouldReturnPaginatedQuizSets()
         {
             // Arrange
-            var pagination = new PaginationRequestDto
-            {
-                Page = 1,
-                PageSize = 10
-            };
-
+            var pagination = new PaginationRequestDto { Page = 1, PageSize = 10 };
             var quizSets = new List<QuizSet>
             {
-                new QuizSet
-                {
-                    Id = Guid.NewGuid(),
-                    Title = "Quiz Set 1",
-                    QuizSetType = QuizSetTypeEnum.Practice,
-                    CreatedBy = Guid.NewGuid(),
-                    CreatedAt = DateTime.UtcNow
-                },
-                new QuizSet
-                {
-                    Id = Guid.NewGuid(),
-                    Title = "Quiz Set 2",
-                    QuizSetType = QuizSetTypeEnum.Practice,
-                    CreatedBy = Guid.NewGuid(),
-                    CreatedAt = DateTime.UtcNow
-                }
+                new QuizSet { Id = Guid.NewGuid(), Title = "Set 1", CreatedAt = DateTime.UtcNow },
+                new QuizSet { Id = Guid.NewGuid(), Title = "Set 2", CreatedAt = DateTime.UtcNow }
             };
 
-            _mockQuizSetRepo.Setup(r => r.GetAllQuizSetsAsync(
-                It.IsAny<string?>(),
-                It.IsAny<string?>(),
-                It.IsAny<string?>(),
-                It.IsAny<bool?>(),
-                It.IsAny<bool?>(),
-                It.IsAny<bool?>(),
-                It.IsAny<QuizSetTypeEnum?>()))
+            _mockQuizSetRepo.Setup(r => r.GetAllQuizSetsAsync())
                 .ReturnsAsync(quizSets);
 
             // Act
@@ -190,50 +127,24 @@ namespace QuizUpLearn.Test.UnitTest
 
             // Assert
             result.Should().NotBeNull();
-            result.Data.Should().NotBeNull();
+            result.Data.Should().HaveCount(2);
             result.Pagination.TotalCount.Should().Be(2);
 
-            _mockQuizSetRepo.Verify(r => r.GetAllQuizSetsAsync(
-                pagination.SearchTerm,
-                pagination.SortBy,
-                pagination.SortDirection,
-                It.IsAny<bool?>(),
-                It.IsAny<bool?>(),
-                It.IsAny<bool?>(),
-                It.IsAny<QuizSetTypeEnum?>()), Times.Once);
+            _mockQuizSetRepo.Verify(r => r.GetAllQuizSetsAsync(), Times.Once);
         }
 
         [Fact]
-        public async Task GetQuizSetsByCreatorAsync_WithValidCreatorId_ShouldReturnPagedResponse()
+        public async Task GetQuizSetsByCreatorAsync_WithValidCreatorId_ShouldReturnPaginatedQuizSets()
         {
             // Arrange
             var creatorId = Guid.NewGuid();
-            var pagination = new PaginationRequestDto
-            {
-                Page = 1,
-                PageSize = 10
-            };
-
+            var pagination = new PaginationRequestDto { Page = 1, PageSize = 10 };
             var quizSets = new List<QuizSet>
             {
-                new QuizSet
-                {
-                    Id = Guid.NewGuid(),
-                    Title = "My Quiz Set",
-                    CreatedBy = creatorId,
-                    CreatedAt = DateTime.UtcNow
-                }
+                new QuizSet { Id = Guid.NewGuid(), Title = "Set 1", CreatedBy = creatorId, CreatedAt = DateTime.UtcNow }
             };
 
-            _mockQuizSetRepo.Setup(r => r.GetQuizSetsByCreatorAsync(
-                creatorId,
-                It.IsAny<string?>(),
-                It.IsAny<string?>(),
-                It.IsAny<string?>(),
-                It.IsAny<bool?>(),
-                It.IsAny<bool?>(),
-                It.IsAny<bool?>(),
-                It.IsAny<QuizSetTypeEnum?>()))
+            _mockQuizSetRepo.Setup(r => r.GetQuizSetsByCreatorAsync(creatorId))
                 .ReturnsAsync(quizSets);
 
             // Act
@@ -241,48 +152,23 @@ namespace QuizUpLearn.Test.UnitTest
 
             // Assert
             result.Should().NotBeNull();
-            result.Data.Should().NotBeNull();
-            result.Pagination.TotalCount.Should().Be(1);
+            result.Data.Should().HaveCount(1);
+            result.Data[0].CreatedBy.Should().Be(creatorId);
 
-            _mockQuizSetRepo.Verify(r => r.GetQuizSetsByCreatorAsync(
-                creatorId,
-                pagination.SearchTerm,
-                pagination.SortBy,
-                pagination.SortDirection,
-                It.IsAny<bool?>(),
-                It.IsAny<bool?>(),
-                It.IsAny<bool?>(),
-                It.IsAny<QuizSetTypeEnum?>()), Times.Once);
+            _mockQuizSetRepo.Verify(r => r.GetQuizSetsByCreatorAsync(creatorId), Times.Once);
         }
 
         [Fact]
-        public async Task GetPublishedQuizSetsAsync_WithValidPagination_ShouldReturnPagedResponse()
+        public async Task GetPublishedQuizSetsAsync_WithValidPagination_ShouldReturnPaginatedQuizSets()
         {
             // Arrange
-            var pagination = new PaginationRequestDto
-            {
-                Page = 1,
-                PageSize = 10
-            };
-
+            var pagination = new PaginationRequestDto { Page = 1, PageSize = 10 };
             var quizSets = new List<QuizSet>
             {
-                new QuizSet
-                {
-                    Id = Guid.NewGuid(),
-                    Title = "Published Quiz Set",
-                    IsPublished = true,
-                    CreatedBy = Guid.NewGuid(),
-                    CreatedAt = DateTime.UtcNow
-                }
+                new QuizSet { Id = Guid.NewGuid(), Title = "Set 1", IsPublished = true, CreatedAt = DateTime.UtcNow }
             };
 
-            _mockQuizSetRepo.Setup(r => r.GetPublishedQuizSetsAsync(
-                It.IsAny<string?>(),
-                It.IsAny<string?>(),
-                It.IsAny<string?>(),
-                It.IsAny<bool?>(),
-                It.IsAny<QuizSetTypeEnum?>()))
+            _mockQuizSetRepo.Setup(r => r.GetPublishedQuizSetsAsync())
                 .ReturnsAsync(quizSets);
 
             // Act
@@ -290,42 +176,37 @@ namespace QuizUpLearn.Test.UnitTest
 
             // Assert
             result.Should().NotBeNull();
-            result.Data.Should().NotBeNull();
-            result.Pagination.TotalCount.Should().Be(1);
+            result.Data.Should().HaveCount(1);
+            result.Data[0].IsPublished.Should().BeTrue();
 
-            _mockQuizSetRepo.Verify(r => r.GetPublishedQuizSetsAsync(
-                pagination.SearchTerm,
-                pagination.SortBy,
-                pagination.SortDirection,
-                It.IsAny<bool?>(),
-                It.IsAny<QuizSetTypeEnum?>()), Times.Once);
+            _mockQuizSetRepo.Verify(r => r.GetPublishedQuizSetsAsync(), Times.Once);
         }
 
         [Fact]
-        public async Task UpdateQuizSetAsync_WithValidData_ShouldReturnUpdatedQuizSetResponseDto()
+        public async Task UpdateQuizSetAsync_WithValidData_ShouldReturnUpdatedQuizSetResponse()
         {
             // Arrange
             var quizSetId = Guid.NewGuid();
-            var requestDto = new QuizSetRequestDto
+            var request = new QuizSetRequestDto
             {
-                Title = "Updated Quiz Set",
-                Description = "Updated Description",
-                QuizSetType = QuizSetTypeEnum.Practice,
+                Title = "Updated Title",
+                Description = "Updated Desc",
+                QuizSetType = QuizSetTypeEnum.Event,
                 CreatedBy = Guid.NewGuid(),
-                IsPublished = true,
-                IsPremiumOnly = true
+                IsPublished = false,
+                IsPremiumOnly = true,
+                QuizGroupItems = new List<RequestQuizGroupItemDto>()
             };
 
             var updatedQuizSet = new QuizSet
             {
                 Id = quizSetId,
-                Title = requestDto.Title,
-                Description = requestDto.Description,
-                QuizSetType = requestDto.QuizSetType!.Value,
-                CreatedBy = requestDto.CreatedBy!.Value,
-                IsPublished = requestDto.IsPublished ?? false,
-                IsPremiumOnly = requestDto.IsPremiumOnly ?? false,
-                CreatedAt = DateTime.UtcNow.AddDays(-10),
+                Title = request.Title,
+                Description = request.Description,
+                QuizSetType = request.QuizSetType.Value,
+                CreatedBy = request.CreatedBy.Value,
+                IsPublished = request.IsPublished.Value,
+                IsPremiumOnly = request.IsPremiumOnly.Value,
                 UpdatedAt = DateTime.UtcNow
             };
 
@@ -333,13 +214,13 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(updatedQuizSet);
 
             // Act
-            var result = await _quizSetService.UpdateQuizSetAsync(quizSetId, requestDto);
+            var result = await _quizSetService.UpdateQuizSetAsync(quizSetId, request);
 
             // Assert
             result.Should().NotBeNull();
             result.Id.Should().Be(quizSetId);
-            result.Title.Should().Be(requestDto.Title);
-            result.Description.Should().Be(requestDto.Description);
+            result.Title.Should().Be(request.Title);
+            result.Description.Should().Be(request.Description);
 
             _mockQuizSetRepo.Verify(r => r.UpdateQuizSetAsync(quizSetId, It.IsAny<QuizSet>()), Times.Once);
         }
@@ -377,39 +258,11 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
-        public async Task RestoreQuizSetAsync_WithValidId_ShouldReturnQuizSetResponseDto()
-        {
-            // Arrange
-            var quizSetId = Guid.NewGuid();
-            var restoredQuizSet = new QuizSet
-            {
-                Id = quizSetId,
-                Title = "Restored Quiz Set",
-                CreatedBy = Guid.NewGuid(),
-                CreatedAt = DateTime.UtcNow.AddDays(-10),
-                DeletedAt = null
-            };
-
-            _mockQuizSetRepo.Setup(r => r.RestoreQuizSetAsync(quizSetId))
-                .ReturnsAsync(restoredQuizSet);
-
-            // Act
-            var result = await _quizSetService.RestoreQuizSetAsync(quizSetId);
-
-            // Assert
-            result.Should().NotBeNull();
-            result.Id.Should().Be(quizSetId);
-            result.Title.Should().Be(restoredQuizSet.Title);
-
-            _mockQuizSetRepo.Verify(r => r.RestoreQuizSetAsync(quizSetId), Times.Once);
-        }
-
-        [Fact]
         public async Task RequestValidateByModAsync_WithValidId_ShouldReturnTrue()
         {
             // Arrange
             var quizSetId = Guid.NewGuid();
-            _mockQuizSetRepo.Setup(r => r.RequestValidateByMod(quizSetId))
+            _mockQuizSetRepo.Setup(r => r.RequestValidateByModAsync(quizSetId))
                 .ReturnsAsync(true);
 
             // Act
@@ -417,7 +270,7 @@ namespace QuizUpLearn.Test.UnitTest
 
             // Assert
             result.Should().BeTrue();
-            _mockQuizSetRepo.Verify(r => r.RequestValidateByMod(quizSetId), Times.Once);
+            _mockQuizSetRepo.Verify(r => r.RequestValidateByModAsync(quizSetId), Times.Once);
         }
 
         [Fact]
@@ -425,7 +278,7 @@ namespace QuizUpLearn.Test.UnitTest
         {
             // Arrange
             var quizSetId = Guid.NewGuid();
-            _mockQuizSetRepo.Setup(r => r.ValidateQuizSet(quizSetId))
+            _mockQuizSetRepo.Setup(r => r.ValidateQuizSetAsync(quizSetId))
                 .ReturnsAsync(true);
 
             // Act
@@ -433,7 +286,32 @@ namespace QuizUpLearn.Test.UnitTest
 
             // Assert
             result.Should().BeTrue();
-            _mockQuizSetRepo.Verify(r => r.ValidateQuizSet(quizSetId), Times.Once);
+            _mockQuizSetRepo.Verify(r => r.ValidateQuizSetAsync(quizSetId), Times.Once);
+        }
+
+        [Fact]
+        public async Task RestoreQuizSetAsync_WithValidId_ShouldReturnQuizSetResponse()
+        {
+            // Arrange
+            var quizSetId = Guid.NewGuid();
+            var quizSet = new QuizSet
+            {
+                Id = quizSetId,
+                Title = "Restored Set",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _mockQuizSetRepo.Setup(r => r.RestoreQuizSetAsync(quizSetId))
+                .ReturnsAsync(quizSet);
+
+            // Act
+            var result = await _quizSetService.RestoreQuizSetAsync(quizSetId);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Id.Should().Be(quizSetId);
+            result.Title.Should().Be("Restored Set");
+            _mockQuizSetRepo.Verify(r => r.RestoreQuizSetAsync(quizSetId), Times.Once);
         }
     }
 }

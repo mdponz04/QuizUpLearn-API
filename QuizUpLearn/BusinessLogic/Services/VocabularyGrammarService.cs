@@ -34,7 +34,8 @@ namespace BusinessLogic.Services
             {
                 string part = $"PART{i}";
                 var vocabsByPart = allVocabs
-                    .Where(v => v.ToeicPart == i.ToString())
+                    .Where(v => string.Equals(v.ToeicPart, part, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(v.ToeicPart, i.ToString(), StringComparison.OrdinalIgnoreCase))
                     .ToList();
 
                 foreach (var vocab in vocabsByPart)
@@ -156,7 +157,13 @@ namespace BusinessLogic.Services
         {
             if(part != null)
             {
-                list = list.Where(gv => gv.Part != null && gv.Part.Contains(part)).ToList();
+                var normalizedFilterPart = part.StartsWith("PART", StringComparison.OrdinalIgnoreCase) 
+                    ? part.ToUpper() 
+                    : $"PART{part}";
+                
+                list = list.Where(gv => gv.Part != null && 
+                                        gv.Part.Equals(normalizedFilterPart, StringComparison.OrdinalIgnoreCase))
+                          .ToList();
             }
 
             return list;

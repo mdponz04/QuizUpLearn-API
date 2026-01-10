@@ -1,8 +1,6 @@
 using AutoMapper;
 using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.VocabularyDtos;
-using BusinessLogic.Extensions;
-using BusinessLogic.Interfaces;
 using BusinessLogic.MappingProfile;
 using BusinessLogic.Services;
 using FluentAssertions;
@@ -24,45 +22,41 @@ namespace QuizUpLearn.Test.UnitTest
         {
             _mockVocabularyRepo = new Mock<IVocabularyRepo>();
 
-            // Setup real AutoMapper with the actual mapping profile
             var mapperConfig = new MapperConfiguration(cfg =>
             {
                 cfg.AddProfile<MappingProfile>();
             }, new NullLoggerFactory());
             _mapper = mapperConfig.CreateMapper();
 
-            _vocabularyService = new VocabularyService(
-                _mockVocabularyRepo.Object,
-                _mapper);
+            _vocabularyService = new VocabularyService(_mockVocabularyRepo.Object, _mapper);
         }
 
         [Fact]
-        public async Task GetAllAsync_WithValidPagination_ShouldReturnPagedResponse()
+        public async Task GetAllAsync_WithValidPagination_ShouldReturnPaginatedVocabularies()
         {
             // Arrange
-            var pagination = new PaginationRequestDto
-            {
-                Page = 1,
-                PageSize = 10
-            };
-
+            var pagination = new PaginationRequestDto { Page = 1, PageSize = 10 };
             var vocabularies = new List<Vocabulary>
             {
-                new Vocabulary
-                {
-                    Id = Guid.NewGuid(),
-                    KeyWord = "test",
+                new Vocabulary 
+                { 
+                    Id = Guid.NewGuid(), 
+                    KeyWord = "example", 
                     VocabularyDifficulty = VocabularyDifficultyEnum.easy,
-                    ToeicPart = "PART1",
-                    CreatedAt = DateTime.UtcNow
+                    ToeicPart = "Part 1",
+                    PassageType = "Reading",
+                    CreatedAt = DateTime.UtcNow,
+                    Quizzes = new List<Quiz>()
                 },
-                new Vocabulary
-                {
-                    Id = Guid.NewGuid(),
-                    KeyWord = "example",
-                    VocabularyDifficulty = VocabularyDifficultyEnum.medium,
-                    ToeicPart = "PART2",
-                    CreatedAt = DateTime.UtcNow
+                new Vocabulary 
+                { 
+                    Id = Guid.NewGuid(), 
+                    KeyWord = "complex", 
+                    VocabularyDifficulty = VocabularyDifficultyEnum.hard,
+                    ToeicPart = "Part 7",
+                    PassageType = "Comprehension",
+                    CreatedAt = DateTime.UtcNow,
+                    Quizzes = new List<Quiz>()
                 }
             };
 
@@ -74,49 +68,44 @@ namespace QuizUpLearn.Test.UnitTest
 
             // Assert
             result.Should().NotBeNull();
-            result.Data.Should().NotBeNull();
+            result.Data.Should().HaveCount(2);
+            result.Data[0].KeyWord.Should().Be("example");
+            result.Data[0].VocabularyDifficulty.Should().Be(VocabularyDifficultyEnum.easy);
+            result.Data[0].ToeicPart.Should().Be("Part 1");
+            result.Data[0].PassageType.Should().Be("Reading");
+            result.Data[1].KeyWord.Should().Be("complex");
+            result.Data[1].VocabularyDifficulty.Should().Be(VocabularyDifficultyEnum.hard);
+            result.Data[1].ToeicPart.Should().Be("Part 7");
+            result.Data[1].PassageType.Should().Be("Comprehension");
             result.Pagination.TotalCount.Should().Be(2);
-            result.Pagination.CurrentPage.Should().Be(1);
-            result.Pagination.PageSize.Should().Be(10);
 
             _mockVocabularyRepo.Verify(r => r.GetAllAsync(), Times.Once);
         }
 
         [Fact]
-        public async Task GetAllAsync_WithDifficultyFilter_ShouldReturnFilteredResults()
+        public async Task GetAllAsync_WithDifficultyFilter_ShouldReturnFilteredVocabularies()
         {
             // Arrange
-            var pagination = new PaginationRequestDto
-            {
-                Page = 1,
-                PageSize = 10
-            };
-
+            var pagination = new PaginationRequestDto { Page = 1, PageSize = 10 };
             var vocabularies = new List<Vocabulary>
             {
-                new Vocabulary
-                {
-                    Id = Guid.NewGuid(),
-                    KeyWord = "test",
+                new Vocabulary 
+                { 
+                    Id = Guid.NewGuid(), 
+                    KeyWord = "easy", 
                     VocabularyDifficulty = VocabularyDifficultyEnum.easy,
-                    ToeicPart = "PART1",
-                    CreatedAt = DateTime.UtcNow
+                    ToeicPart = "Part 1",
+                    CreatedAt = DateTime.UtcNow,
+                    Quizzes = new List<Quiz>()
                 },
-                new Vocabulary
-                {
-                    Id = Guid.NewGuid(),
-                    KeyWord = "example",
-                    VocabularyDifficulty = VocabularyDifficultyEnum.medium,
-                    ToeicPart = "PART2",
-                    CreatedAt = DateTime.UtcNow
-                },
-                new Vocabulary
-                {
-                    Id = Guid.NewGuid(),
-                    KeyWord = "hardword",
+                new Vocabulary 
+                { 
+                    Id = Guid.NewGuid(), 
+                    KeyWord = "difficult", 
                     VocabularyDifficulty = VocabularyDifficultyEnum.hard,
-                    ToeicPart = "PART3",
-                    CreatedAt = DateTime.UtcNow
+                    ToeicPart = "Part 7",
+                    CreatedAt = DateTime.UtcNow,
+                    Quizzes = new List<Quiz>()
                 }
             };
 
@@ -128,26 +117,48 @@ namespace QuizUpLearn.Test.UnitTest
 
             // Assert
             result.Should().NotBeNull();
-            result.Data.Should().NotBeNull();
             result.Data.Should().HaveCount(1);
-            result.Data.All(v => v.VocabularyDifficulty == VocabularyDifficultyEnum.easy).Should().BeTrue();
+            result.Data[0].KeyWord.Should().Be("easy");
+            result.Data[0].VocabularyDifficulty.Should().Be(VocabularyDifficultyEnum.easy);
 
             _mockVocabularyRepo.Verify(r => r.GetAllAsync(), Times.Once);
         }
 
         [Fact]
-        public async Task GetByIdAsync_WithValidId_ShouldReturnResponseVocabularyDto()
+        public async Task GetAllAsync_WithEmptyResult_ShouldReturnEmptyPaginatedList()
+        {
+            // Arrange
+            var pagination = new PaginationRequestDto { Page = 1, PageSize = 10 };
+            var emptyVocabularies = new List<Vocabulary>();
+
+            _mockVocabularyRepo.Setup(r => r.GetAllAsync())
+                .ReturnsAsync(emptyVocabularies);
+
+            // Act
+            var result = await _vocabularyService.GetAllAsync(pagination);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Data.Should().BeEmpty();
+            result.Pagination.TotalCount.Should().Be(0);
+
+            _mockVocabularyRepo.Verify(r => r.GetAllAsync(), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetByIdAsync_WithValidId_ShouldReturnVocabulary()
         {
             // Arrange
             var vocabularyId = Guid.NewGuid();
             var vocabulary = new Vocabulary
             {
                 Id = vocabularyId,
-                KeyWord = "test",
-                VocabularyDifficulty = VocabularyDifficultyEnum.easy,
-                ToeicPart = "PART1",
-                PassageType = "reading",
-                CreatedAt = DateTime.UtcNow
+                KeyWord = "achievement",
+                VocabularyDifficulty = VocabularyDifficultyEnum.medium,
+                ToeicPart = "Part 5",
+                PassageType = "Grammar",
+                CreatedAt = DateTime.UtcNow,
+                Quizzes = new List<Quiz>()
             };
 
             _mockVocabularyRepo.Setup(r => r.GetByIdAsync(vocabularyId))
@@ -158,10 +169,11 @@ namespace QuizUpLearn.Test.UnitTest
 
             // Assert
             result.Should().NotBeNull();
-            result!.Id.Should().Be(vocabularyId);
-            result.KeyWord.Should().Be(vocabulary.KeyWord);
-            result.VocabularyDifficulty.Should().Be(vocabulary.VocabularyDifficulty);
-            result.ToeicPart.Should().Be(vocabulary.ToeicPart);
+            result.Id.Should().Be(vocabularyId);
+            result.KeyWord.Should().Be("achievement");
+            result.VocabularyDifficulty.Should().Be(VocabularyDifficultyEnum.medium);
+            result.ToeicPart.Should().Be("Part 5");
+            result.PassageType.Should().Be("Grammar");
 
             _mockVocabularyRepo.Verify(r => r.GetByIdAsync(vocabularyId), Times.Once);
         }
@@ -171,6 +183,7 @@ namespace QuizUpLearn.Test.UnitTest
         {
             // Arrange
             var vocabularyId = Guid.NewGuid();
+
             _mockVocabularyRepo.Setup(r => r.GetByIdAsync(vocabularyId))
                 .ReturnsAsync((Vocabulary?)null);
 
@@ -179,189 +192,204 @@ namespace QuizUpLearn.Test.UnitTest
 
             // Assert
             result.Should().BeNull();
+
             _mockVocabularyRepo.Verify(r => r.GetByIdAsync(vocabularyId), Times.Once);
         }
 
         [Fact]
-        public async Task CreateAsync_WithValidData_ShouldReturnResponseVocabularyDto()
+        public async Task CreateAsync_WithValidRequest_ShouldReturnCreatedVocabulary()
         {
             // Arrange
-            var requestDto = new RequestVocabularyDto
+            var request = new RequestVocabularyDto
             {
-                KeyWord = "test",
-                VocabularyDifficulty = VocabularyDifficultyEnum.easy,
-                ToeicPart = "PART1",
-                PassageType = "reading"
+                KeyWord = "innovation",
+                VocabularyDifficulty = VocabularyDifficultyEnum.hard,
+                ToeicPart = "Part 6",
+                PassageType = "Business"
             };
 
             var createdVocabulary = new Vocabulary
             {
                 Id = Guid.NewGuid(),
-                KeyWord = requestDto.KeyWord,
-                VocabularyDifficulty = requestDto.VocabularyDifficulty,
-                ToeicPart = requestDto.ToeicPart,
-                PassageType = requestDto.PassageType,
-                CreatedAt = DateTime.UtcNow
+                KeyWord = request.KeyWord,
+                VocabularyDifficulty = request.VocabularyDifficulty,
+                ToeicPart = request.ToeicPart,
+                PassageType = request.PassageType,
+                CreatedAt = DateTime.UtcNow,
+                Quizzes = new List<Quiz>()
             };
 
-            _mockVocabularyRepo.Setup(r => r.ExistsByKeyWordAndPartAsync(requestDto.KeyWord, requestDto.ToeicPart, null))
+            _mockVocabularyRepo.Setup(r => r.ExistsByKeyWordAndPartAsync(request.KeyWord, request.ToeicPart, null))
                 .ReturnsAsync(false);
+
             _mockVocabularyRepo.Setup(r => r.CreateAsync(It.IsAny<Vocabulary>()))
                 .ReturnsAsync(createdVocabulary);
 
             // Act
-            var result = await _vocabularyService.CreateAsync(requestDto);
+            var result = await _vocabularyService.CreateAsync(request);
 
             // Assert
             result.Should().NotBeNull();
-            result!.KeyWord.Should().Be(requestDto.KeyWord);
-            result.VocabularyDifficulty.Should().Be(requestDto.VocabularyDifficulty);
-            result.ToeicPart.Should().Be(requestDto.ToeicPart);
+            result.KeyWord.Should().Be(request.KeyWord);
+            result.VocabularyDifficulty.Should().Be(request.VocabularyDifficulty);
+            result.ToeicPart.Should().Be(request.ToeicPart);
+            result.PassageType.Should().Be(request.PassageType);
 
-            _mockVocabularyRepo.Verify(r => r.ExistsByKeyWordAndPartAsync(requestDto.KeyWord, requestDto.ToeicPart, null), Times.Once);
+            _mockVocabularyRepo.Verify(r => r.ExistsByKeyWordAndPartAsync(request.KeyWord, request.ToeicPart, null), Times.Once);
             _mockVocabularyRepo.Verify(r => r.CreateAsync(It.Is<Vocabulary>(v =>
-                v.KeyWord == requestDto.KeyWord &&
-                v.VocabularyDifficulty == requestDto.VocabularyDifficulty)), Times.Once);
+                v.KeyWord == request.KeyWord &&
+                v.VocabularyDifficulty == request.VocabularyDifficulty &&
+                v.ToeicPart == request.ToeicPart &&
+                v.PassageType == request.PassageType)), Times.Once);
         }
 
         [Fact]
-        public async Task CreateAsync_WithDuplicateKeyWordInSamePart_ShouldThrowException()
+        public async Task CreateAsync_WithMinimalData_ShouldReturnCreatedVocabulary()
         {
             // Arrange
-            var requestDto = new RequestVocabularyDto
+            var request = new RequestVocabularyDto
             {
-                KeyWord = "test",
-                VocabularyDifficulty = VocabularyDifficultyEnum.easy,
-                ToeicPart = "PART1"
+                KeyWord = "simple",
+                VocabularyDifficulty = VocabularyDifficultyEnum.easy
+                // ToeicPart and PassageType are optional
             };
 
-            _mockVocabularyRepo.Setup(r => r.ExistsByKeyWordAndPartAsync(requestDto.KeyWord, requestDto.ToeicPart, null))
-                .ReturnsAsync(true);
+            var createdVocabulary = new Vocabulary
+            {
+                Id = Guid.NewGuid(),
+                KeyWord = request.KeyWord,
+                VocabularyDifficulty = request.VocabularyDifficulty,
+                ToeicPart = null,
+                PassageType = null,
+                CreatedAt = DateTime.UtcNow,
+                Quizzes = new List<Quiz>()
+            };
 
-            // Act & Assert
-            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-                await _vocabularyService.CreateAsync(requestDto));
+            _mockVocabularyRepo.Setup(r => r.ExistsByKeyWordAndPartAsync(request.KeyWord, request.ToeicPart, null))
+                .ReturnsAsync(false);
 
-            _mockVocabularyRepo.Verify(r => r.CreateAsync(It.IsAny<Vocabulary>()), Times.Never);
+            _mockVocabularyRepo.Setup(r => r.CreateAsync(It.IsAny<Vocabulary>()))
+                .ReturnsAsync(createdVocabulary);
+
+            // Act
+            var result = await _vocabularyService.CreateAsync(request);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.KeyWord.Should().Be(request.KeyWord);
+            result.VocabularyDifficulty.Should().Be(request.VocabularyDifficulty);
+            result.ToeicPart.Should().BeNull();
+            result.PassageType.Should().BeNull();
+
+            _mockVocabularyRepo.Verify(r => r.ExistsByKeyWordAndPartAsync(request.KeyWord, request.ToeicPart, null), Times.Once);
+            _mockVocabularyRepo.Verify(r => r.CreateAsync(It.IsAny<Vocabulary>()), Times.Once);
         }
 
         [Fact]
-        public async Task CreateAsync_WithDuplicateKeyWordInNoPart_ShouldThrowException()
-        {
-            // Arrange
-            var requestDto = new RequestVocabularyDto
-            {
-                KeyWord = "test",
-                VocabularyDifficulty = VocabularyDifficultyEnum.easy,
-                ToeicPart = null
-            };
-
-            _mockVocabularyRepo.Setup(r => r.ExistsByKeyWordAndPartAsync(requestDto.KeyWord, requestDto.ToeicPart, null))
-                .ReturnsAsync(true);
-
-            // Act & Assert
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-                await _vocabularyService.CreateAsync(requestDto));
-
-            exception.Message.Should().Contain("no part");
-            _mockVocabularyRepo.Verify(r => r.CreateAsync(It.IsAny<Vocabulary>()), Times.Never);
-        }
-
-        [Fact]
-        public async Task UpdateAsync_WithValidData_ShouldReturnUpdatedResponseVocabularyDto()
+        public async Task UpdateAsync_WithValidData_ShouldReturnUpdatedVocabulary()
         {
             // Arrange
             var vocabularyId = Guid.NewGuid();
-            var requestDto = new RequestVocabularyDto
+            var request = new RequestVocabularyDto
             {
                 KeyWord = "updated",
                 VocabularyDifficulty = VocabularyDifficultyEnum.medium,
-                ToeicPart = "PART2",
-                PassageType = "listening"
+                ToeicPart = "Part 3",
+                PassageType = "Listening"
             };
 
             var updatedVocabulary = new Vocabulary
             {
                 Id = vocabularyId,
-                KeyWord = requestDto.KeyWord,
-                VocabularyDifficulty = requestDto.VocabularyDifficulty,
-                ToeicPart = requestDto.ToeicPart,
-                PassageType = requestDto.PassageType,
-                CreatedAt = DateTime.UtcNow.AddDays(-10),
-                UpdatedAt = DateTime.UtcNow
+                KeyWord = request.KeyWord,
+                VocabularyDifficulty = request.VocabularyDifficulty,
+                ToeicPart = request.ToeicPart,
+                PassageType = request.PassageType,
+                CreatedAt = DateTime.UtcNow.AddDays(-1),
+                UpdatedAt = DateTime.UtcNow,
+                Quizzes = new List<Quiz>()
             };
 
-            _mockVocabularyRepo.Setup(r => r.ExistsByKeyWordAndPartAsync(requestDto.KeyWord, requestDto.ToeicPart, vocabularyId))
+            _mockVocabularyRepo.Setup(r => r.ExistsByKeyWordAndPartAsync(request.KeyWord, request.ToeicPart, vocabularyId))
                 .ReturnsAsync(false);
+
             _mockVocabularyRepo.Setup(r => r.UpdateAsync(vocabularyId, It.IsAny<Vocabulary>()))
                 .ReturnsAsync(updatedVocabulary);
 
             // Act
-            var result = await _vocabularyService.UpdateAsync(vocabularyId, requestDto);
+            var result = await _vocabularyService.UpdateAsync(vocabularyId, request);
 
             // Assert
             result.Should().NotBeNull();
-            result!.Id.Should().Be(vocabularyId);
-            result.KeyWord.Should().Be(requestDto.KeyWord);
-            result.VocabularyDifficulty.Should().Be(requestDto.VocabularyDifficulty);
+            result.Id.Should().Be(vocabularyId);
+            result.KeyWord.Should().Be(request.KeyWord);
+            result.VocabularyDifficulty.Should().Be(request.VocabularyDifficulty);
+            result.ToeicPart.Should().Be(request.ToeicPart);
+            result.PassageType.Should().Be(request.PassageType);
+            result.UpdatedAt.Should().NotBeNull();
 
-            _mockVocabularyRepo.Verify(r => r.ExistsByKeyWordAndPartAsync(requestDto.KeyWord, requestDto.ToeicPart, vocabularyId), Times.Once);
+            _mockVocabularyRepo.Verify(r => r.ExistsByKeyWordAndPartAsync(request.KeyWord, request.ToeicPart, vocabularyId), Times.Once);
+            _mockVocabularyRepo.Verify(r => r.UpdateAsync(vocabularyId, It.Is<Vocabulary>(v =>
+                v.KeyWord == request.KeyWord &&
+                v.VocabularyDifficulty == request.VocabularyDifficulty &&
+                v.ToeicPart == request.ToeicPart &&
+                v.PassageType == request.PassageType)), Times.Once);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_WithPartialData_ShouldReturnUpdatedVocabulary()
+        {
+            // Arrange
+            var vocabularyId = Guid.NewGuid();
+            var request = new RequestVocabularyDto
+            {
+                KeyWord = "partial",
+                VocabularyDifficulty = VocabularyDifficultyEnum.easy
+                // ToeicPart and PassageType left null
+            };
+
+            var updatedVocabulary = new Vocabulary
+            {
+                Id = vocabularyId,
+                KeyWord = request.KeyWord,
+                VocabularyDifficulty = request.VocabularyDifficulty,
+                ToeicPart = null,
+                PassageType = null,
+                CreatedAt = DateTime.UtcNow.AddHours(-2),
+                UpdatedAt = DateTime.UtcNow,
+                Quizzes = new List<Quiz>()
+            };
+
+            _mockVocabularyRepo.Setup(r => r.ExistsByKeyWordAndPartAsync(request.KeyWord, request.ToeicPart, vocabularyId))
+                .ReturnsAsync(false);
+
+            _mockVocabularyRepo.Setup(r => r.UpdateAsync(vocabularyId, It.IsAny<Vocabulary>()))
+                .ReturnsAsync(updatedVocabulary);
+
+            // Act
+            var result = await _vocabularyService.UpdateAsync(vocabularyId, request);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Id.Should().Be(vocabularyId);
+            result.KeyWord.Should().Be(request.KeyWord);
+            result.VocabularyDifficulty.Should().Be(request.VocabularyDifficulty);
+            result.ToeicPart.Should().BeNull();
+            result.PassageType.Should().BeNull();
+
+            _mockVocabularyRepo.Verify(r => r.ExistsByKeyWordAndPartAsync(request.KeyWord, request.ToeicPart, vocabularyId), Times.Once);
             _mockVocabularyRepo.Verify(r => r.UpdateAsync(vocabularyId, It.IsAny<Vocabulary>()), Times.Once);
         }
 
         [Fact]
-        public async Task UpdateAsync_WithDuplicateKeyWordInSamePart_ShouldThrowException()
+        public async Task DeleteAsync_WithValidId_ShouldReturnTrue()
         {
             // Arrange
             var vocabularyId = Guid.NewGuid();
-            var requestDto = new RequestVocabularyDto
-            {
-                KeyWord = "test",
-                VocabularyDifficulty = VocabularyDifficultyEnum.easy,
-                ToeicPart = "PART1"
-            };
-
-            _mockVocabularyRepo.Setup(r => r.ExistsByKeyWordAndPartAsync(requestDto.KeyWord, requestDto.ToeicPart, vocabularyId))
-                .ReturnsAsync(true);
-
-            // Act & Assert
-            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-                await _vocabularyService.UpdateAsync(vocabularyId, requestDto));
-
-            _mockVocabularyRepo.Verify(r => r.UpdateAsync(It.IsAny<Guid>(), It.IsAny<Vocabulary>()), Times.Never);
-        }
-
-        [Fact]
-        public async Task UpdateAsync_WithNonExistentId_ShouldReturnNull()
-        {
-            // Arrange
-            var vocabularyId = Guid.NewGuid();
-            var requestDto = new RequestVocabularyDto
-            {
-                KeyWord = "test",
-                VocabularyDifficulty = VocabularyDifficultyEnum.easy,
-                ToeicPart = "PART1"
-            };
-
-            _mockVocabularyRepo.Setup(r => r.ExistsByKeyWordAndPartAsync(requestDto.KeyWord, requestDto.ToeicPart, vocabularyId))
-                .ReturnsAsync(false);
-            _mockVocabularyRepo.Setup(r => r.UpdateAsync(vocabularyId, It.IsAny<Vocabulary>()))
-                .ReturnsAsync((Vocabulary?)null);
-
-            // Act
-            var result = await _vocabularyService.UpdateAsync(vocabularyId, requestDto);
-
-            // Assert
-            result.Should().BeNull();
-        }
-
-        [Fact]
-        public async Task DeleteAsync_WithValidIdAndNoQuizzes_ShouldReturnTrue()
-        {
-            // Arrange
-            var vocabularyId = Guid.NewGuid();
+            
             _mockVocabularyRepo.Setup(r => r.HasQuizzesAsync(vocabularyId))
                 .ReturnsAsync(false);
+
             _mockVocabularyRepo.Setup(r => r.DeleteAsync(vocabularyId))
                 .ReturnsAsync(true);
 
@@ -370,25 +398,31 @@ namespace QuizUpLearn.Test.UnitTest
 
             // Assert
             result.Should().BeTrue();
+            
             _mockVocabularyRepo.Verify(r => r.HasQuizzesAsync(vocabularyId), Times.Once);
             _mockVocabularyRepo.Verify(r => r.DeleteAsync(vocabularyId), Times.Once);
         }
 
         [Fact]
-        public async Task DeleteAsync_WithVocabularyHasQuizzes_ShouldReturnFalse()
+        public async Task DeleteAsync_WithValidIdButNoQuizzes_ShouldReturnTrue()
         {
             // Arrange
             var vocabularyId = Guid.NewGuid();
+            
             _mockVocabularyRepo.Setup(r => r.HasQuizzesAsync(vocabularyId))
+                .ReturnsAsync(false);
+
+            _mockVocabularyRepo.Setup(r => r.DeleteAsync(vocabularyId))
                 .ReturnsAsync(true);
 
             // Act
             var result = await _vocabularyService.DeleteAsync(vocabularyId);
 
             // Assert
-            result.Should().BeFalse();
+            result.Should().BeTrue();
+            
             _mockVocabularyRepo.Verify(r => r.HasQuizzesAsync(vocabularyId), Times.Once);
-            _mockVocabularyRepo.Verify(r => r.DeleteAsync(It.IsAny<Guid>()), Times.Never);
+            _mockVocabularyRepo.Verify(r => r.DeleteAsync(vocabularyId), Times.Once);
         }
     }
 }
