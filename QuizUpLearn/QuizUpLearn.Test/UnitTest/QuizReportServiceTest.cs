@@ -69,6 +69,16 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
+        public async Task CreateAsync_WithNullRequest_ShouldThrowArgumentNullException()
+        {
+            // Act
+            Func<Task> act = async () => await _quizReportService.CreateAsync(null!);
+
+            // Assert
+            await act.Should().ThrowAsync<ArgumentNullException>();
+        }
+
+        [Fact]
         public async Task GetByIdAsync_WithValidId_ShouldReturnQuizReportResponse()
         {
             // Arrange
@@ -116,6 +126,22 @@ namespace QuizUpLearn.Test.UnitTest
             result.Should().BeNull();
 
             _mockQuizReportRepo.Verify(r => r.GetByIdAsync(nonExistentId), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetByIdAsync_WithInvalidId_ShouldReturnNull()
+        {
+            // Arrange
+            var invalidId = Guid.NewGuid();
+
+            _mockQuizReportRepo.Setup(r => r.GetByIdAsync(invalidId))
+                .ReturnsAsync((QuizReport?)null);
+
+            // Act
+            var result = await _quizReportService.GetByIdAsync(invalidId);
+
+            // Assert
+            result.Should().BeNull();
         }
 
         [Fact]
@@ -201,6 +227,22 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
+        public async Task GetAllAsync_WithRepositoryException_ShouldThrowException()
+        {
+            // Arrange
+            var pagination = new PaginationRequestDto { Page = 1, PageSize = 10 };
+
+            _mockQuizReportRepo.Setup(r => r.GetAllAsync(It.IsAny<bool>()))
+                .ThrowsAsync(new Exception("Database error"));
+
+            // Act
+            Func<Task> act = async () => await _quizReportService.GetAllAsync(pagination);
+
+            // Assert
+            await act.Should().ThrowAsync<Exception>().WithMessage("Database error");
+        }
+
+        [Fact]
         public async Task GetByUserIdAsync_WithValidUserId_ShouldReturnUserQuizReports()
         {
             // Arrange
@@ -243,6 +285,23 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
+        public async Task GetByUserIdAsync_WithInvalidUserId_ShouldReturnEmptyList()
+        {
+            // Arrange
+            var invalidUserId = Guid.NewGuid();
+            var pagination = new PaginationRequestDto { Page = 1, PageSize = 10 };
+
+            _mockQuizReportRepo.Setup(r => r.GetByUserIdAsync(invalidUserId, false))
+                .ReturnsAsync(new List<QuizReport>());
+
+            // Act
+            var result = await _quizReportService.GetByUserIdAsync(invalidUserId, pagination);
+
+            // Assert
+            result.Data.Should().BeEmpty();
+        }
+
+        [Fact]
         public async Task GetByQuizIdAsync_WithValidQuizId_ShouldReturnQuizReports()
         {
             // Arrange
@@ -282,6 +341,23 @@ namespace QuizUpLearn.Test.UnitTest
             result.Data[1].Description.Should().Be("Another report for same quiz");
 
             _mockQuizReportRepo.Verify(r => r.GetByQuizIdAsync(quizId, false), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetByQuizIdAsync_WithInvalidQuizId_ShouldReturnEmptyList()
+        {
+            // Arrange
+            var invalidQuizId = Guid.NewGuid();
+            var pagination = new PaginationRequestDto { Page = 1, PageSize = 10 };
+
+            _mockQuizReportRepo.Setup(r => r.GetByQuizIdAsync(invalidQuizId, false))
+                .ReturnsAsync(new List<QuizReport>());
+
+            // Act
+            var result = await _quizReportService.GetByQuizIdAsync(invalidQuizId, pagination);
+
+            // Assert
+            result.Data.Should().BeEmpty();
         }
 
         [Fact]
@@ -334,6 +410,23 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
+        public async Task GetByUserAndQuizAsync_WithNonExistentCombination_ShouldReturnNull()
+        {
+            // Arrange
+            var userId = Guid.NewGuid();
+            var quizId = Guid.NewGuid();
+
+            _mockQuizReportRepo.Setup(r => r.GetByUserAndQuizAsync(userId, quizId, false))
+                .ReturnsAsync((QuizReport?)null);
+
+            // Act
+            var result = await _quizReportService.GetByUserAndQuizAsync(userId, quizId);
+
+            // Assert
+            result.Should().BeNull();
+        }
+
+        [Fact]
         public async Task HardDeleteAsync_WithValidId_ShouldReturnTrue()
         {
             // Arrange
@@ -349,6 +442,22 @@ namespace QuizUpLearn.Test.UnitTest
             result.Should().BeTrue();
 
             _mockQuizReportRepo.Verify(r => r.HardDeleteAsync(quizReportId), Times.Once);
+        }
+
+        [Fact]
+        public async Task HardDeleteAsync_WithNonExistentId_ShouldReturnFalse()
+        {
+            // Arrange
+            var nonExistentId = Guid.NewGuid();
+
+            _mockQuizReportRepo.Setup(r => r.HardDeleteAsync(nonExistentId))
+                .ReturnsAsync(false);
+
+            // Act
+            var result = await _quizReportService.HardDeleteAsync(nonExistentId);
+
+            // Assert
+            result.Should().BeFalse();
         }
 
         [Fact]
@@ -387,6 +496,23 @@ namespace QuizUpLearn.Test.UnitTest
             result.Should().BeFalse();
 
             _mockQuizReportRepo.Verify(r => r.IsExistAsync(userId, quizId), Times.Once);
+        }
+
+        [Fact]
+        public async Task IsExistAsync_WithNonExistentCombination_ShouldReturnFalse()
+        {
+            // Arrange
+            var userId = Guid.NewGuid();
+            var quizId = Guid.NewGuid();
+
+            _mockQuizReportRepo.Setup(r => r.IsExistAsync(userId, quizId))
+                .ReturnsAsync(false);
+
+            // Act
+            var result = await _quizReportService.IsExistAsync(userId, quizId);
+
+            // Assert
+            result.Should().BeFalse();
         }
     }
 }

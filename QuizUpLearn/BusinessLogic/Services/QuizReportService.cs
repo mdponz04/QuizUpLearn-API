@@ -21,6 +21,8 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseQuizReportDto> CreateAsync(RequestQuizReportDto dto)
         {
+            if(dto == null)
+                throw new ArgumentNullException("DTO cannot be null");
             var entity = _mapper.Map<QuizReport>(dto);
             var created = await _quizReportRepo.CreateAsync(entity);
             return _mapper.Map<ResponseQuizReportDto>(created);
@@ -61,11 +63,15 @@ namespace BusinessLogic.Services
 
         public async Task<bool> HardDeleteAsync(Guid id)
         {
+            if(id == Guid.Empty)
+                throw new Exception("Invalid ID");
             return await _quizReportRepo.HardDeleteAsync(id);
         }
 
         public async Task<bool> IsExistAsync(Guid userId, Guid quizId)
         {
+            if(userId == Guid.Empty || quizId == Guid.Empty)
+                throw new Exception("Invalid user id or quiz id");
             return await _quizReportRepo.IsExistAsync(userId, quizId);
         }
     }

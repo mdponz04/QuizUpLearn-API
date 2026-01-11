@@ -394,7 +394,7 @@ namespace BusinessLogic.Services
                 {
                     opt.OptionText = string.Empty;
                 }
-                await _answerOptionService.CreateAsync(new RequestAnswerOptionDto
+                await _answerOptionService.CreateAnswerOptionAsync(new RequestAnswerOptionDto
                 {
                     OptionLabel = opt.OptionLabel,
                     OptionText = opt.OptionText,
@@ -415,7 +415,7 @@ namespace BusinessLogic.Services
 
         private async Task<ResponseQuizGroupItemDto?> CreateQuizGroupItem(string name, string? audioUrl = null, string? audioScript = null, string? imageUrl = null, string? imageDescription = null, string? passageText = null)
         {
-            var groupItem = await _quizGroupItemService.CreateAsync(new RequestQuizGroupItemDto
+            var groupItem = await _quizGroupItemService.CreateGroupItemAsync(new RequestQuizGroupItemDto
             {
                 Name = name,
                 AudioUrl = audioUrl,
@@ -450,7 +450,7 @@ namespace BusinessLogic.Services
                 {
                     if (quiz.QuizGroupItemId != null)
                     {
-                        var groupItems = await _quizGroupItemService.GetByIdAsync(quiz.QuizGroupItemId.Value);
+                        var groupItems = await _quizGroupItemService.GetGroupItemByIdAsync(quiz.QuizGroupItemId.Value);
                         if (groupItems != null)
                         {
                             groupPassage = groupItems.PassageText ?? string.Empty;
@@ -458,7 +458,7 @@ namespace BusinessLogic.Services
                             groupImageDescription = groupItems.ImageDescription ?? string.Empty;
                         }
                     }
-                    var options = await _answerOptionService.GetByQuizIdAsync(quiz.Id);
+                    var options = await _answerOptionService.GetAnswerOptionByQuizIdAsync(quiz.Id);
 
                     var validationPrompt = _promptGenerator.GetValidationPromptAsync(quiz, quiz.AnswerOptions, groupPassage, groupAudioScript, groupImageDescription, grammar, keyword);
                     var response = await OpenRouterGenerateContentAsync(validationPrompt);
@@ -771,7 +771,7 @@ namespace BusinessLogic.Services
 
                     foreach (var item in quiz.AnswerOptions)
                     {
-                        await _answerOptionService.CreateAsync(new RequestAnswerOptionDto
+                        await _answerOptionService.CreateAnswerOptionAsync(new RequestAnswerOptionDto
                         {
                             OptionLabel = item.OptionLabel,
                             OptionText = item.OptionText,
@@ -787,7 +787,7 @@ namespace BusinessLogic.Services
                     passageResult.Passage = quiz.QuestionText;
                 }
                 //Update the last passage with all blanks
-                await _quizGroupItemService.UpdateAsync(groupItem.Id, new RequestQuizGroupItemDto
+                await _quizGroupItemService.UpdateGroupItemAsync(groupItem.Id, new RequestQuizGroupItemDto
                 {
                     PassageText = passageResult.Passage
                 });
@@ -882,10 +882,10 @@ namespace BusinessLogic.Services
 
                     if (quiz.QuizGroupItemId != null)
                     {
-                        var quizGroupItem = await _quizGroupItemService.GetByIdAsync(quiz.QuizGroupItemId.Value);
+                        var quizGroupItem = await _quizGroupItemService.GetGroupItemByIdAsync(quiz.QuizGroupItemId.Value);
                     }
 
-                    var answers = await _answerOptionService.GetByQuizIdAsync(quiz.Id);
+                    var answers = await _answerOptionService.GetAnswerOptionByQuizIdAsync(quiz.Id);
                     if (answers == null || answers.Count() == 0) continue;
 
                     var userWeakPoints = await _userWeakPointService.GetByUserIdAsync(userId, null!);

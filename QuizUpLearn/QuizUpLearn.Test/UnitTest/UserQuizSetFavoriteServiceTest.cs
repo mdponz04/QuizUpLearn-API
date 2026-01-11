@@ -21,7 +21,6 @@ namespace QuizUpLearn.Test.UnitTest
         {
             _mockUserQuizSetFavoriteRepo = new Mock<IUserQuizSetFavoriteRepo>();
 
-            // Setup real AutoMapper with the actual mapping profile
             var mapperConfig = new MapperConfiguration(cfg =>
             {
                 cfg.AddProfile<MappingProfile>();
@@ -71,6 +70,31 @@ namespace QuizUpLearn.Test.UnitTest
             _mockUserQuizSetFavoriteRepo.Verify(r => r.IsExistAsync(userId, quizSetId), Times.Once);
             _mockUserQuizSetFavoriteRepo.Verify(r => r.CreateAsync(It.Is<UserQuizSetFavorite>(e =>
                 e.UserId == userId && e.QuizSetId == quizSetId)), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateAsync_WhenFavoriteAlreadyExists_ShouldThrowInvalidOperationException()
+        {
+            // Arrange
+            var userId = Guid.NewGuid();
+            var quizSetId = Guid.NewGuid();
+            var requestDto = new RequestUserQuizSetFavoriteDto
+            {
+                UserId = userId,
+                QuizSetId = quizSetId
+            };
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.IsExistAsync(userId, quizSetId))
+                .ReturnsAsync(true);
+
+            // Act
+            Func<Task> act = async () => await _userQuizSetFavoriteService.CreateAsync(requestDto);
+
+            // Assert
+            await act.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("User has already favorited this quiz set");
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.IsExistAsync(userId, quizSetId), Times.Once);
         }
 
         [Fact]
@@ -124,6 +148,24 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
+        public async Task GetByIdAsync_WhenIdIsInvalid_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var favoriteId = Guid.Empty;
+
+            // Act
+            Func<Task> act = async () =>
+                await _userQuizSetFavoriteService.GetByIdAsync(favoriteId);
+
+            // Assert
+            await act.Should().ThrowAsync<ArgumentException>();
+
+            _mockUserQuizSetFavoriteRepo.Verify(
+                r => r.GetByIdAsync(It.IsAny<Guid>()),
+                Times.Never);
+        }
+
+        [Fact]
         public async Task GetAllAsync_WithValidPagination_ShouldReturnPaginatedResponse()
         {
             // Arrange
@@ -170,6 +212,28 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
+        public async Task GetAllAsync_WhenRepositoryThrowsException_ShouldThrowException()
+        {
+            // Arrange
+            var pagination = new PaginationRequestDto
+            {
+                Page = 1,
+                PageSize = 10
+            };
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.GetAllAsync(It.IsAny<bool>()))
+                .ThrowsAsync(new Exception("Database error"));
+
+            // Act
+            Func<Task> act = async () => await _userQuizSetFavoriteService.GetAllAsync(pagination);
+
+            // Assert
+            await act.Should().ThrowAsync<Exception>();
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.GetAllAsync(It.IsAny<bool>()), Times.Once);
+        }
+
+        [Fact]
         public async Task GetByUserIdAsync_WithValidUserId_ShouldReturnPaginatedResponse()
         {
             // Arrange
@@ -204,6 +268,27 @@ namespace QuizUpLearn.Test.UnitTest
             result.Pagination.TotalCount.Should().Be(1);
 
             _mockUserQuizSetFavoriteRepo.Verify(r => r.GetByUserIdAsync(userId, false), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetByUserIdAsync_WhenUserIdIsInvalid_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var userId = Guid.Empty;
+            var pagination = new PaginationRequestDto
+            {
+                Page = 1,
+                PageSize = 10
+            };
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.GetByUserIdAsync(userId, It.IsAny<bool>()))
+                .ReturnsAsync(new List<UserQuizSetFavorite>());
+
+            // Act
+            Func<Task> act = async () => await _userQuizSetFavoriteService.GetByUserIdAsync(userId, pagination);
+
+            // Assert
+            await act.Should().ThrowAsync<ArgumentException>();
         }
 
         [Fact]
@@ -248,6 +333,24 @@ namespace QuizUpLearn.Test.UnitTest
             result.Pagination.TotalCount.Should().Be(2);
 
             _mockUserQuizSetFavoriteRepo.Verify(r => r.GetByQuizSetIdAsync(quizSetId, false), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetByQuizSetIdAsync_WhenQuizSetIdIsInvalid_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var quizSetId = Guid.Empty;
+            var pagination = new PaginationRequestDto
+            {
+                Page = 1,
+                PageSize = 10
+            };
+
+            // Act
+            Func<Task> act = async () => await _userQuizSetFavoriteService.GetByQuizSetIdAsync(quizSetId, pagination);
+
+            // Assert
+            await act.Should().ThrowAsync<ArgumentException>();
         }
 
         [Fact]
@@ -298,6 +401,40 @@ namespace QuizUpLearn.Test.UnitTest
             result.Should().BeNull();
 
             _mockUserQuizSetFavoriteRepo.Verify(r => r.GetByUserAndQuizSetAsync(userId, quizSetId, false), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetByUserAndQuizSetAsync_WhenFavoriteDoesNotExist_ShouldReturnNull()
+        {
+            // Arrange
+            var userId = Guid.NewGuid();
+            var quizSetId = Guid.NewGuid();
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.GetByUserAndQuizSetAsync(userId, quizSetId, It.IsAny<bool>()))
+                .ReturnsAsync((UserQuizSetFavorite?)null);
+
+            // Act
+            var result = await _userQuizSetFavoriteService.GetByUserAndQuizSetAsync(userId, quizSetId);
+
+            // Assert
+            result.Should().BeNull();
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.GetByUserAndQuizSetAsync(userId, quizSetId, It.IsAny<bool>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetByUserAndQuizSetAsync_WithEmptyIds_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var userId = Guid.Empty;
+            var quizSetId = Guid.Empty;
+
+            // Act
+            Func<Task> act = async () => await _userQuizSetFavoriteService
+                .GetByUserAndQuizSetAsync(userId, quizSetId, false);
+
+            // Assert
+            await act.Should().ThrowAsync<ArgumentException>();
         }
 
         [Fact]
@@ -365,6 +502,26 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
+        public async Task ToggleFavoriteAsync_WhenRepositoryThrowsException_ShouldPropagateException()
+        {
+            // Arrange
+            var userId = Guid.NewGuid();
+            var quizSetId = Guid.NewGuid();
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.GetByUserAndQuizSetAsync(userId, quizSetId, It.IsAny<bool>()))
+                .ThrowsAsync(new Exception("Database error"));
+
+            // Act
+            Func<Task> act = async () => await _userQuizSetFavoriteService.ToggleFavoriteAsync(userId, quizSetId);
+
+            // Assert
+            await act.Should().ThrowAsync<Exception>()
+                .WithMessage("Database error");
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.GetByUserAndQuizSetAsync(userId, quizSetId, It.IsAny<bool>()), Times.Once);
+        }
+
+        [Fact]
         public async Task HardDeleteAsync_WithExistingId_ShouldReturnTrue()
         {
             // Arrange
@@ -398,6 +555,19 @@ namespace QuizUpLearn.Test.UnitTest
             result.Should().BeFalse();
 
             _mockUserQuizSetFavoriteRepo.Verify(r => r.HardDeleteAsync(favoriteId), Times.Once);
+        }
+
+        [Fact]
+        public async Task HardDeleteAsync_WithInvalidId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var favoriteId = Guid.Empty;
+
+            // Act
+            Func<Task> act = async () => await _userQuizSetFavoriteService.HardDeleteAsync(favoriteId);
+
+            // Assert
+            await act.Should().ThrowAsync<ArgumentException>();
         }
 
         [Fact]
@@ -439,6 +609,26 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
+        public async Task IsExistAsync_WhenRepositoryThrowsException_ShouldPropagateException()
+        {
+            // Arrange
+            var userId = Guid.NewGuid();
+            var quizSetId = Guid.NewGuid();
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.IsExistAsync(userId, quizSetId))
+                .ThrowsAsync(new Exception("Database error"));
+
+            // Act
+            Func<Task> act = async () => await _userQuizSetFavoriteService.IsExistAsync(userId, quizSetId);
+
+            // Assert
+            await act.Should().ThrowAsync<Exception>()
+                .WithMessage("Database error");
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.IsExistAsync(userId, quizSetId), Times.Once);
+        }
+
+        [Fact]
         public async Task GetFavoriteCountByQuizSetAsync_WithValidQuizSetId_ShouldReturnCount()
         {
             // Arrange
@@ -459,6 +649,24 @@ namespace QuizUpLearn.Test.UnitTest
 
         [Fact]
         public async Task GetFavoriteCountByQuizSetAsync_WithNoFavorites_ShouldReturnZero()
+        {
+            // Arrange
+            var quizSetId = Guid.NewGuid();
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.GetFavoriteCountByQuizSetAsync(quizSetId))
+                .ReturnsAsync(0);
+
+            // Act
+            var result = await _userQuizSetFavoriteService.GetFavoriteCountByQuizSetAsync(quizSetId);
+
+            // Assert
+            result.Should().Be(0);
+
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.GetFavoriteCountByQuizSetAsync(quizSetId), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetFavoriteCountByQuizSetAsync_WithNonExistQuizSetId_ShouldReturnZero()
         {
             // Arrange
             var quizSetId = Guid.NewGuid();

@@ -30,7 +30,7 @@ namespace QuizUpLearn.API.Controllers
 
             try
             {
-                var result = await _quizQuizSetService.CreateAsync(dto);
+                var result = await _quizQuizSetService.CreateQuizQuizSetAsync(dto);
                 return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
             }
             catch (ArgumentException ex)
@@ -46,7 +46,7 @@ namespace QuizUpLearn.API.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<ResponseQuizQuizSetDto>> GetById(Guid id)
         {
-            var result = await _quizQuizSetService.GetByIdAsync(id);
+            var result = await _quizQuizSetService.GetQuizQuizSetByIdAsync(id);
             if (result == null)
                 throw new HttpException(HttpStatusCode.NotFound, "Quiz-QuizSet association not found");
 
@@ -58,7 +58,7 @@ namespace QuizUpLearn.API.Controllers
         public async Task<ActionResult<PaginationResponseDto<ResponseQuizQuizSetDto>>> GetAll(
             [FromQuery] PaginationRequestDto pagination, [FromQuery] bool includeDeleted = false)
         {
-            var result = await _quizQuizSetService.GetAllAsync(pagination, includeDeleted);
+            var result = await _quizQuizSetService.GetAllQuizQuizSetAsync(pagination, includeDeleted);
             return Ok(result);
         }
 
@@ -67,7 +67,7 @@ namespace QuizUpLearn.API.Controllers
             Guid quizId,
             [FromQuery] PaginationRequestDto pagination, [FromQuery] bool includeDeleted = false)
         {
-            var result = await _quizQuizSetService.GetByQuizIdAsync(quizId, pagination, includeDeleted);
+            var result = await _quizQuizSetService.GetQuizQuizSetByQuizIdAsync(quizId, pagination, includeDeleted);
             return Ok(result);
         }
 
@@ -76,7 +76,7 @@ namespace QuizUpLearn.API.Controllers
             Guid quizSetId,
             [FromQuery] PaginationRequestDto pagination, [FromQuery] bool includeDeleted = false)
         {
-            var result = await _quizQuizSetService.GetByQuizSetIdAsync(quizSetId, pagination, includeDeleted);
+            var result = await _quizQuizSetService.GetQuizQuizSetByQuizSetIdAsync(quizSetId, pagination, includeDeleted);
             return Ok(result);
         }
 
@@ -86,7 +86,7 @@ namespace QuizUpLearn.API.Controllers
             Guid quizSetId,
             [FromQuery] bool includeDeleted = false)
         {
-            var result = await _quizQuizSetService.GetByQuizAndQuizSetAsync(quizId, quizSetId, includeDeleted);
+            var result = await _quizQuizSetService.GetQuizQuizSetByQuizAndQuizSetAsync(quizId, quizSetId, includeDeleted);
             if (result == null)
                 throw new HttpException(HttpStatusCode.NotFound, "Quiz-QuizSet association not found");
 
@@ -104,7 +104,7 @@ namespace QuizUpLearn.API.Controllers
 
             try
             {
-                var result = await _quizQuizSetService.UpdateAsync(id, dto);
+                var result = await _quizQuizSetService.UpdateQuizQuizSetAsync(id, dto);
                 if (result == null)
                     throw new HttpException(HttpStatusCode.NotFound, "Quiz-QuizSet association not found");
 
@@ -120,7 +120,7 @@ namespace QuizUpLearn.API.Controllers
         [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<IActionResult> HardDelete(Guid id)
         {
-            var result = await _quizQuizSetService.HardDeleteAsync(id);
+            var result = await _quizQuizSetService.HardDeleteQuizQuizSetAsync(id);
             if (!result)
                 throw new HttpException(HttpStatusCode.NotFound, "Quiz-QuizSet association not found");
 
@@ -130,7 +130,7 @@ namespace QuizUpLearn.API.Controllers
         [HttpGet("exists/quiz/{quizId}/quizset/{quizSetId}")]
         public async Task<ActionResult<bool>> Exists(Guid quizId, Guid quizSetId)
         {
-            var result = await _quizQuizSetService.IsExistedAsync(quizId, quizSetId);
+            var result = await _quizQuizSetService.IsQuizQuizSetExistedAsync(quizId, quizSetId);
             return Ok(new { exists = result });
         }
 
@@ -176,7 +176,7 @@ namespace QuizUpLearn.API.Controllers
         [SubscriptionAndRoleAuthorize("Administrator", "Moderator")]
         public async Task<IActionResult> DeleteByQuizId(Guid quizId)
         {
-            var result = await _quizQuizSetService.DeleteByQuizIdAsync(quizId);
+            var result = await _quizQuizSetService.DeleteQuizQuizSetByQuizIdAsync(quizId);
             if (!result)
                 throw new HttpException(HttpStatusCode.NotFound, "No associations found for the specified quiz");
 
@@ -187,7 +187,7 @@ namespace QuizUpLearn.API.Controllers
         [SubscriptionAndRoleAuthorize("Administrator", "Moderator")]
         public async Task<IActionResult> DeleteByQuizSetId(Guid quizSetId)
         {
-            var result = await _quizQuizSetService.DeleteByQuizSetIdAsync(quizSetId);
+            var result = await _quizQuizSetService.DeleteQuizQuizSetByQuizSetIdAsync(quizSetId);
             if (!result)
                 throw new HttpException(HttpStatusCode.NotFound, "No associations found for the specified quiz set");
 

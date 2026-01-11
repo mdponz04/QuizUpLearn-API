@@ -32,6 +32,8 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseUserQuizSetLikeDto?> GetByIdAsync(Guid id)
         {
+            if(id == Guid.Empty)
+                throw new ArgumentException("ID cannot be empty.");
             var entity = await _userQuizSetLikeRepo.GetByIdAsync(id);
             return entity == null ? null : _mapper.Map<ResponseUserQuizSetLikeDto>(entity);
         }
@@ -45,6 +47,8 @@ namespace BusinessLogic.Services
 
         public async Task<PaginationResponseDto<ResponseUserQuizSetLikeDto>> GetByUserIdAsync(Guid userId, PaginationRequestDto pagination, bool includeDeleted = false)
         {
+            if(userId == Guid.Empty)
+                throw new ArgumentException("User ID cannot be empty.");
             var entities = await _userQuizSetLikeRepo.GetByUserIdAsync(userId, includeDeleted);
             var dtos = _mapper.Map<IEnumerable<ResponseUserQuizSetLikeDto>>(entities);
             return dtos.ToPagedResponse(pagination);
@@ -52,6 +56,8 @@ namespace BusinessLogic.Services
 
         public async Task<PaginationResponseDto<ResponseUserQuizSetLikeDto>> GetByQuizSetIdAsync(Guid quizSetId, PaginationRequestDto pagination, bool includeDeleted = false)
         {
+            if(quizSetId == Guid.Empty)
+                throw new ArgumentException("Quiz Set ID cannot be empty.");
             var entities = await _userQuizSetLikeRepo.GetByQuizSetIdAsync(quizSetId, includeDeleted);
             var dtos = _mapper.Map<IEnumerable<ResponseUserQuizSetLikeDto>>(entities);
             return dtos.ToPagedResponse(pagination);

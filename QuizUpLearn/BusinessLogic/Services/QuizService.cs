@@ -22,7 +22,11 @@ namespace BusinessLogic.Services
 
         public async Task<QuizResponseDto> CreateQuizAsync(QuizRequestDto quizDto)
         {
-            if(quizDto.QuestionText == null || quizDto.TOEICPart == null)
+            if(quizDto == null)
+            {
+                throw new ArgumentNullException("Quiz dto cannot be null");
+            }
+            if (quizDto.QuestionText == null || quizDto.TOEICPart == null)
             {
                 throw new ArgumentException("QuestionText and TOEICPart cannot be null");
             }

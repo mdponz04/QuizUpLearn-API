@@ -90,7 +90,7 @@ namespace QuizUpLearn.Test.UnitTest
                 Quizzes = new List<QuizResponseDto>()
             };
 
-            _mockQuizGroupItemService.Setup(s => s.CreateAsync(It.IsAny<RequestQuizGroupItemDto>()))
+            _mockQuizGroupItemService.Setup(s => s.CreateGroupItemAsync(It.IsAny<RequestQuizGroupItemDto>()))
                 .ReturnsAsync(listeningGroupItem);
 
             // Setup batch quiz creation
@@ -150,7 +150,7 @@ namespace QuizUpLearn.Test.UnitTest
                 dto.IsPublished == false &&
                 dto.IsPremiumOnly == false)), Times.Once);
 
-            _mockQuizGroupItemService.Verify(s => s.CreateAsync(It.Is<RequestQuizGroupItemDto>(dto => 
+            _mockQuizGroupItemService.Verify(s => s.CreateGroupItemAsync(It.Is<RequestQuizGroupItemDto>(dto => 
                 dto.Name == "Listening Section")), Times.Once);
 
             _mockQuizRepo.Verify(r => r.CreateQuizzesBatchAsync(It.IsAny<List<Quiz>>()), Times.Once);
@@ -191,7 +191,7 @@ namespace QuizUpLearn.Test.UnitTest
                 Quizzes = new List<QuizResponseDto>()
             };
 
-            _mockQuizGroupItemService.Setup(s => s.CreateAsync(It.IsAny<RequestQuizGroupItemDto>()))
+            _mockQuizGroupItemService.Setup(s => s.CreateGroupItemAsync(It.IsAny<RequestQuizGroupItemDto>()))
                 .ReturnsAsync(listeningGroupItem);
 
             var createdQuizzes = new List<Quiz>
@@ -261,7 +261,7 @@ namespace QuizUpLearn.Test.UnitTest
                 Quizzes = new List<QuizResponseDto>()
             };
 
-            _mockQuizGroupItemService.Setup(s => s.CreateAsync(It.IsAny<RequestQuizGroupItemDto>()))
+            _mockQuizGroupItemService.Setup(s => s.CreateGroupItemAsync(It.IsAny<RequestQuizGroupItemDto>()))
                 .ReturnsAsync(listeningGroupItem);
 
             var createdQuizzes = new List<Quiz>
@@ -331,7 +331,7 @@ namespace QuizUpLearn.Test.UnitTest
                 Quizzes = new List<QuizResponseDto>()
             };
 
-            _mockQuizGroupItemService.Setup(s => s.CreateAsync(It.IsAny<RequestQuizGroupItemDto>()))
+            _mockQuizGroupItemService.Setup(s => s.CreateGroupItemAsync(It.IsAny<RequestQuizGroupItemDto>()))
                 .ReturnsAsync(listeningGroupItem);
 
             var createdQuizzes = new List<Quiz>

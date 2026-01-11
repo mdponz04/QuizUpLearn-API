@@ -1,8 +1,6 @@
 using AutoMapper;
 using BusinessLogic.DTOs;
-using BusinessLogic.DTOs.QuizDtos;
 using BusinessLogic.DTOs.UserMistakeDtos;
-using BusinessLogic.Extensions;
 using BusinessLogic.Interfaces;
 using BusinessLogic.MappingProfile;
 using BusinessLogic.Services;
@@ -11,6 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Repository.Entities;
 using Repository.Interfaces;
+using System.ComponentModel.DataAnnotations;
 
 namespace QuizUpLearn.Test.UnitTest
 {
@@ -478,6 +477,160 @@ namespace QuizUpLearn.Test.UnitTest
             await _userMistakeService.CleanupOrphanWeakPointsAsync(userId);
 
             _mockUserWeakPointRepo.Verify(r => r.GetByUserIdAsync(userId), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetAllAsync_WithInvalidPagination_ShouldThrowValidationException()
+        {
+            // Arrange
+            var invalidPagination = new PaginationRequestDto
+            {
+                Page = -1,
+                PageSize = 0
+            };
+
+            var validationResults = new List<ValidationResult>();
+            var validationContext = new ValidationContext(invalidPagination);
+
+            // Act & Assert
+            var isValid = Validator.TryValidateObject(invalidPagination, validationContext, validationResults, true);
+            isValid.Should().BeFalse();
+
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _userMistakeService.GetAllAsync(invalidPagination));
+        }
+
+        [Fact]
+        public async Task GetAllByUserIdAsync_WithInvalidUserId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var invalidUserId = Guid.Empty;
+            var pagination = new PaginationRequestDto
+            {
+                Page = 1,
+                PageSize = 10
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _userMistakeService.GetAllByUserIdAsync(invalidUserId, pagination));
+        }
+
+        [Fact]
+        public async Task GetByIdAsync_WithInvalidId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var invalidId = Guid.Empty;
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _userMistakeService.GetByIdAsync(invalidId));
+        }
+
+        [Fact]
+        public async Task GetMistakeQuizzesByUserId_WithInvalidUserId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var invalidUserId = Guid.Empty;
+            var pagination = new PaginationRequestDto
+            {
+                Page = 1,
+                PageSize = 10
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _userMistakeService.GetMistakeQuizzesByUserId(invalidUserId, pagination));
+        }
+
+        [Fact]
+        public async Task AddAsync_WithInvalidUserIdInRequestDto_ShouldThrowArgumentException()
+        {
+            // Arrange
+            RequestUserMistakeDto nullRequestDto = new RequestUserMistakeDto{
+                UserId = Guid.Empty,
+                QuizId = Guid.NewGuid(),
+                TimesAttempted = 0,
+                TimesWrong = 0,
+                LastAttemptedAt = DateTime.MinValue,
+                IsAnalyzed = false,
+                UserAnswer = null
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _userMistakeService.AddAsync(nullRequestDto));
+        }
+        [Fact]
+        public async Task AddAsync_WithInvalidQuizIdInRequestDto_ShouldThrowArgumentException()
+        {
+            // Arrange
+            RequestUserMistakeDto nullRequestDto = new RequestUserMistakeDto
+            {
+                UserId = Guid.NewGuid(),
+                QuizId = Guid.Empty,
+                TimesAttempted = 0,
+                TimesWrong = 0,
+                LastAttemptedAt = DateTime.MinValue,
+                IsAnalyzed = false,
+                UserAnswer = null
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _userMistakeService.AddAsync(nullRequestDto));
+        }
+        [Fact]
+        public async Task AddAsync_WithNullRequestDto_ShouldThrowNullArgumentException()
+        {
+            // Arrange
+            RequestUserMistakeDto nullRequestDto = null!;
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentNullException>(async () =>
+                await _userMistakeService.AddAsync(nullRequestDto!));
+        }
+        [Fact]
+        public async Task UpdateAsync_WithInvalidId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var invalidId = Guid.Empty;
+            var requestDto = new RequestUserMistakeDto
+            {
+                UserId = Guid.NewGuid(),
+                QuizId = Guid.NewGuid(),
+                TimesAttempted = 1,
+                TimesWrong = 1,
+                LastAttemptedAt = DateTime.UtcNow,
+                IsAnalyzed = false,
+                UserAnswer = "A"
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _userMistakeService.UpdateAsync(invalidId, requestDto));
+        }
+
+        [Fact]
+        public async Task DeleteAsync_WithInvalidId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var invalidId = Guid.Empty;
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _userMistakeService.DeleteAsync(invalidId));
+        }
+
+        [Fact]
+        public async Task CleanupOrphanWeakPointsAsync_WithInvalidUserId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var invalidUserId = Guid.Empty;
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _userMistakeService.CleanupOrphanWeakPointsAsync(invalidUserId));
         }
     }
 }

@@ -72,7 +72,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(createdQuizQuizSet);
 
             // Act
-            var result = await _quizQuizSetService.CreateAsync(request);
+            var result = await _quizQuizSetService.CreateQuizQuizSetAsync(request);
 
             // Assert
             result.Should().NotBeNull();
@@ -102,7 +102,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(quizQuizSet);
 
             // Act
-            var result = await _quizQuizSetService.GetByIdAsync(id);
+            var result = await _quizQuizSetService.GetQuizQuizSetByIdAsync(id);
 
             // Assert
             result.Should().NotBeNull();
@@ -123,7 +123,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync((QuizQuizSet?)null);
 
             // Act
-            var result = await _quizQuizSetService.GetByIdAsync(id);
+            var result = await _quizQuizSetService.GetQuizQuizSetByIdAsync(id);
 
             // Assert
             result.Should().BeNull();
@@ -157,7 +157,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(quizQuizSets);
 
             // Act
-            var result = await _quizQuizSetService.GetAllAsync(pagination, false);
+            var result = await _quizQuizSetService.GetAllQuizQuizSetAsync(pagination, false);
 
             // Assert
             result.Should().NotBeNull();
@@ -188,7 +188,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(quizQuizSets);
 
             // Act
-            var result = await _quizQuizSetService.GetByQuizIdAsync(quizId, pagination, false);
+            var result = await _quizQuizSetService.GetQuizQuizSetByQuizIdAsync(quizId, pagination, false);
 
             // Assert
             result.Should().NotBeNull();
@@ -219,7 +219,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(quizQuizSets);
 
             // Act
-            var result = await _quizQuizSetService.GetByQuizSetIdAsync(quizSetId, pagination, false);
+            var result = await _quizQuizSetService.GetQuizQuizSetByQuizSetIdAsync(quizSetId, pagination, false);
 
             // Assert
             result.Should().NotBeNull();
@@ -247,7 +247,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(quizQuizSet);
 
             // Act
-            var result = await _quizQuizSetService.GetByQuizAndQuizSetAsync(quizId, quizSetId, false);
+            var result = await _quizQuizSetService.GetQuizQuizSetByQuizAndQuizSetAsync(quizId, quizSetId, false);
 
             // Assert
             result.Should().NotBeNull();
@@ -268,7 +268,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync((QuizQuizSet?)null);
 
             // Act
-            var result = await _quizQuizSetService.GetByQuizAndQuizSetAsync(quizId, quizSetId, false);
+            var result = await _quizQuizSetService.GetQuizQuizSetByQuizAndQuizSetAsync(quizId, quizSetId, false);
 
             // Assert
             result.Should().BeNull();
@@ -308,7 +308,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(updatedQuizQuizSet);
 
             // Act
-            var result = await _quizQuizSetService.UpdateAsync(id, request);
+            var result = await _quizQuizSetService.UpdateQuizQuizSetAsync(id, request);
 
             // Assert
             result.Should().NotBeNull();
@@ -345,7 +345,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync((QuizQuizSet?)null);
 
             // Act
-            var result = await _quizQuizSetService.UpdateAsync(id, request);
+            var result = await _quizQuizSetService.UpdateQuizQuizSetAsync(id, request);
 
             // Assert
             result.Should().BeNull();
@@ -361,7 +361,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(true);
 
             // Act
-            var result = await _quizQuizSetService.HardDeleteAsync(id);
+            var result = await _quizQuizSetService.HardDeleteQuizQuizSetAsync(id);
 
             // Assert
             result.Should().BeTrue();
@@ -379,7 +379,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(true);
 
             // Act
-            var result = await _quizQuizSetService.IsExistedAsync(quizId, quizSetId);
+            var result = await _quizQuizSetService.IsQuizQuizSetExistedAsync(quizId, quizSetId);
 
             // Assert
             result.Should().BeTrue();
@@ -478,7 +478,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(true);
 
             // Act
-            var result = await _quizQuizSetService.DeleteByQuizIdAsync(quizId);
+            var result = await _quizQuizSetService.DeleteQuizQuizSetByQuizIdAsync(quizId);
 
             // Assert
             result.Should().BeTrue();
@@ -503,7 +503,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(true);
 
             // Act
-            var result = await _quizQuizSetService.DeleteByQuizSetIdAsync(quizSetId);
+            var result = await _quizQuizSetService.DeleteQuizQuizSetByQuizSetIdAsync(quizSetId);
 
             // Assert
             result.Should().BeTrue();
@@ -536,7 +536,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(true);
 
             // Act
-            var result = await _quizQuizSetService.DeleteByQuizSetIdAsync(quizSetId);
+            var result = await _quizQuizSetService.DeleteQuizQuizSetByQuizSetIdAsync(quizSetId);
 
             // Assert
             result.Should().BeTrue();

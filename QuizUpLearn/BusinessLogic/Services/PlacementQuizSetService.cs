@@ -55,7 +55,7 @@ namespace BusinessLogic.Services
             
             var quizzesToInsert = new List<Quiz>();
             
-            var quizGroupItemListening = await _quizGroupItemService.CreateAsync(new RequestQuizGroupItemDto
+            var quizGroupItemListening = await _quizGroupItemService.CreateGroupItemAsync(new RequestQuizGroupItemDto
             {
                 Name = "Listening Section",
             });

@@ -359,6 +359,12 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
+        public async Task CreateQuizAsync_WithNullDto_ShouldThrowArgumentException()
+        {
+            await Assert.ThrowsAsync<ArgumentNullException>(() => _quizService.CreateQuizAsync(null!));
+        }
+
+        [Fact]
         public async Task GetQuizByIdAsync_WithInvalidId_ShouldThrowKeyNotFoundException()
         {
             // Arrange

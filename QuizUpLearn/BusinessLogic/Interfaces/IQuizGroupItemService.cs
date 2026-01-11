@@ -5,10 +5,10 @@ namespace BusinessLogic.Interfaces
 {
     public interface IQuizGroupItemService
     {
-        Task<PaginationResponseDto<ResponseQuizGroupItemDto>> GetAllAsync(PaginationRequestDto pagination);
-        Task<ResponseQuizGroupItemDto?> GetByIdAsync(Guid id);
-        Task<ResponseQuizGroupItemDto?> CreateAsync(RequestQuizGroupItemDto requestDto);
-        Task<ResponseQuizGroupItemDto?> UpdateAsync(Guid id, RequestQuizGroupItemDto requestDto);
-        Task<bool> DeleteAsync(Guid id);
+        Task<PaginationResponseDto<ResponseQuizGroupItemDto>> GetAllGroupItemAsync(PaginationRequestDto pagination);
+        Task<ResponseQuizGroupItemDto?> GetGroupItemByIdAsync(Guid id);
+        Task<ResponseQuizGroupItemDto?> CreateGroupItemAsync(RequestQuizGroupItemDto requestDto);
+        Task<ResponseQuizGroupItemDto?> UpdateGroupItemAsync(Guid id, RequestQuizGroupItemDto requestDto);
+        Task<bool> DeleteGroupItemAsync(Guid id);
     }
 }

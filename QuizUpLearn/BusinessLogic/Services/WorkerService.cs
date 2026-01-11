@@ -10,7 +10,6 @@ namespace BusinessLogic.Services
         private readonly ConcurrentQueue<Func<IServiceProvider, CancellationToken, Task>> _jobQueue = new();
         private readonly SemaphoreSlim _signal = new(0);
         private readonly IServiceScopeFactory _scopeFactory;
-        // Track active jobs: Key = UserId, Value = JobId
         private readonly ConcurrentDictionary<Guid, Guid> _activeJobs = new();
 
         public WorkerService(IServiceScopeFactory scopeFactory)
