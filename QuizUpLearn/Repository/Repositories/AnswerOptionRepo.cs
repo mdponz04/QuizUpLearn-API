@@ -66,12 +66,11 @@ namespace Repository.Repositories
             return true;
         }
 
-        public async Task<bool> SoftDeleteAsync(Guid id)
+        public async Task<bool> DeleteAsync(Guid id)
         {
             var answerOption = await _context.AnswerOptions.FindAsync(id);
             if (answerOption == null) return false;
-            answerOption.DeletedAt = DateTime.UtcNow;
-            _context.AnswerOptions.Update(answerOption);
+            _context.AnswerOptions.Remove(answerOption);
             await _context.SaveChangesAsync();
             return true;
         }

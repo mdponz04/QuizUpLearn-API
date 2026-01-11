@@ -61,6 +61,9 @@ namespace Repository.Repositories
 
         public async Task<IEnumerable<UserQuizSetFavorite>> GetByQuizSetIdAsync(Guid quizSetId, bool includeDeleted = false)
         {
+            if(quizSetId == Guid.Empty)
+                throw new ArgumentException("Quiz Set ID cannot be empty.");
+
             var query = _context.UserQuizSetFavorites
                 .Include(uqsf => uqsf.User)
                 .Include(uqsf => uqsf.QuizSet)

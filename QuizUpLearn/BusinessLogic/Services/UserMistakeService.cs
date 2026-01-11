@@ -1,11 +1,12 @@
 ﻿using AutoMapper;
+using BusinessLogic.DTOs;
+using BusinessLogic.DTOs.QuizDtos;
 using BusinessLogic.DTOs.UserMistakeDtos;
+using BusinessLogic.Extensions;
 using BusinessLogic.Interfaces;
 using Repository.Entities;
 using Repository.Interfaces;
-using BusinessLogic.Extensions;
-using BusinessLogic.DTOs;
-using BusinessLogic.DTOs.QuizDtos;
+using System.ComponentModel.DataAnnotations;
 
 namespace BusinessLogic.Services
 {
@@ -31,6 +32,13 @@ namespace BusinessLogic.Services
         public async Task<PaginationResponseDto<ResponseUserMistakeDto>> GetAllAsync(PaginationRequestDto pagination = null!)
         {
             pagination ??= new PaginationRequestDto();
+            // Validate the pagination object
+            var validationResults = new List<ValidationResult>();
+            var validationContext = new ValidationContext(pagination);
+            if (!Validator.TryValidateObject(pagination, validationContext, validationResults, true))
+            {
+                throw new ArgumentException("Invalid pagination parameters.");
+            }
             var userMistakes = await _repo.GetAllAsync();
             var dtos = _mapper.Map<IEnumerable<ResponseUserMistakeDto>>(userMistakes);
             return dtos.ToPagedResponse(pagination);
@@ -38,28 +46,43 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseUserMistakeDto?> GetByIdAsync(Guid id)
         {
+            if(id == Guid.Empty)
+                throw new ArgumentException("User mistake id cannot be empty!");
             var userMistake = await _repo.GetByIdAsync(id);
             return userMistake != null ? _mapper.Map<ResponseUserMistakeDto>(userMistake) : null;
         }
 
         public async Task AddAsync(RequestUserMistakeDto requestDto)
         {
+            if(requestDto == null)
+                throw new ArgumentNullException(nameof(requestDto), "Request DTO cannot be null!");
+            if(requestDto.UserId == Guid.Empty)
+                throw new ArgumentException("User id cannot be empty!");
+            if(requestDto.QuizId == Guid.Empty)
+                throw new ArgumentException("Quiz id cannot be empty!");
+
             var userMistake = _mapper.Map<UserMistake>(requestDto);
             await _repo.AddAsync(userMistake);
         }
 
         public async Task UpdateAsync(Guid id, RequestUserMistakeDto requestDto)
         {
+            if(id == Guid.Empty)
+                throw new ArgumentException("User mistake id cannot be empty!");
             await _repo.UpdateAsync(id, _mapper.Map<UserMistake>(requestDto));
         }
 
         public async Task DeleteAsync(Guid id)
         {
+            if(id == Guid.Empty)
+                throw new ArgumentException("User mistake id cannot be empty!");
             await _repo.DeleteAsync(id);
         }
 
         public async Task<PaginationResponseDto<ResponseUserMistakeDto>> GetAllByUserIdAsync(Guid userId, PaginationRequestDto pagination = null!)
         {
+            if(userId == Guid.Empty)
+                throw new ArgumentException("User id cannot be empty!");
             pagination ??= new PaginationRequestDto();
             var userMistakes = await _repo.GetAlByUserIdAsync(userId);
             var dtos = _mapper.Map<IEnumerable<ResponseUserMistakeDto>>(userMistakes);
@@ -68,6 +91,8 @@ namespace BusinessLogic.Services
 
         public async Task<PaginationResponseDto<QuizResponseDto>> GetMistakeQuizzesByUserId(Guid userId, PaginationRequestDto pagination)
         {
+            if(userId == Guid.Empty)
+                throw new ArgumentException("User id cannot be empty!");
             await CleanupOrphanWeakPointsAsync(userId);
 
             var userMistakes = await _repo.GetAlByUserIdAsync(userId);
@@ -96,6 +121,8 @@ namespace BusinessLogic.Services
 
         public async Task CleanupOrphanWeakPointsAsync(Guid userId)
         {
+            if(userId == Guid.Empty)
+                throw new ArgumentException("User id cannot be empty!");
             try
             {
                 var allWeakPoints = await _userWeakPointRepo.GetByUserIdAsync(userId);

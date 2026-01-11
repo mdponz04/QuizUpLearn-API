@@ -23,14 +23,14 @@ namespace QuizUpLearn.API.Controllers
         [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<IActionResult> GetAll([FromQuery] PaginationRequestDto pagination)
         {
-            var quizGroupItems = await _quizGroupItemService.GetAllAsync(pagination);
+            var quizGroupItems = await _quizGroupItemService.GetAllGroupItemAsync(pagination);
             return Ok(quizGroupItems);
         }
 
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetById(Guid id)
         {
-            var quizGroupItem = await _quizGroupItemService.GetByIdAsync(id);
+            var quizGroupItem = await _quizGroupItemService.GetGroupItemByIdAsync(id);
             if (quizGroupItem == null)
             {
                 return NotFound();
@@ -42,7 +42,7 @@ namespace QuizUpLearn.API.Controllers
         [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<IActionResult> Create([FromBody] RequestQuizGroupItemDto requestDto)
         {
-            var item = await _quizGroupItemService.CreateAsync(requestDto);
+            var item = await _quizGroupItemService.CreateGroupItemAsync(requestDto);
             if (item == null) {
                 return StatusCode(500, "Creation failed");
             }
@@ -53,7 +53,7 @@ namespace QuizUpLearn.API.Controllers
         [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<IActionResult> Update(Guid id, [FromBody] RequestQuizGroupItemDto requestDto)
         {
-            var item = await _quizGroupItemService.UpdateAsync(id, requestDto);
+            var item = await _quizGroupItemService.UpdateGroupItemAsync(id, requestDto);
             if (item == null)
             {
                 return NotFound();
@@ -65,13 +65,13 @@ namespace QuizUpLearn.API.Controllers
         [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<IActionResult> Delete(Guid id)
         {
-            var existingQuizGroupItem = await _quizGroupItemService.GetByIdAsync(id);
+            var existingQuizGroupItem = await _quizGroupItemService.GetGroupItemByIdAsync(id);
             if (existingQuizGroupItem == null)
             {
                 return NotFound();
             }
 
-            if(await _quizGroupItemService.DeleteAsync(id))
+            if(await _quizGroupItemService.DeleteGroupItemAsync(id))
                 return Ok();
             return StatusCode(500, "Delete failed");
         }

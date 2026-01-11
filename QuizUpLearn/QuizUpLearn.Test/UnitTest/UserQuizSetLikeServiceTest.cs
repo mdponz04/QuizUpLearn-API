@@ -1,6 +1,7 @@
 using AutoMapper;
 using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.UserQuizSetLikeDtos;
+using BusinessLogic.Interfaces;
 using BusinessLogic.MappingProfile;
 using BusinessLogic.Services;
 using FluentAssertions;
@@ -103,19 +104,16 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
-        public async Task GetByIdAsync_WithNonExistentId_ShouldReturnNull()
+        public async Task GetByIdAsync_WithNonExistentId_ShouldThrowArgumentException()
         {
             // Arrange
-            var id = Guid.NewGuid();
-            _mockUserQuizSetLikeRepo.Setup(r => r.GetByIdAsync(id))
-                .ReturnsAsync((UserQuizSetLike?)null);
+            var id = Guid.Empty;
 
             // Act
-            var result = await _userQuizSetLikeService.GetByIdAsync(id);
+            Func<Task> act = async () => await _userQuizSetLikeService.GetByIdAsync(id);
 
             // Assert
-            result.Should().BeNull();
-            _mockUserQuizSetLikeRepo.Verify(r => r.GetByIdAsync(id), Times.Once);
+            await act.Should().ThrowAsync<ArgumentException>();
         }
 
         [Fact]
@@ -190,6 +188,21 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
+        public async Task GetByUserIdAsync_WhenUserIdIsInvalid_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var userId = Guid.Empty;
+            var pagination = new PaginationRequestDto { Page = 1, PageSize = 10 };
+
+            _mockUserQuizSetLikeRepo.Setup(r => r.GetByUserIdAsync(userId, It.IsAny<bool>()))
+                .ReturnsAsync(new List<UserQuizSetLike>());
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _userQuizSetLikeService.GetByUserIdAsync(userId, pagination));
+        }
+
+        [Fact]
         public async Task GetByQuizSetIdAsync_WithValidQuizSetId_ShouldReturnPaginatedResponse()
         {
             // Arrange
@@ -229,6 +242,22 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
+        public async Task GetByQuizSetIdAsync_WhenQuizSetIdIsInvalid_ShouldThrowArgumentException()
+        {
+            var quizSetId = Guid.Empty;
+            var pagination = new PaginationRequestDto { Page = 1, PageSize = 10 };
+
+            _mockUserQuizSetLikeRepo.Setup(r => r.GetByQuizSetIdAsync(quizSetId, It.IsAny<bool>()))
+                .ReturnsAsync(new List<UserQuizSetLike>());
+
+            // Act
+            Func<Task> act = async () => await _userQuizSetLikeService.GetByQuizSetIdAsync(quizSetId, pagination);
+
+            // Assert
+            await act.Should().ThrowAsync<ArgumentException>();
+        }
+
+        [Fact]
         public async Task GetByUserAndQuizSetAsync_WithValidIds_ShouldReturnResponseUserQuizSetLikeDto()
         {
             // Arrange
@@ -258,7 +287,7 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
-        public async Task GetByUserAndQuizSetAsync_WithNonExistentPair_ShouldReturnNull()
+        public async Task GetByUserAndQuizSetAsync_WithNonExistentPair_ShouldThrowKeyNotFoundException()
         {
             // Arrange
             var userId = Guid.NewGuid();
@@ -268,10 +297,12 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync((UserQuizSetLike?)null);
 
             // Act
-            var result = await _userQuizSetLikeService.GetByUserAndQuizSetAsync(userId, quizSetId, false);
+            var result = await _userQuizSetLikeService
+                .GetByUserAndQuizSetAsync(userId, quizSetId, false);
 
             // Assert
             result.Should().BeNull();
+
             _mockUserQuizSetLikeRepo.Verify(r => r.GetByUserAndQuizSetAsync(userId, quizSetId, false), Times.Once);
         }
 

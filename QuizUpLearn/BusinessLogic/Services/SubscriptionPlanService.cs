@@ -1,10 +1,12 @@
 ﻿using AutoMapper;
-using BusinessLogic.DTOs.SubscriptionPlanDtos;
 using BusinessLogic.DTOs;
-using BusinessLogic.Interfaces;
+using BusinessLogic.DTOs.SubscriptionPlanDtos;
 using BusinessLogic.Extensions;
+using BusinessLogic.Helpers;
+using BusinessLogic.Interfaces;
 using Repository.Entities;
 using Repository.Interfaces;
+using System.ComponentModel.DataAnnotations;
 
 namespace BusinessLogic.Services
 {
@@ -25,6 +27,13 @@ namespace BusinessLogic.Services
             {
                 pagination = new PaginationRequestDto();
             }
+            // Validate the pagination object
+            var validationResults = new List<ValidationResult>();
+            var validationContext = new ValidationContext(pagination);
+            if (!Validator.TryValidateObject(pagination, validationContext, validationResults, true))
+            {
+                throw new ArgumentException("Invalid pagination parameters.");
+            }
             var entities = await _repo.GetAllAsync();
             var dtos = _mapper.Map<List<ResponseSubscriptionPlanDto>>(entities);
             return await dtos.AsQueryable().ToPagedResponseAsync(pagination);
@@ -32,12 +41,20 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseSubscriptionPlanDto?> GetByIdAsync(Guid id)
         {
+            if(id == Guid.Empty)
+                throw new ArgumentException("Invalid plan ID");
             var entity = await _repo.GetByIdAsync(id);
             return entity == null ? null : _mapper.Map<ResponseSubscriptionPlanDto>(entity);
         }
 
         public async Task<ResponseSubscriptionPlanDto> CreateAsync(RequestSubscriptionPlanDto dto)
         {
+            if(dto == null)
+                throw new ArgumentNullException(nameof(dto), "Subscription plan data cannot be null");
+            if(string.IsNullOrEmpty(dto.Name))
+                throw new ArgumentException("Subscription plan name cannot be null or empty");
+            ValidateDtoHelper validator = new ValidateDtoHelper();
+            validator.ValidateDto(dto);
             var entity = _mapper.Map<SubscriptionPlan>(dto);
             var created = await _repo.CreateAsync(entity);
             return _mapper.Map<ResponseSubscriptionPlanDto>(created);
@@ -45,6 +62,10 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseSubscriptionPlanDto?> UpdateAsync(Guid id, RequestSubscriptionPlanDto dto)
         {
+            if(id == Guid.Empty)
+                throw new ArgumentException("Invalid plan ID");
+            ValidateDtoHelper validator = new ValidateDtoHelper();
+            validator.ValidateDto(dto);
             var existing = await _repo.GetByIdAsync(id);
 
             if (existing == null) return null;
@@ -75,6 +96,8 @@ namespace BusinessLogic.Services
 
         public async Task<bool> DeleteAsync(Guid id)
         {
+            if(id == Guid.Empty)
+                throw new ArgumentException("Invalid plan ID");
             return await _repo.DeleteAsync(id);
         }
 

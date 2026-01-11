@@ -57,7 +57,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(createdAnswerOption);
 
             // Act
-            var result = await _answerOptionService.CreateAsync(request);
+            var result = await _answerOptionService.CreateAnswerOptionAsync(request);
 
             // Assert
             result.Should().NotBeNull();
@@ -90,7 +90,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(answerOption);
 
             // Act
-            var result = await _answerOptionService.GetByIdAsync(answerOptionId);
+            var result = await _answerOptionService.GetAnswerOptionByIdAsync(answerOptionId);
 
             // Assert
             result.Should().NotBeNull();
@@ -114,7 +114,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync((AnswerOption?)null);
 
             // Act
-            var result = await _answerOptionService.GetByIdAsync(answerOptionId);
+            var result = await _answerOptionService.GetAnswerOptionByIdAsync(answerOptionId);
 
             // Assert
             result.Should().BeNull();
@@ -153,7 +153,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(answerOptions);
 
             // Act
-            var result = await _answerOptionService.GetAllAsync(false);
+            var result = await _answerOptionService.GetAllAnswerOptionAsync(false);
 
             // Assert
             result.Should().NotBeNull();
@@ -197,7 +197,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(answerOptions);
 
             // Act
-            var result = await _answerOptionService.GetAllAsync(true);
+            var result = await _answerOptionService.GetAllAnswerOptionAsync(true);
 
             // Assert
             result.Should().NotBeNull();
@@ -239,7 +239,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(answerOptions);
 
             // Act
-            var result = await _answerOptionService.GetByQuizIdAsync(quizId, false);
+            var result = await _answerOptionService.GetAnswerOptionByQuizIdAsync(quizId, false);
 
             // Assert
             result.Should().NotBeNull();
@@ -283,7 +283,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(answerOptions);
 
             // Act
-            var result = await _answerOptionService.GetByQuizIdAsync(quizId, true);
+            var result = await _answerOptionService.GetAnswerOptionByQuizIdAsync(quizId, true);
 
             // Assert
             result.Should().NotBeNull();
@@ -323,7 +323,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(updatedAnswerOption);
 
             // Act
-            var result = await _answerOptionService.UpdateAsync(answerOptionId, request);
+            var result = await _answerOptionService.UpdateAnswerOptionAsync(answerOptionId, request);
 
             // Assert
             result.Should().NotBeNull();
@@ -355,7 +355,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync((AnswerOption?)null);
 
             // Act
-            var result = await _answerOptionService.UpdateAsync(answerOptionId, request);
+            var result = await _answerOptionService.UpdateAnswerOptionAsync(answerOptionId, request);
 
             // Assert
             result.Should().BeNull();
@@ -363,35 +363,30 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
-        public async Task SoftDeleteAsync_WithValidId_ShouldReturnTrue()
+        public async Task DeleteAsync_WithValidId_ShouldReturnTrue()
         {
             // Arrange
             var answerOptionId = Guid.NewGuid();
-            _mockAnswerOptionRepo.Setup(r => r.SoftDeleteAsync(answerOptionId))
+            var newAnswerOption = new AnswerOption
+            {
+                Id = answerOptionId,
+                QuizId = Guid.NewGuid(),
+                OptionLabel = "E",
+                OptionText = "To be deleted",
+                OrderIndex = 5,
+                IsCorrect = false,
+                CreatedAt = DateTime.UtcNow
+            };
+            _mockAnswerOptionRepo.Setup(r => r.DeleteAsync(answerOptionId))
                 .ReturnsAsync(true);
 
             // Act
-            var result = await _answerOptionService.SoftDeleteAsync(answerOptionId);
-
+            var result = await _answerOptionService.DeleteAnswerOptionAsync(answerOptionId);
+            var answerOption = await _answerOptionService.GetAnswerOptionByIdAsync(answerOptionId);
             // Assert
             result.Should().BeTrue();
-            _mockAnswerOptionRepo.Verify(r => r.SoftDeleteAsync(answerOptionId), Times.Once);
-        }
-
-        [Fact]
-        public async Task RestoreAsync_WithValidId_ShouldReturnTrue()
-        {
-            // Arrange
-            var answerOptionId = Guid.NewGuid();
-            _mockAnswerOptionRepo.Setup(r => r.RestoreAsync(answerOptionId))
-                .ReturnsAsync(true);
-
-            // Act
-            var result = await _answerOptionService.RestoreAsync(answerOptionId);
-
-            // Assert
-            result.Should().BeTrue();
-            _mockAnswerOptionRepo.Verify(r => r.RestoreAsync(answerOptionId), Times.Once);
+            answerOption.Should().BeNull();
+            _mockAnswerOptionRepo.Verify(r => r.DeleteAsync(answerOptionId), Times.Once);
         }
     }
 }

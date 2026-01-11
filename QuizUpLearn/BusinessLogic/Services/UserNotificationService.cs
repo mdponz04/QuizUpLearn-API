@@ -25,6 +25,9 @@ namespace BusinessLogic.Services
 
         public async Task<UserNotificationResponseDto?> GetByIdAsync(Guid id)
         {
+            if(id == Guid.Empty)
+                throw new ArgumentException("ID cannot be empty");
+
             var userNotification = await _userNotificationRepo.GetByIdAsync(id);
             return userNotification == null ? null : _mapper.Map<UserNotificationResponseDto>(userNotification);
         }
@@ -43,6 +46,9 @@ namespace BusinessLogic.Services
 
         public async Task<UserNotificationResponseDto> CreateAsync(UserNotificationRequestDto requestDto)
         {
+            if(requestDto == null)
+                throw new ArgumentNullException(nameof(requestDto), "Request DTO cannot be null");
+
             var userNotification = _mapper.Map<UserNotification>(requestDto);
             var createdUserNotification = await _userNotificationRepo.CreateAsync(userNotification);
             return _mapper.Map<UserNotificationResponseDto>(createdUserNotification);

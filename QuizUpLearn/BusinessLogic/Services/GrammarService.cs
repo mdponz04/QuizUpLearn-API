@@ -34,7 +34,6 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseGrammarDto?> CreateAsync(RequestGrammarDto request)
         {
-            // Validate unique Name
             if (await _repo.ExistsByNameAsync(request.Name))
             {
                 throw new InvalidOperationException($"Grammar with name '{request.Name}' already exists.");
@@ -47,7 +46,6 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseGrammarDto?> UpdateAsync(Guid id, RequestGrammarDto request)
         {
-            // Validate unique Name (exclude current record)
             if (await _repo.ExistsByNameAsync(request.Name, id))
             {
                 throw new InvalidOperationException($"Grammar with name '{request.Name}' already exists.");
@@ -59,7 +57,6 @@ namespace BusinessLogic.Services
 
         public async Task<bool> DeleteAsync(Guid id)
         {
-            // Không cho xoá khi vẫn còn quiz phụ thuộc
             if (await _repo.HasQuizzesAsync(id))
             {
                 return false;

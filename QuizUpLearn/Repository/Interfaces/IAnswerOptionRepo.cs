@@ -10,7 +10,7 @@ namespace Repository.Interfaces
         Task<IEnumerable<AnswerOption>> GetAllAsync(bool includeDeleted = false);
         Task<IEnumerable<AnswerOption>> GetByQuizIdAsync(Guid quizId, bool includeDeleted = false);
         Task<AnswerOption?> UpdateAsync(Guid id, AnswerOption answerOption);
-        Task<bool> SoftDeleteAsync(Guid id);
+        Task<bool> DeleteAsync(Guid id);
         Task<bool> RestoreAsync(Guid id);
     }
 }

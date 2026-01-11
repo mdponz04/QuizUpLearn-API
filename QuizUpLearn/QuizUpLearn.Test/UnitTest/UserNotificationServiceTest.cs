@@ -479,5 +479,160 @@ namespace QuizUpLearn.Test.UnitTest
 
             _mockUserNotificationRepo.Verify(r => r.MarkAllAsReadByUserIdAsync(userId), Times.Once);
         }
+
+        [Fact]
+        public async Task GetByIdAsync_WithNonExistInvalid_ShouldReturnNull()
+        {
+            // Arrange
+            var invalidId = Guid.NewGuid();
+            _mockUserNotificationRepo.Setup(r => r.GetByIdAsync(invalidId))
+                .ReturnsAsync((UserNotification?)null);
+
+            // Act
+            var result = await _userNotificationService.GetByIdAsync(invalidId);
+
+            // Assert
+            result.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task GetByIdAsync_WhenIdIsEmpty_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var emptyId = Guid.Empty;
+
+            // Act
+            Func<Task> act = async () => await _userNotificationService.GetByIdAsync(emptyId);
+
+            // Assert
+            await act.Should().ThrowAsync<ArgumentException>();
+        }
+
+        [Fact]
+        public async Task GetByUserIdAsync_WhenUserIdIsEmpty_ShouldReturnEmptyCollection()
+        {
+            // Arrange
+            var emptyUserId = Guid.Empty;
+            _mockUserNotificationRepo.Setup(r => r.GetByUserIdAsync(emptyUserId))
+                .ReturnsAsync(new List<UserNotification>());
+
+            // Act
+            var result = await _userNotificationService.GetByUserIdAsync(emptyUserId);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Should().BeEmpty();
+            _mockUserNotificationRepo.Verify(r => r.GetByUserIdAsync(emptyUserId), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetUnreadByUserIdAsync_WhenUserIdIsEmpty_ShouldReturnEmptyCollection()
+        {
+            // Arrange
+            var emptyUserId = Guid.Empty;
+            _mockUserNotificationRepo.Setup(r => r.GetUnreadByUserIdAsync(emptyUserId))
+                .ReturnsAsync(new List<UserNotification>());
+
+            // Act
+            var result = await _userNotificationService.GetUnreadByUserIdAsync(emptyUserId);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Should().BeEmpty();
+            _mockUserNotificationRepo.Verify(r => r.GetUnreadByUserIdAsync(emptyUserId), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateAsync_WithNullRequestDto_ShouldThrowArgumentNullException()
+        {
+            // Arrange
+            UserNotificationRequestDto? nullRequestDto = null;
+
+            // Act
+            Func<Task> act = async () => await _userNotificationService.CreateAsync(nullRequestDto!);
+
+            // Assert
+            await act.Should().ThrowAsync<ArgumentNullException>();
+        }
+
+        [Fact]
+        public async Task UpdateAsync_WithEmptyId_ShouldCallRepoWithEmptyId()
+        {
+            // Arrange
+            var emptyId = Guid.Empty;
+            var requestDto = new UserNotificationRequestDto
+            {
+                UserId = Guid.NewGuid(),
+                NotificationId = Guid.NewGuid(),
+                IsRead = true
+            };
+
+            var updatedUserNotification = new UserNotification
+            {
+                Id = emptyId,
+                UserId = requestDto.UserId,
+                NotificationId = requestDto.NotificationId,
+                IsRead = true
+            };
+
+            _mockUserNotificationRepo.Setup(r => r.UpdateAsync(It.IsAny<UserNotification>()))
+                .ReturnsAsync(updatedUserNotification);
+
+            // Act
+            var result = await _userNotificationService.UpdateAsync(emptyId, requestDto);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Id.Should().Be(emptyId);
+            _mockUserNotificationRepo.Verify(r => r.UpdateAsync(It.Is<UserNotification>(un => un.Id == emptyId)), Times.Once);
+        }
+
+        [Fact]
+        public async Task DeleteAsync_WithEmptyId_ShouldReturnFalse()
+        {
+            // Arrange
+            var emptyId = Guid.Empty;
+            _mockUserNotificationRepo.Setup(r => r.DeleteAsync(emptyId))
+                .ReturnsAsync(false);
+
+            // Act
+            var result = await _userNotificationService.DeleteAsync(emptyId);
+
+            // Assert
+            result.Should().BeFalse();
+            _mockUserNotificationRepo.Verify(r => r.DeleteAsync(emptyId), Times.Once);
+        }
+
+        [Fact]
+        public async Task MarkAsReadAsync_WithEmptyId_ShouldReturnFalse()
+        {
+            // Arrange
+            var emptyId = Guid.Empty;
+            _mockUserNotificationRepo.Setup(r => r.MarkAsReadAsync(emptyId))
+                .ReturnsAsync(false);
+
+            // Act
+            var result = await _userNotificationService.MarkAsReadAsync(emptyId);
+
+            // Assert
+            result.Should().BeFalse();
+            _mockUserNotificationRepo.Verify(r => r.MarkAsReadAsync(emptyId), Times.Once);
+        }
+
+        [Fact]
+        public async Task MarkAllAsReadByUserIdAsync_WithEmptyUserId_ShouldReturnFalse()
+        {
+            // Arrange
+            var emptyUserId = Guid.Empty;
+            _mockUserNotificationRepo.Setup(r => r.MarkAllAsReadByUserIdAsync(emptyUserId))
+                .ReturnsAsync(false);
+
+            // Act
+            var result = await _userNotificationService.MarkAllAsReadByUserIdAsync(emptyUserId);
+
+            // Assert
+            result.Should().BeFalse();
+            _mockUserNotificationRepo.Verify(r => r.MarkAllAsReadByUserIdAsync(emptyUserId), Times.Once);
+        }
     }
 }

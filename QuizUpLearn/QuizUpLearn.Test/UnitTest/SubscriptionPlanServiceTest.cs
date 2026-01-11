@@ -6,6 +6,7 @@ using FluentAssertions;
 using Moq;
 using Repository.Entities;
 using Repository.Interfaces;
+using System.ComponentModel.DataAnnotations;
 
 namespace QuizUpLearn.Test.UnitTest
 {
@@ -502,6 +503,112 @@ namespace QuizUpLearn.Test.UnitTest
 
             _mockRepo.Verify(r => r.GetFreeSubscriptionPlan(), Times.Once);
             _mockMapper.Verify(m => m.Map<ResponseSubscriptionPlanDto>(freeSubscriptionPlan), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetAllAsync_WithInvalidPagination_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var pagination = new PaginationRequestDto
+            {
+                Page = -1,
+                PageSize = 200
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _subscriptionPlanService.GetAllAsync(pagination));
+        }
+
+        [Fact]
+        public async Task GetByIdAsync_WithEmptyGuid_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var invalidId = Guid.Empty;
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _subscriptionPlanService.GetByIdAsync(invalidId));
+        }
+
+        [Fact]
+        public async Task CreateAsync_WithInvalidPrice_ShouldThrowValidationException()
+        {
+            // Arrange
+            var invalidDto = new RequestSubscriptionPlanDto
+            {
+                Name = "plan test name",
+                Price = -1000,
+                DurationDays = 30
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ValidationException>(async () =>
+                await _subscriptionPlanService.CreateAsync(invalidDto));
+        }
+        [Fact]
+        public async Task CreateAsync_WithInvalidDurationDays_ShouldThrowValidationException()
+        {
+            // Arrange
+            var invalidDto = new RequestSubscriptionPlanDto
+            {
+                Name = "plan test name",
+                Price = 10000,
+                DurationDays = -1
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ValidationException>(async () =>
+                await _subscriptionPlanService.CreateAsync(invalidDto));
+        }
+        [Fact]
+        public async Task CreateAsync_WithNullName_ShouldThrowValidationException()
+        {
+            // Arrange
+            var invalidDto = new RequestSubscriptionPlanDto
+            {
+                Name = null,
+                Price = 10000,
+                DurationDays = 10
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _subscriptionPlanService.CreateAsync(invalidDto));
+        }
+        [Fact]
+        public async Task CreateAsync_WithNullDto_ShouldThrowValidationException()
+        {
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentNullException>(async () =>
+                await _subscriptionPlanService.CreateAsync(null!));
+        }
+        [Fact]
+        public async Task UpdateAsync_WithInvalidDto_ShouldThrowValidationException()
+        {
+            // Arrange
+            var subscriptionPlanId = Guid.NewGuid();
+            var invalidDto = new RequestSubscriptionPlanDto
+            {
+                Name = "",
+                Price = -500,
+                DurationDays = -10
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ValidationException>(async () =>
+                await _subscriptionPlanService.UpdateAsync(subscriptionPlanId, invalidDto));
+        }
+
+        [Fact]
+        public async Task DeleteAsync_WithEmptyGuid_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var invalidId = Guid.Empty;
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _subscriptionPlanService.DeleteAsync(invalidId));
         }
     }
 }

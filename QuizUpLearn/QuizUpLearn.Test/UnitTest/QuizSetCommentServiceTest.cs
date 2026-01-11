@@ -71,6 +71,43 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
+        public async Task CreateAsync_WithInvalidUserId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var request = new RequestQuizSetCommentDto
+            {
+                UserId = Guid.Empty,
+                QuizSetId = Guid.NewGuid(),
+                Content = "This is a great quiz set!"
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _quizSetCommentService.CreateAsync(request));
+        }
+        [Fact]
+        public async Task CreateAsync_WithInvalidQuizSetId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var request = new RequestQuizSetCommentDto
+            {
+                UserId = Guid.NewGuid(),
+                QuizSetId = Guid.Empty,
+                Content = "This is a great quiz set!"
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _quizSetCommentService.CreateAsync(request));
+        }
+        [Fact]
+        public async Task CreateAsync_WithNullDto_ShouldThrowArgumentException()
+        {
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentNullException>(async () =>
+                await _quizSetCommentService.CreateAsync(null!));
+        }
+        [Fact]
         public async Task GetByIdAsync_WithValidId_ShouldReturnResponseQuizSetCommentDto()
         {
             // Arrange
@@ -99,6 +136,17 @@ namespace QuizUpLearn.Test.UnitTest
             result.CreatedAt.Should().Be(comment.CreatedAt);
 
             _mockQuizSetCommentRepo.Verify(r => r.GetByIdAsync(commentId), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetByIdAsync_WithInvalidId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var invalidId = Guid.Empty;
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _quizSetCommentService.GetByIdAsync(invalidId));
         }
 
         [Fact]
@@ -158,6 +206,17 @@ namespace QuizUpLearn.Test.UnitTest
             result.Pagination.TotalCount.Should().Be(2);
 
             _mockQuizSetCommentRepo.Verify(r => r.GetAllAsync(false), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetAllAsync_WithInvalidPagination_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var invalidPagination = new PaginationRequestDto { Page = 0, PageSize = 10 }; // Invalid page number
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _quizSetCommentService.GetAllAsync(invalidPagination));
         }
 
         [Fact]
@@ -245,6 +304,18 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
+        public async Task GetByUserIdAsync_WithInvalidUserId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var invalidUserId = Guid.Empty;
+            var pagination = new PaginationRequestDto { Page = 1, PageSize = 10 };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _quizSetCommentService.GetByUserIdAsync(invalidUserId, pagination));
+        }
+
+        [Fact]
         public async Task GetByQuizSetIdAsync_WithValidQuizSetId_ShouldReturnQuizSetComments()
         {
             // Arrange
@@ -284,6 +355,18 @@ namespace QuizUpLearn.Test.UnitTest
             result.Data[1].Content.Should().Be("Second comment on quiz set");
 
             _mockQuizSetCommentRepo.Verify(r => r.GetByQuizSetIdAsync(quizSetId, false), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetByQuizSetIdAsync_WithInvalidQuizSetId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var invalidQuizSetId = Guid.Empty;
+            var pagination = new PaginationRequestDto { Page = 1, PageSize = 10 };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _quizSetCommentService.GetByQuizSetIdAsync(invalidQuizSetId, pagination));
         }
 
         [Fact]
@@ -329,6 +412,23 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
+        public async Task UpdateAsync_WithInvalidId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var invalidId = Guid.Empty;
+            var updateRequest = new RequestQuizSetCommentDto
+            {
+                UserId = Guid.NewGuid(),
+                QuizSetId = Guid.NewGuid(),
+                Content = "Updated comment content"
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _quizSetCommentService.UpdateAsync(invalidId, updateRequest));
+        }
+
+        [Fact]
         public async Task UpdateAsync_WithNonExistentId_ShouldReturnNull()
         {
             // Arrange
@@ -371,6 +471,17 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
+        public async Task HardDeleteAsync_WithInvalidId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var invalidId = Guid.Empty;
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _quizSetCommentService.HardDeleteAsync(invalidId));
+        }
+
+        [Fact]
         public async Task HardDeleteAsync_WithNonExistentId_ShouldReturnFalse()
         {
             // Arrange
@@ -405,6 +516,17 @@ namespace QuizUpLearn.Test.UnitTest
             result.Should().Be(expectedCount);
 
             _mockQuizSetCommentRepo.Verify(r => r.GetCommentCountByQuizSetAsync(quizSetId), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetCommentCountByQuizSetAsync_WithInvalidQuizSetId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var invalidQuizSetId = Guid.Empty;
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
+                await _quizSetCommentService.GetCommentCountByQuizSetAsync(invalidQuizSetId));
         }
 
         [Fact]

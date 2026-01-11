@@ -60,7 +60,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(quizGroupItems);
 
             // Act
-            var result = await _quizGroupItemService.GetAllAsync(pagination);
+            var result = await _quizGroupItemService.GetAllGroupItemAsync(pagination);
 
             // Assert
             result.Should().NotBeNull();
@@ -95,7 +95,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(quizGroupItem);
 
             // Act
-            var result = await _quizGroupItemService.GetByIdAsync(quizGroupItemId);
+            var result = await _quizGroupItemService.GetGroupItemByIdAsync(quizGroupItemId);
 
             // Assert
             result.Should().NotBeNull();
@@ -140,7 +140,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(createdQuizGroupItem);
 
             // Act
-            var result = await _quizGroupItemService.CreateAsync(request);
+            var result = await _quizGroupItemService.CreateGroupItemAsync(request);
 
             // Assert
             result.Should().NotBeNull();
@@ -194,7 +194,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(updatedQuizGroupItem);
 
             // Act
-            var result = await _quizGroupItemService.UpdateAsync(quizGroupItemId, request);
+            var result = await _quizGroupItemService.UpdateGroupItemAsync(quizGroupItemId, request);
 
             // Assert
             result.Should().NotBeNull();
@@ -225,7 +225,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(true);
 
             // Act
-            var result = await _quizGroupItemService.DeleteAsync(quizGroupItemId);
+            var result = await _quizGroupItemService.DeleteGroupItemAsync(quizGroupItemId);
 
             // Assert
             result.Should().BeTrue();
@@ -259,7 +259,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(createdQuizGroupItem);
 
             // Act
-            var result = await _quizGroupItemService.CreateAsync(request);
+            var result = await _quizGroupItemService.CreateGroupItemAsync(request);
 
             // Assert
             result.Should().NotBeNull();
@@ -309,7 +309,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(updatedQuizGroupItem);
 
             // Act
-            var result = await _quizGroupItemService.UpdateAsync(quizGroupItemId, request);
+            var result = await _quizGroupItemService.UpdateGroupItemAsync(quizGroupItemId, request);
 
             // Assert
             result.Should().NotBeNull();
@@ -335,7 +335,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(emptyQuizGroupItems);
 
             // Act
-            var result = await _quizGroupItemService.GetAllAsync(pagination);
+            var result = await _quizGroupItemService.GetAllGroupItemAsync(pagination);
 
             // Assert
             result.Should().NotBeNull();

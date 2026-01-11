@@ -28,7 +28,7 @@ namespace BusinessLogic.Services
             _mapper = mapper;
         }
 
-        public async Task<ResponseQuizQuizSetDto> CreateAsync(RequestQuizQuizSetDto dto)
+        public async Task<ResponseQuizQuizSetDto> CreateQuizQuizSetAsync(RequestQuizQuizSetDto dto)
         {
             if(dto.QuizId == null || dto.QuizSetId == null)
                 throw new ArgumentException("QuizId and QuizSetId cannot be null");
@@ -50,40 +50,40 @@ namespace BusinessLogic.Services
             return _mapper.Map<ResponseQuizQuizSetDto>(created);
         }
 
-        public async Task<ResponseQuizQuizSetDto?> GetByIdAsync(Guid id)
+        public async Task<ResponseQuizQuizSetDto?> GetQuizQuizSetByIdAsync(Guid id)
         {
             var entity = await _quizQuizSetRepo.GetByIdAsync(id);
             return entity == null ? null : _mapper.Map<ResponseQuizQuizSetDto>(entity);
         }
 
-        public async Task<PaginationResponseDto<ResponseQuizQuizSetDto>> GetAllAsync(PaginationRequestDto pagination, bool includeDeleted = false)
+        public async Task<PaginationResponseDto<ResponseQuizQuizSetDto>> GetAllQuizQuizSetAsync(PaginationRequestDto pagination, bool includeDeleted = false)
         {
             var entities = await _quizQuizSetRepo.GetAllAsync(includeDeleted);
             var dtos = _mapper.Map<IEnumerable<ResponseQuizQuizSetDto>>(entities);
             return dtos.ToPagedResponse(pagination);
         }
 
-        public async Task<PaginationResponseDto<ResponseQuizQuizSetDto>> GetByQuizIdAsync(Guid quizId, PaginationRequestDto pagination, bool includeDeleted = false)
+        public async Task<PaginationResponseDto<ResponseQuizQuizSetDto>> GetQuizQuizSetByQuizIdAsync(Guid quizId, PaginationRequestDto pagination, bool includeDeleted = false)
         {
             var entities = await _quizQuizSetRepo.GetByQuizIdAsync(quizId, includeDeleted);
             var dtos = _mapper.Map<IEnumerable<ResponseQuizQuizSetDto>>(entities);
             return dtos.ToPagedResponse(pagination);
         }
 
-        public async Task<PaginationResponseDto<ResponseQuizQuizSetDto>> GetByQuizSetIdAsync(Guid quizSetId, PaginationRequestDto pagination, bool includeDeleted = false)
+        public async Task<PaginationResponseDto<ResponseQuizQuizSetDto>> GetQuizQuizSetByQuizSetIdAsync(Guid quizSetId, PaginationRequestDto pagination, bool includeDeleted = false)
         {
             var entities = await _quizQuizSetRepo.GetByQuizSetIdAsync(quizSetId, includeDeleted);
             var dtos = _mapper.Map<IEnumerable<ResponseQuizQuizSetDto>>(entities);
             return dtos.ToPagedResponse(pagination);
         }
 
-        public async Task<ResponseQuizQuizSetDto?> GetByQuizAndQuizSetAsync(Guid quizId, Guid quizSetId, bool includeDeleted = false)
+        public async Task<ResponseQuizQuizSetDto?> GetQuizQuizSetByQuizAndQuizSetAsync(Guid quizId, Guid quizSetId, bool includeDeleted = false)
         {
             var entity = await _quizQuizSetRepo.GetByQuizAndQuizSetAsync(quizId, quizSetId, includeDeleted);
             return entity == null ? null : _mapper.Map<ResponseQuizQuizSetDto>(entity);
         }
 
-        public async Task<ResponseQuizQuizSetDto?> UpdateAsync(Guid id, RequestQuizQuizSetDto dto)
+        public async Task<ResponseQuizQuizSetDto?> UpdateQuizQuizSetAsync(Guid id, RequestQuizQuizSetDto dto)
         {
             if(dto.QuizId == null || dto.QuizSetId == null)
                 throw new ArgumentException("QuizId and QuizSetId cannot be null");
@@ -101,12 +101,12 @@ namespace BusinessLogic.Services
             return updated == null ? null : _mapper.Map<ResponseQuizQuizSetDto>(updated);
         }
 
-        public async Task<bool> HardDeleteAsync(Guid id)
+        public async Task<bool> HardDeleteQuizQuizSetAsync(Guid id)
         {
             return await _quizQuizSetRepo.HardDeleteAsync(id);
         }
 
-        public async Task<bool> IsExistedAsync(Guid quizId, Guid quizSetId)
+        public async Task<bool> IsQuizQuizSetExistedAsync(Guid quizId, Guid quizSetId)
         {
             return await _quizQuizSetRepo.IsExistedAsync(quizId, quizSetId);
         }
@@ -120,7 +120,7 @@ namespace BusinessLogic.Services
             try
             {
                 var dto = new RequestQuizQuizSetDto { QuizId = quizId, QuizSetId = quizSetId };
-                await CreateAsync(dto);
+                await CreateQuizQuizSetAsync(dto);
                 return true;
             }
             catch
@@ -167,12 +167,12 @@ namespace BusinessLogic.Services
             }
         }
 
-        public async Task<bool> DeleteByQuizIdAsync(Guid quizId)
+        public async Task<bool> DeleteQuizQuizSetByQuizIdAsync(Guid quizId)
         {
             return await _quizQuizSetRepo.DeleteByQuizIdAsync(quizId);
         }
 
-        public async Task<bool> DeleteByQuizSetIdAsync(Guid quizSetId)
+        public async Task<bool> DeleteQuizQuizSetByQuizSetIdAsync(Guid quizSetId)
         {
             var quizSet = await _quizSetRepo.GetQuizSetByIdAsync(quizSetId);
 

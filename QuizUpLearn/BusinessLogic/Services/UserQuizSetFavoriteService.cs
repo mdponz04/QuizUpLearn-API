@@ -32,6 +32,8 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseUserQuizSetFavoriteDto?> GetByIdAsync(Guid id)
         {
+            if(id == Guid.Empty)
+                throw new ArgumentException("ID cannot be empty.");
             var entity = await _userQuizSetFavoriteRepo.GetByIdAsync(id);
             return entity == null ? null : _mapper.Map<ResponseUserQuizSetFavoriteDto>(entity);
         }
@@ -50,6 +52,8 @@ namespace BusinessLogic.Services
 
         public async Task<PaginationResponseDto<ResponseUserQuizSetFavoriteDto>> GetByUserIdAsync(Guid userId, PaginationRequestDto pagination, bool includeDeleted = false)
         {
+            if(userId == Guid.Empty)
+                throw new ArgumentException("User ID cannot be empty.");
             var entities = await _userQuizSetFavoriteRepo.GetByUserIdAsync(userId, includeDeleted);
             var query = entities.AsQueryable();
 
@@ -62,6 +66,8 @@ namespace BusinessLogic.Services
 
         public async Task<PaginationResponseDto<ResponseUserQuizSetFavoriteDto>> GetByQuizSetIdAsync(Guid quizSetId, PaginationRequestDto pagination, bool includeDeleted = false)
         {
+            if(quizSetId == Guid.Empty)
+                throw new ArgumentException("Quiz Set ID cannot be empty.");
             var entities = await _userQuizSetFavoriteRepo.GetByQuizSetIdAsync(quizSetId, includeDeleted);
             var query = entities.AsQueryable();
 
@@ -74,6 +80,9 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseUserQuizSetFavoriteDto?> GetByUserAndQuizSetAsync(Guid userId, Guid quizSetId, bool includeDeleted = false)
         {
+            if (userId == Guid.Empty || quizSetId == Guid.Empty)
+                throw new ArgumentException("User ID and Quiz Set ID cannot be empty.");
+
             var entity = await _userQuizSetFavoriteRepo.GetByUserAndQuizSetAsync(userId, quizSetId, includeDeleted);
             return entity == null ? null : _mapper.Map<ResponseUserQuizSetFavoriteDto>(entity);
         }
@@ -101,6 +110,8 @@ namespace BusinessLogic.Services
 
         public async Task<bool> HardDeleteAsync(Guid id)
         {
+            if(id == Guid.Empty)
+                throw new ArgumentException("ID cannot be empty.");
             return await _userQuizSetFavoriteRepo.HardDeleteAsync(id);
         }
 
