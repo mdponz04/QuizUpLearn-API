@@ -306,7 +306,7 @@ namespace QuizUpLearn.Test.UnitTest
         public async Task UpdateAsync_WithValidIdAndDto_ShouldReturnUpdatedSubscriptionPlan()
         {
             // Arrange
-            var subscriptionPlanId = Guid.NewGuid();
+            var id = Guid.NewGuid();
             var requestDto = new RequestSubscriptionPlanDto
             {
                 Name = "Updated Premium Plan",
@@ -320,7 +320,7 @@ namespace QuizUpLearn.Test.UnitTest
 
             var existingSubscriptionPlan = new SubscriptionPlan
             {
-                Id = subscriptionPlanId,
+                Id = id,
                 Name = "Premium Plan",
                 Price = 199000,
                 DurationDays = 30,
@@ -333,7 +333,7 @@ namespace QuizUpLearn.Test.UnitTest
 
             var updatedSubscriptionPlan = new SubscriptionPlan
             {
-                Id = subscriptionPlanId,
+                Id = id,
                 Name = requestDto.Name,
                 Price = requestDto.Price,
                 DurationDays = requestDto.DurationDays,
@@ -359,19 +359,19 @@ namespace QuizUpLearn.Test.UnitTest
                 UpdatedAt = updatedSubscriptionPlan.UpdatedAt
             };
 
-            _mockRepo.Setup(r => r.GetByIdAsync(subscriptionPlanId))
+            _mockRepo.Setup(r => r.GetByIdAsync(id))
                 .ReturnsAsync(existingSubscriptionPlan);
-            _mockRepo.Setup(r => r.UpdateAsync(subscriptionPlanId, It.IsAny<SubscriptionPlan>()))
+            _mockRepo.Setup(r => r.UpdateAsync(id, It.IsAny<SubscriptionPlan>()))
                 .ReturnsAsync(updatedSubscriptionPlan);
             _mockMapper.Setup(m => m.Map<ResponseSubscriptionPlanDto>(updatedSubscriptionPlan))
                 .Returns(responseDto);
 
             // Act
-            var result = await _subscriptionPlanService.UpdateAsync(subscriptionPlanId, requestDto);
+            var result = await _subscriptionPlanService.UpdateAsync(id, requestDto);
 
             // Assert
             result.Should().NotBeNull();
-            result!.Id.Should().Be(subscriptionPlanId);
+            result!.Id.Should().Be(id);
             result.Name.Should().Be("Updated Premium Plan");
             result.Price.Should().Be(250000);
             result.DurationDays.Should().Be(60);
@@ -381,8 +381,8 @@ namespace QuizUpLearn.Test.UnitTest
             result.IsBuyable.Should().BeTrue();
             result.UpdatedAt.Should().NotBeNull();
 
-            _mockRepo.Verify(r => r.GetByIdAsync(subscriptionPlanId), Times.Once);
-            _mockRepo.Verify(r => r.UpdateAsync(subscriptionPlanId, It.IsAny<SubscriptionPlan>()), Times.Once);
+            _mockRepo.Verify(r => r.GetByIdAsync(id), Times.Once);
+            _mockRepo.Verify(r => r.UpdateAsync(id, It.IsAny<SubscriptionPlan>()), Times.Once);
             _mockMapper.Verify(m => m.Map<ResponseSubscriptionPlanDto>(updatedSubscriptionPlan), Times.Once);
         }
 
@@ -393,11 +393,11 @@ namespace QuizUpLearn.Test.UnitTest
             var subscriptionPlanId = Guid.NewGuid();
             var requestDto = new RequestSubscriptionPlanDto
             {
-                Name = "Updated Plan",
-                Price = 150000,
-                DurationDays = 30,
+                Name = "Updated Premium Plan",
+                Price = 250000,
+                DurationDays = 60,
                 CanAccessPremiumContent = true,
-                CanAccessAiFeatures = true,
+                CanAccessAiFeatures = false,
                 IsActive = true,
                 IsBuyable = true
             };
@@ -537,9 +537,9 @@ namespace QuizUpLearn.Test.UnitTest
             // Arrange
             var invalidDto = new RequestSubscriptionPlanDto
             {
-                Name = "plan test name",
+                Name = "Enterprise Plan",
                 Price = -1000,
-                DurationDays = 30
+                DurationDays = 365
             };
 
             // Act & Assert
@@ -552,8 +552,8 @@ namespace QuizUpLearn.Test.UnitTest
             // Arrange
             var invalidDto = new RequestSubscriptionPlanDto
             {
-                Name = "plan test name",
-                Price = 10000,
+                Name = "Enterprise Plan",
+                Price = 499000,
                 DurationDays = -1
             };
 
@@ -568,8 +568,8 @@ namespace QuizUpLearn.Test.UnitTest
             var invalidDto = new RequestSubscriptionPlanDto
             {
                 Name = null,
-                Price = 10000,
-                DurationDays = 10
+                Price = 499000,
+                DurationDays = 365
             };
 
             // Act & Assert

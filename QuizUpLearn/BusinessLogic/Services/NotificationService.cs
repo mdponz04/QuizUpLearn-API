@@ -38,6 +38,8 @@ namespace BusinessLogic.Services
 
         public async Task<NotificationResponseDto> UpdateAsync(Guid id, NotificationRequestDto requestDto)
         {
+            if(id == Guid.Empty)
+                throw new ArgumentException("Id cannot be empty");
             var notification = _mapper.Map<Notification>(requestDto);
             notification.Id = id;
             var updatedNotification = await _notificationRepo.UpdateAsync(notification);

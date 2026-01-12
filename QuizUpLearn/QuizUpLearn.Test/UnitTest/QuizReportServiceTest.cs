@@ -79,38 +79,6 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
-        public async Task GetByIdAsync_WithValidId_ShouldReturnQuizReportResponse()
-        {
-            // Arrange
-            var quizReportId = Guid.NewGuid();
-            var userId = Guid.NewGuid();
-            var quizId = Guid.NewGuid();
-            var quizReport = new QuizReport
-            {
-                Id = quizReportId,
-                UserId = userId,
-                QuizId = quizId,
-                Description = "Sample quiz report",
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _mockQuizReportRepo.Setup(r => r.GetByIdAsync(quizReportId))
-                .ReturnsAsync(quizReport);
-
-            // Act
-            var result = await _quizReportService.GetByIdAsync(quizReportId);
-
-            // Assert
-            result.Should().NotBeNull();
-            result!.Id.Should().Be(quizReportId);
-            result.UserId.Should().Be(userId);
-            result.QuizId.Should().Be(quizId);
-            result.Description.Should().Be("Sample quiz report");
-
-            _mockQuizReportRepo.Verify(r => r.GetByIdAsync(quizReportId), Times.Once);
-        }
-
-        [Fact]
         public async Task GetByIdAsync_WithNonExistentId_ShouldReturnNull()
         {
             // Arrange

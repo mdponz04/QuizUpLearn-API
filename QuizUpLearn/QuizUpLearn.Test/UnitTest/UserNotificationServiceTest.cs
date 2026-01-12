@@ -556,7 +556,7 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
-        public async Task UpdateAsync_WithEmptyId_ShouldCallRepoWithEmptyId()
+        public async Task UpdateAsync_WithEmptyId_ShouldThrowArgumentException()
         {
             // Arrange
             var emptyId = Guid.Empty;
@@ -567,24 +567,12 @@ namespace QuizUpLearn.Test.UnitTest
                 IsRead = true
             };
 
-            var updatedUserNotification = new UserNotification
-            {
-                Id = emptyId,
-                UserId = requestDto.UserId,
-                NotificationId = requestDto.NotificationId,
-                IsRead = true
-            };
-
-            _mockUserNotificationRepo.Setup(r => r.UpdateAsync(It.IsAny<UserNotification>()))
-                .ReturnsAsync(updatedUserNotification);
-
             // Act
-            var result = await _userNotificationService.UpdateAsync(emptyId, requestDto);
+            Func<Task> act = async () => await _userNotificationService.UpdateAsync(emptyId, requestDto);
 
             // Assert
-            result.Should().NotBeNull();
-            result.Id.Should().Be(emptyId);
-            _mockUserNotificationRepo.Verify(r => r.UpdateAsync(It.Is<UserNotification>(un => un.Id == emptyId)), Times.Once);
+            await act.Should().ThrowAsync<ArgumentException>()
+                .WithMessage("ID cannot be empty");
         }
 
         [Fact]

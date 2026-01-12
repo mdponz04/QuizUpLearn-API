@@ -284,7 +284,7 @@ namespace QuizUpLearn.Test.UnitTest
         public async Task UpdateAsync_WithValidData_ShouldReturnUpdatedUserWeakPoint()
         {
             // Arrange
-            var userWeakPointId = Guid.NewGuid();
+            var id = Guid.NewGuid();
             var userId = Guid.NewGuid();
             var request = new RequestUserWeakPointDto
             {
@@ -297,7 +297,7 @@ namespace QuizUpLearn.Test.UnitTest
 
             var updatedUserWeakPoint = new UserWeakPoint
             {
-                Id = userWeakPointId,
+                Id = id,
                 UserId = request.UserId,
                 WeakPoint = request.WeakPoint,
                 ToeicPart = request.ToeicPart,
@@ -307,15 +307,15 @@ namespace QuizUpLearn.Test.UnitTest
                 UpdatedAt = DateTime.UtcNow
             };
 
-            _mockUserWeakPointRepo.Setup(r => r.UpdateAsync(userWeakPointId, It.IsAny<UserWeakPoint>()))
+            _mockUserWeakPointRepo.Setup(r => r.UpdateAsync(id, It.IsAny<UserWeakPoint>()))
                 .ReturnsAsync(updatedUserWeakPoint);
 
             // Act
-            var result = await _userWeakPointService.UpdateAsync(userWeakPointId, request);
+            var result = await _userWeakPointService.UpdateAsync(id, request);
 
             // Assert
             result.Should().NotBeNull();
-            result.Id.Should().Be(userWeakPointId);
+            result.Id.Should().Be(id);
             result.UserId.Should().Be(request.UserId);
             result.WeakPoint.Should().Be(request.WeakPoint);
             result.ToeicPart.Should().Be(request.ToeicPart);
@@ -323,7 +323,7 @@ namespace QuizUpLearn.Test.UnitTest
             result.Advice.Should().Be(request.Advice);
             result.UpdatedAt.Should().NotBeNull();
 
-            _mockUserWeakPointRepo.Verify(r => r.UpdateAsync(userWeakPointId, It.Is<UserWeakPoint>(uwp =>
+            _mockUserWeakPointRepo.Verify(r => r.UpdateAsync(id, It.Is<UserWeakPoint>(uwp =>
                 uwp.UserId == request.UserId &&
                 uwp.WeakPoint == request.WeakPoint &&
                 uwp.ToeicPart == request.ToeicPart &&
@@ -335,7 +335,7 @@ namespace QuizUpLearn.Test.UnitTest
         public async Task UpdateAsync_WithPartialData_ShouldReturnUpdatedUserWeakPoint()
         {
             // Arrange
-            var userWeakPointId = Guid.NewGuid();
+            var id = Guid.NewGuid();
             var userId = Guid.NewGuid();
             var request = new RequestUserWeakPointDto
             {
@@ -347,7 +347,7 @@ namespace QuizUpLearn.Test.UnitTest
 
             var updatedUserWeakPoint = new UserWeakPoint
             {
-                Id = userWeakPointId,
+                Id = id,
                 UserId = request.UserId,
                 WeakPoint = request.WeakPoint,
                 ToeicPart = request.ToeicPart,
@@ -357,22 +357,22 @@ namespace QuizUpLearn.Test.UnitTest
                 UpdatedAt = DateTime.UtcNow
             };
 
-            _mockUserWeakPointRepo.Setup(r => r.UpdateAsync(userWeakPointId, It.IsAny<UserWeakPoint>()))
+            _mockUserWeakPointRepo.Setup(r => r.UpdateAsync(id, It.IsAny<UserWeakPoint>()))
                 .ReturnsAsync(updatedUserWeakPoint);
 
             // Act
-            var result = await _userWeakPointService.UpdateAsync(userWeakPointId, request);
+            var result = await _userWeakPointService.UpdateAsync(id, request);
 
             // Assert
             result.Should().NotBeNull();
-            result.Id.Should().Be(userWeakPointId);
+            result.Id.Should().Be(id);
             result.UserId.Should().Be(request.UserId);
             result.WeakPoint.Should().Be(request.WeakPoint);
             result.ToeicPart.Should().Be(request.ToeicPart);
             result.DifficultyLevel.Should().BeNull();
             result.Advice.Should().BeNull();
 
-            _mockUserWeakPointRepo.Verify(r => r.UpdateAsync(userWeakPointId, It.IsAny<UserWeakPoint>()), Times.Once);
+            _mockUserWeakPointRepo.Verify(r => r.UpdateAsync(id, It.IsAny<UserWeakPoint>()), Times.Once);
         }
 
         [Fact]
