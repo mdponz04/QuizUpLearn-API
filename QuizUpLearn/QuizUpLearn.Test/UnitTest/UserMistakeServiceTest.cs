@@ -489,14 +489,8 @@ namespace QuizUpLearn.Test.UnitTest
                 PageSize = 0
             };
 
-            var validationResults = new List<ValidationResult>();
-            var validationContext = new ValidationContext(invalidPagination);
 
-            // Act & Assert
-            var isValid = Validator.TryValidateObject(invalidPagination, validationContext, validationResults, true);
-            isValid.Should().BeFalse();
-
-            await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await Assert.ThrowsAsync<ValidationException>(async () =>
                 await _userMistakeService.GetAllAsync(invalidPagination));
         }
 

@@ -39,6 +39,9 @@ namespace BusinessLogic.Services
 
         public async Task<PaginationResponseDto<QuizSetResponseDto>> GetAllQuizSetsAsync(PaginationRequestDto pagination)
         {
+            if(pagination == null)
+                pagination = new PaginationRequestDto();
+            ValidateHelper.Validate(pagination);
             var filters = ExtractFilterValues(pagination);
 
             var quizSets = await _quizSetRepo.GetAllQuizSetsAsync();
@@ -84,6 +87,9 @@ namespace BusinessLogic.Services
 
         public async Task<QuizSetResponseDto> UpdateQuizSetAsync(Guid id, QuizSetRequestDto quizSetDto)
         {
+            if(quizSetDto == null)
+                throw new ArgumentNullException("QuizSet data cannot be null");
+
             var updatedQuizSet = await _quizSetRepo.UpdateQuizSetAsync(id, _mapper.Map<QuizSet>(quizSetDto));
             return _mapper.Map<QuizSetResponseDto>(updatedQuizSet);
         }

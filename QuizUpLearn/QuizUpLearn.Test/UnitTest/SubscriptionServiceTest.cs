@@ -359,7 +359,7 @@ namespace QuizUpLearn.Test.UnitTest
         public async Task UpdateAsync_WithValidIdAndDto_ShouldReturnUpdatedSubscription()
         {
             // Arrange
-            var subscriptionId = Guid.NewGuid();
+            var id = Guid.NewGuid();
             var requestDto = new RequestSubscriptionDto
             {
                 UserId = Guid.NewGuid(),
@@ -369,7 +369,7 @@ namespace QuizUpLearn.Test.UnitTest
 
             var updatedSubscription = new Subscription
             {
-                Id = subscriptionId,
+                Id = id,
                 UserId = requestDto.UserId!.Value,
                 SubscriptionPlanId = requestDto.SubscriptionPlanId!.Value,
                 EndDate = requestDto.EndDate,
@@ -377,28 +377,28 @@ namespace QuizUpLearn.Test.UnitTest
                 UpdatedAt = DateTime.UtcNow
             };
 
-            _mockSubscriptionRepo.Setup(r => r.UpdateAsync(subscriptionId, It.IsAny<Subscription>()))
+            _mockSubscriptionRepo.Setup(r => r.UpdateAsync(id, It.IsAny<Subscription>()))
                 .ReturnsAsync(updatedSubscription);
 
             // Act
-            var result = await _subscriptionService.UpdateAsync(subscriptionId, requestDto);
+            var result = await _subscriptionService.UpdateAsync(id, requestDto);
 
             // Assert
             result.Should().NotBeNull();
-            result!.Id.Should().Be(subscriptionId);
+            result!.Id.Should().Be(id);
             result.UserId.Should().Be(requestDto.UserId!.Value);
             result.SubscriptionPlanId.Should().Be(requestDto.SubscriptionPlanId!.Value);
             result.EndDate.Should().Be(requestDto.EndDate);
             result.UpdatedAt.Should().Be(updatedSubscription.UpdatedAt);
 
-            _mockSubscriptionRepo.Verify(r => r.UpdateAsync(subscriptionId, It.IsAny<Subscription>()), Times.Once);
+            _mockSubscriptionRepo.Verify(r => r.UpdateAsync(id, It.IsAny<Subscription>()), Times.Once);
         }
 
         [Fact]
         public async Task UpdateAsync_WithNonExistentId_ShouldReturnNull()
         {
             // Arrange
-            var subscriptionId = Guid.NewGuid();
+            var id = Guid.NewGuid();
             var requestDto = new RequestSubscriptionDto
             {
                 UserId = Guid.NewGuid(),
@@ -406,15 +406,15 @@ namespace QuizUpLearn.Test.UnitTest
                 EndDate = DateTime.UtcNow.AddDays(60)
             };
 
-            _mockSubscriptionRepo.Setup(r => r.UpdateAsync(subscriptionId, It.IsAny<Subscription>()))
+            _mockSubscriptionRepo.Setup(r => r.UpdateAsync(id, It.IsAny<Subscription>()))
                 .ReturnsAsync((Subscription?)null);
 
             // Act
-            var result = await _subscriptionService.UpdateAsync(subscriptionId, requestDto);
+            var result = await _subscriptionService.UpdateAsync(id, requestDto);
 
             // Assert
             result.Should().BeNull();
-            _mockSubscriptionRepo.Verify(r => r.UpdateAsync(subscriptionId, It.IsAny<Subscription>()), Times.Once);
+            _mockSubscriptionRepo.Verify(r => r.UpdateAsync(id, It.IsAny<Subscription>()), Times.Once);
         }
 
         [Fact]
@@ -539,7 +539,7 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
-        public async Task GetByPlanIdAsync_WithEmptyResult_ShouldReturnEmptyCollection()
+        public async Task GetByPlanIdAsync_WithNonExistentId_ShouldReturnEmptyCollection()
         {
             // Arrange
             var planId = Guid.NewGuid();

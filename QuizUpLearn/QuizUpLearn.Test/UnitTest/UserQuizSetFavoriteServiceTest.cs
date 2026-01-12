@@ -212,7 +212,7 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
-        public async Task GetAllAsync_WhenRepositoryThrowsException_ShouldThrowException()
+        public async Task GetAllAsync_WithIncludeDeletedTrue_ShouldReturnPaginatedResponse()
         {
             // Arrange
             var pagination = new PaginationRequestDto
@@ -221,16 +221,42 @@ namespace QuizUpLearn.Test.UnitTest
                 PageSize = 10
             };
 
-            _mockUserQuizSetFavoriteRepo.Setup(r => r.GetAllAsync(It.IsAny<bool>()))
-                .ThrowsAsync(new Exception("Database error"));
+            var favorites = new List<UserQuizSetFavorite>
+            {
+                new UserQuizSetFavorite
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = Guid.NewGuid(),
+                    QuizSetId = Guid.NewGuid(),
+                    CreatedAt = DateTime.UtcNow.AddHours(1),
+                    DeletedAt = null // Active favorite
+                },
+                new UserQuizSetFavorite
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = Guid.NewGuid(),
+                    QuizSetId = Guid.NewGuid(),
+                    CreatedAt = DateTime.UtcNow.AddHours(2),
+                    DeletedAt = DateTime.UtcNow.AddMinutes(-30) // Deleted favorite
+                }
+            };
+
+            _mockUserQuizSetFavoriteRepo.Setup(r => r.GetAllAsync(true))
+                .ReturnsAsync(favorites);
 
             // Act
-            Func<Task> act = async () => await _userQuizSetFavoriteService.GetAllAsync(pagination);
+            var result = await _userQuizSetFavoriteService.GetAllAsync(pagination, true);
 
             // Assert
-            await act.Should().ThrowAsync<Exception>();
+            result.Should().NotBeNull();
+            result.Data.Should().HaveCount(2);
+            result.Pagination.TotalCount.Should().Be(2);
+            // Default order = descending CreatedAt
+            var expectedOrder = favorites.OrderByDescending(f => f.CreatedAt).ToList();
+            result.Data[0].Id.Should().Be(expectedOrder[0].Id);
+            result.Data[1].Id.Should().Be(expectedOrder[1].Id);
 
-            _mockUserQuizSetFavoriteRepo.Verify(r => r.GetAllAsync(It.IsAny<bool>()), Times.Once);
+            _mockUserQuizSetFavoriteRepo.Verify(r => r.GetAllAsync(true), Times.Once);
         }
 
         [Fact]

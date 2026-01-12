@@ -437,7 +437,7 @@ namespace QuizUpLearn.Test.UnitTest
             {
                 UserId = Guid.NewGuid(),
                 QuizSetId = Guid.NewGuid(),
-                Content = "Updated content"
+                Content = "Updated comment content"
             };
 
             _mockQuizSetCommentRepo.Setup(r => r.UpdateAsync(commentId, It.IsAny<QuizSetComment>()))

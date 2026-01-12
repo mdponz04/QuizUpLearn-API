@@ -77,12 +77,26 @@ namespace BusinessLogic.Services
 
         public async Task<QuizResponseDto> UpdateQuizAsync(Guid id, QuizRequestDto quizDto)
         {
+            if(quizDto == null)
+            {
+                throw new ArgumentNullException("Quiz dto cannot be null");
+            }
+
+            if(id == Guid.Empty)
+            {
+                throw new ArgumentException("Quiz ID cannot be empty");
+            }
+
             var updatedQuiz = await _quizRepo.UpdateQuizAsync(id, _mapper.Map<Quiz>(quizDto));
             return _mapper.Map<QuizResponseDto>(updatedQuiz);
         }
 
         public async Task<bool> SoftDeleteQuizAsync(Guid id)
         {
+            if(id == Guid.Empty)
+            {
+                throw new ArgumentException("Quiz ID cannot be empty");
+            }
             return await _quizRepo.SoftDeleteQuizAsync(id);
         }
 

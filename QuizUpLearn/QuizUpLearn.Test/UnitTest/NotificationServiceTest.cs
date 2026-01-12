@@ -246,7 +246,7 @@ namespace QuizUpLearn.Test.UnitTest
             {
                 Title = "Updated Notification",
                 Message = "Updated notification message",
-                Type = NotificationType.Social
+                Type = NotificationType.Event
             };
 
             var updatedNotification = new Notification
@@ -254,7 +254,7 @@ namespace QuizUpLearn.Test.UnitTest
                 Id = notificationId,
                 Title = "Updated Notification",
                 Message = "Updated notification message",
-                Type = NotificationType.Social,
+                Type = NotificationType.Event,
                 CreatedAt = DateTime.UtcNow.AddDays(-1),
                 UpdatedAt = DateTime.UtcNow
             };
@@ -270,7 +270,7 @@ namespace QuizUpLearn.Test.UnitTest
             result.Id.Should().Be(notificationId);
             result.Title.Should().Be("Updated Notification");
             result.Message.Should().Be("Updated notification message");
-            result.Type.Should().Be(NotificationType.Social);
+            result.Type.Should().Be(NotificationType.Event);
             result.UpdatedAt.Should().Be(updatedNotification.UpdatedAt);
 
             _mockNotificationRepo.Verify(r => r.UpdateAsync(It.Is<Notification>(n => 
@@ -278,6 +278,28 @@ namespace QuizUpLearn.Test.UnitTest
                 n.Title == requestDto.Title && 
                 n.Message == requestDto.Message && 
                 n.Type == requestDto.Type)), Times.Once);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_WithEmptyId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var emptyId = Guid.Empty;
+            var requestDto = new NotificationRequestDto
+            {
+                Title = "Updated Notification",
+                Message = "Updated notification message",
+                Type = NotificationType.Event
+            };
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _notificationService.UpdateAsync(emptyId, requestDto));
+
+            exception.Message.Should().Be("Id cannot be empty");
+
+            // Verify that the repository method was never called
+            _mockNotificationRepo.Verify(r => r.UpdateAsync(It.IsAny<Notification>()), Times.Never);
         }
 
         [Fact]
@@ -370,8 +392,8 @@ namespace QuizUpLearn.Test.UnitTest
             // Arrange
             var requestDto = new NotificationRequestDto
             {
-                Title = $"{notificationType} Notification",
-                Message = $"This is a {notificationType} notification message",
+                Title = "New Notification",
+                Message = "This is a notification message",
                 Type = notificationType
             };
 
@@ -392,8 +414,8 @@ namespace QuizUpLearn.Test.UnitTest
 
             // Assert
             result.Should().NotBeNull();
-            result.Title.Should().Be($"{notificationType} Notification");
-            result.Message.Should().Be($"This is a {notificationType} notification message");
+            result.Title.Should().Be("New Notification");
+            result.Message.Should().Be("This is a notification message");
             result.Type.Should().Be(notificationType);
 
             _mockNotificationRepo.Verify(r => r.CreateAsync(It.IsAny<Notification>()), Times.Once);

@@ -3,10 +3,10 @@ using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.QuizDtos;
 using BusinessLogic.DTOs.UserMistakeDtos;
 using BusinessLogic.Extensions;
+using BusinessLogic.Helpers;
 using BusinessLogic.Interfaces;
 using Repository.Entities;
 using Repository.Interfaces;
-using System.ComponentModel.DataAnnotations;
 
 namespace BusinessLogic.Services
 {
@@ -32,13 +32,8 @@ namespace BusinessLogic.Services
         public async Task<PaginationResponseDto<ResponseUserMistakeDto>> GetAllAsync(PaginationRequestDto pagination = null!)
         {
             pagination ??= new PaginationRequestDto();
-            // Validate the pagination object
-            var validationResults = new List<ValidationResult>();
-            var validationContext = new ValidationContext(pagination);
-            if (!Validator.TryValidateObject(pagination, validationContext, validationResults, true))
-            {
-                throw new ArgumentException("Invalid pagination parameters.");
-            }
+            ValidateHelper.Validate(pagination);
+            
             var userMistakes = await _repo.GetAllAsync();
             var dtos = _mapper.Map<IEnumerable<ResponseUserMistakeDto>>(userMistakes);
             return dtos.ToPagedResponse(pagination);
