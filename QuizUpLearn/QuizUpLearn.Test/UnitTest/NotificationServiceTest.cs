@@ -270,7 +270,7 @@ namespace QuizUpLearn.Test.UnitTest
             result.Id.Should().Be(notificationId);
             result.Title.Should().Be("Updated Notification");
             result.Message.Should().Be("Updated notification message");
-            result.Type.Should().Be(NotificationType.Social);
+            result.Type.Should().Be(NotificationType.Event);
             result.UpdatedAt.Should().Be(updatedNotification.UpdatedAt);
 
             _mockNotificationRepo.Verify(r => r.UpdateAsync(It.Is<Notification>(n => 
