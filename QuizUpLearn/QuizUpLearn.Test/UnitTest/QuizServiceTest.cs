@@ -147,7 +147,7 @@ namespace QuizUpLearn.Test.UnitTest
             _mockQuizRepo.Setup(r => r.CreateQuizAsync(It.IsAny<Quiz>()))
                 .ReturnsAsync(createdQuiz);
 
-            var result = await _quizService.CreateQuizAsync(quizRequestDto);
+            QuizResponseDto result = await _quizService.CreateQuizAsync(quizRequestDto);
 
             result.Should().NotBeNull();
             result.Id.Should().Be(createdQuiz.Id);
@@ -180,7 +180,7 @@ namespace QuizUpLearn.Test.UnitTest
             _mockQuizRepo.Setup(r => r.GetQuizByIdAsync(quizId))
                 .ReturnsAsync(quiz);
 
-            var result = await _quizService.GetQuizByIdAsync(quizId);
+            QuizResponseDto result = await _quizService.GetQuizByIdAsync(quizId);
 
             result.Should().NotBeNull();
             result.Id.Should().Be(quizId);
@@ -216,9 +216,9 @@ namespace QuizUpLearn.Test.UnitTest
                 QuestionText = "Updated Question",
                 TOEICPart = "PART2",
                 DifficultyLevel = "hard",
-                IsActive = false,
-                IsAIGenerated = false,
-                AnswerOptions = new List<BusinessLogic.DTOs.RequestAnswerOptionDto>()
+                IsActive = true,
+                IsAIGenerated = true,
+                AnswerOptions = new List<RequestAnswerOptionDto>()
             };
 
             var updatedQuiz = new Quiz
@@ -239,7 +239,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .ReturnsAsync(updatedQuiz);
 
             // Act
-            var result = await _quizService.UpdateQuizAsync(quizId, quizRequestDto);
+            QuizResponseDto result = await _quizService.UpdateQuizAsync(quizId, quizRequestDto);
 
             // Assert
             result.Should().NotBeNull();
@@ -365,41 +365,35 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
-        public async Task GetQuizByIdAsync_WithInvalidId_ShouldThrowKeyNotFoundException()
-        {
-            // Arrange
-            var invalidQuizId = Guid.NewGuid();
-            _mockQuizRepo.Setup(r => r.GetQuizByIdAsync(invalidQuizId))
-                .ThrowsAsync(new KeyNotFoundException("Quiz not found"));
-
-            // Act & Assert
-            await Assert.ThrowsAsync<KeyNotFoundException>(() => _quizService.GetQuizByIdAsync(invalidQuizId));
-        }
-
-        [Fact]
-        public async Task UpdateQuizAsync_WithNonExistentQuiz_ShouldThrowKeyNotFoundException()
+        public async Task UpdateQuizAsync_WithNullQuizDto_ShouldThrowArgumentNullException()
         {
             // Arrange
             var quizId = Guid.NewGuid();
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentNullException>(() => _quizService.UpdateQuizAsync(quizId, null!));
+        }
+
+        [Fact]
+        public async Task UpdateQuizAsync_WithEmptyId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var quizId = Guid.Empty;
             var quizRequestDto = new QuizRequestDto
             {
                 QuestionText = "Updated Question",
                 TOEICPart = "PART2",
                 DifficultyLevel = "hard",
-                IsActive = false,
-                IsAIGenerated = false,
+                IsActive = true,
+                IsAIGenerated = true,
                 AnswerOptions = new List<RequestAnswerOptionDto>()
             };
-
-            _mockQuizRepo.Setup(r => r.UpdateQuizAsync(quizId, It.IsAny<Quiz>()))
-                .ThrowsAsync(new KeyNotFoundException("Quiz not found"));
-
             // Act & Assert
-            await Assert.ThrowsAsync<KeyNotFoundException>(() => _quizService.UpdateQuizAsync(quizId, quizRequestDto));
+            await Assert.ThrowsAsync<ArgumentException>(() => _quizService.UpdateQuizAsync(quizId, quizRequestDto));
         }
 
         [Fact]
-        public async Task SoftDeleteQuizAsync_WithInvalidId_ShouldReturnFalse()
+        public async Task SoftDeleteQuizAsync_WithNonExistId_ShouldReturnFalse()
         {
             // Arrange
             var invalidQuizId = Guid.NewGuid();
@@ -413,7 +407,15 @@ namespace QuizUpLearn.Test.UnitTest
             result.Should().BeFalse();
             _mockQuizRepo.Verify(r => r.SoftDeleteQuizAsync(invalidQuizId), Times.Once);
         }
+        [Fact]
+        public async Task SoftDeleteQuizAsync_WithEmptyId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var invalidQuizId = Guid.Empty;
 
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(() => _quizService.SoftDeleteQuizAsync(invalidQuizId));
+        }
         [Fact]
         public async Task HardDeleteQuizAsync_WithInvalidId_ShouldReturnFalse()
         {

@@ -53,8 +53,8 @@ namespace BusinessLogic.Services
                 throw new ArgumentNullException(nameof(dto), "Subscription plan data cannot be null");
             if(string.IsNullOrEmpty(dto.Name))
                 throw new ArgumentException("Subscription plan name cannot be null or empty");
-            ValidateDtoHelper validator = new ValidateDtoHelper();
-            validator.ValidateDto(dto);
+            ValidateHelper.Validate(dto);
+
             var entity = _mapper.Map<SubscriptionPlan>(dto);
             var created = await _repo.CreateAsync(entity);
             return _mapper.Map<ResponseSubscriptionPlanDto>(created);
@@ -64,8 +64,8 @@ namespace BusinessLogic.Services
         {
             if(id == Guid.Empty)
                 throw new ArgumentException("Invalid plan ID");
-            ValidateDtoHelper validator = new ValidateDtoHelper();
-            validator.ValidateDto(dto);
+            ValidateHelper.Validate(dto);
+
             var existing = await _repo.GetByIdAsync(id);
 
             if (existing == null) return null;
