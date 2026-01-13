@@ -26,7 +26,6 @@ namespace QuizUpLearn.API.Controllers
                 return BadRequest("No file uploaded.");
             }
 
-            // Get authenticated user ID from HttpContext (set by SubscriptionAuthorizeAttribute)
             var userId = (Guid)HttpContext.Items["UserId"]!;
 
             try

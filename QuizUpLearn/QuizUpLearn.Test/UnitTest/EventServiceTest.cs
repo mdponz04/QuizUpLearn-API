@@ -13,7 +13,7 @@ using Repository.Interfaces;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class EventServiceTest : BaseServiceTest
+    public class EventServiceTest : BaseControllerTest
     {
         private readonly Mock<IEventRepo> _mockEventRepo;
         private readonly Mock<IEventParticipantRepo> _mockEventParticipantRepo;

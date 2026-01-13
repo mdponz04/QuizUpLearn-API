@@ -42,7 +42,7 @@ namespace QuizUpLearn.API.Controllers
                     Message = "Invalid subscription plan ID"
                 });
             }
-            if(plan.IsBuyable == false)
+            if(plan.IsBuyable == false || plan.IsActive == false)
             {
                 return BadRequest(new ApiResponse<object>
                 {

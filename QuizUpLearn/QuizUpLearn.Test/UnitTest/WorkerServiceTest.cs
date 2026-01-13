@@ -5,7 +5,7 @@ using Moq;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class WorkerServiceTest : BaseServiceTest
+    public class WorkerServiceTest : BaseControllerTest
     {
         private readonly Mock<IServiceScopeFactory> _mockScopeFactory;
         private readonly Mock<IServiceScope> _mockServiceScope;

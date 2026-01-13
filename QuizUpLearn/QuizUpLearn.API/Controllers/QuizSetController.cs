@@ -29,6 +29,8 @@ namespace QuizUpLearn.API.Controllers
         [Authorize]
         public async Task<ActionResult<QuizSetResponseDto>> CreateQuizSet([FromBody] QuizSetRequestDto quizSetDto)
         {
+            if(quizSetDto == null)
+                throw new HttpException(HttpStatusCode.BadRequest, "Quiz set data is required");
             if (!ModelState.IsValid)
                 throw new HttpException(HttpStatusCode.BadRequest, "Invalid model state");
 

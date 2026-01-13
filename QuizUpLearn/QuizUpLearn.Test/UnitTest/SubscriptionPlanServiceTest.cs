@@ -10,7 +10,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class SubscriptionPlanServiceTest : BaseServiceTest
+    public class SubscriptionPlanServiceTest : BaseControllerTest
     {
         private readonly Mock<ISubscriptionPlanRepo> _mockRepo;
         private readonly Mock<IMapper> _mockMapper;

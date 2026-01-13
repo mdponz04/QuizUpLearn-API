@@ -78,7 +78,7 @@ namespace BusinessLogic.Services
                 {
                     quizDto.QuizGroupItemId = quizGroupItemListening.Id;
                 }
-
+                
                 var quiz = _mapper.Map<Quiz>(quizDto);
                 quizzesToInsert.Add(quiz);
             }

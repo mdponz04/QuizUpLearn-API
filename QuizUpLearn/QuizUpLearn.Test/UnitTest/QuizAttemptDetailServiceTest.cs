@@ -12,7 +12,7 @@ using Repository.Interfaces;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class QuizAttemptDetailServiceTest : BaseServiceTest
+    public class QuizAttemptDetailServiceTest : BaseControllerTest
     {
         private readonly Mock<IQuizAttemptDetailRepo> _mockDetailRepo;
         private readonly Mock<IQuizAttemptRepo> _mockAttemptRepo;

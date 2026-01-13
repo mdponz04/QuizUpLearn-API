@@ -11,7 +11,7 @@ using Repository.Interfaces;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class NotificationServiceTest : BaseServiceTest
+    public class NotificationServiceTest : BaseControllerTest
     {
         private readonly Mock<INotificationRepo> _mockNotificationRepo;
         private readonly IMapper _mapper;

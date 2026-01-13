@@ -2,11 +2,11 @@
 
 namespace QuizUpLearn.Test
 {
-    public abstract class BaseServiceTest : IDisposable
+    public abstract class BaseControllerTest : IDisposable
     {
         public ServiceProvider ServiceProvider { get; private set; }
 
-        public BaseServiceTest()
+        public BaseControllerTest()
         {
             ServiceProvider = TestDependencyInjection.BuildServiceProvider();
         }

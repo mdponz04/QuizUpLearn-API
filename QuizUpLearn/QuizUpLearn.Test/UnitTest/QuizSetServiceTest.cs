@@ -14,7 +14,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class QuizSetServiceTest : BaseServiceTest
+    public class QuizSetServiceTest : BaseControllerTest
     {
         private readonly Mock<IQuizSetRepo> _mockQuizSetRepo;
         private readonly IMapper _mapper;

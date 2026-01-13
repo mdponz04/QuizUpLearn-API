@@ -16,7 +16,7 @@ using OfficeOpenXml;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class PlacementQuizSetServiceTest : BaseServiceTest
+    public class PlacementQuizSetServiceTest : BaseControllerTest
     {
         private readonly Mock<IQuizSetService> _mockQuizSetService;
         private readonly Mock<IQuizRepo> _mockQuizRepo;

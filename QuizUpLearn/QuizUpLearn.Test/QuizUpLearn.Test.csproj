@@ -24,10 +24,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="IntegrationTest\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\BusinessLogic\BusinessLogic.csproj" />
     <ProjectReference Include="..\QuizUpLearn.API\QuizUpLearn.API.csproj" />
     <ProjectReference Include="..\Repository\Repository.csproj" />

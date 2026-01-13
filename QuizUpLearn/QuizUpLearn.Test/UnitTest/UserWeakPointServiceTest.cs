@@ -11,7 +11,7 @@ using Repository.Interfaces;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class UserWeakPointServiceTest : BaseServiceTest
+    public class UserWeakPointServiceTest : BaseControllerTest
     {
         private readonly Mock<IUserWeakPointRepo> _mockUserWeakPointRepo;
         private readonly IMapper _mapper;

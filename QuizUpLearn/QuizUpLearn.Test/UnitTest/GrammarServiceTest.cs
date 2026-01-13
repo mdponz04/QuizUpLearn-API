@@ -12,7 +12,7 @@ using Repository.Interfaces;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class GrammarServiceTest : BaseServiceTest
+    public class GrammarServiceTest : BaseControllerTest
     {
         private readonly Mock<IGrammarRepo> _mockGrammarRepo;
         private readonly IMapper _mapper;
