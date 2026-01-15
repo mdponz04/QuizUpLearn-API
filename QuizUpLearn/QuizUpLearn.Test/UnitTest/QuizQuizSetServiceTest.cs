@@ -682,7 +682,8 @@ namespace QuizUpLearn.Test.UnitTest
             var id = Guid.NewGuid();
             _mockQuizQuizSetRepo.Setup(r => r.HardDeleteAsync(id))
                 .ReturnsAsync(true);
-
+            _mockQuizQuizSetRepo.Setup(r => r.GetByIdAsync(id))
+                .ReturnsAsync(new QuizQuizSet { Id = id, QuizId = Guid.NewGuid(), QuizSetId = Guid.NewGuid(), CreatedAt = DateTime.UtcNow });
             // Act
             var result = await _quizQuizSetService.HardDeleteQuizQuizSetAsync(id);
 
