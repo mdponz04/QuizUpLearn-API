@@ -1,8 +1,8 @@
+using BusinessLogic.Helpers;
 using BusinessLogic.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QuizUpLearn.API.Attributes;
-using Repository.Models;
 
 namespace QuizUpLearn.API.Controllers
 {

@@ -1,6 +1,7 @@
 using AutoMapper;
 using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.SubscriptionPlanDtos;
+using BusinessLogic.Helpers;
 using BusinessLogic.Interfaces;
 using BusinessLogic.MappingProfile;
 using BusinessLogic.Services;
@@ -10,7 +11,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Repository.Entities;
 using Repository.Interfaces;
-using Repository.Models;
 
 namespace QuizUpLearn.Test.UnitTest
 {
@@ -316,7 +316,7 @@ namespace QuizUpLearn.Test.UnitTest
                 .Returns(Task.CompletedTask);
             _mockOtpRepo.Setup(r => r.CreateAsync(It.IsAny<OtpVerification>()))
                 .ReturnsAsync((OtpVerification o) => o);
-            _mockMailer.Setup(m => m.SendEmailAsync(It.IsAny<Repository.Models.MailerSendEmail>()))
+            _mockMailer.Setup(m => m.SendEmailAsync(It.IsAny<MailerSendEmail>()))
                 .ReturnsAsync((object?)null);
 
             // Act

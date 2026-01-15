@@ -5,9 +5,9 @@ using BusinessLogic.DTOs.SubscriptionDtos;
 using Repository.Entities;
 using Repository.Interfaces;
 using BCrypt.Net;
-using Repository.Models;
 using Microsoft.Extensions.Configuration;
 using FirebaseAdmin.Auth;
+using BusinessLogic.Helpers;
 
 namespace BusinessLogic.Services
 {

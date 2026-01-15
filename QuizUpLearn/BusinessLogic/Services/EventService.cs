@@ -4,9 +4,9 @@ using BusinessLogic.Interfaces;
 using Repository.Entities;
 using Repository.Enums;
 using Repository.Interfaces;
-using Repository.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+using BusinessLogic.Helpers;
 
 namespace BusinessLogic.Services
 {

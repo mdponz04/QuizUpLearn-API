@@ -1,8 +1,10 @@
+using BusinessLogic.Helpers;
+
 namespace BusinessLogic.Interfaces
 {
     public interface IMailerSendService
     {
-        Task<object?> SendEmailAsync(Repository.Models.MailerSendEmail email);
+        Task<object?> SendEmailAsync(MailerSendEmail email);
     }
 }
 

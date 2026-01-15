@@ -1,4 +1,4 @@
-namespace Repository.Models
+namespace BusinessLogic.Helpers
 {
     public class MailerSendRecipient
     {
