@@ -22,11 +22,15 @@ namespace BusinessLogic.Services
 
         public async Task HandlePaymentCancelAsync(long orderCode)
         {
+            if(orderCode <= 0)
+            {
+                throw new ArgumentException("Invalid order code");
+            }
             var transaction = await _paymentTransactionService.GetByPaymentGatewayTransactionOrderCodeAsync(orderCode.ToString());
 
             if(transaction == null)
             {
-                return;
+                throw new InvalidOperationException("Transaction not found");
             }
 
             await _paymentTransactionService.UpdateAsync(transaction!.Id, new RequestPaymentTransactionDto

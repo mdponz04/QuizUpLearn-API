@@ -9,10 +9,11 @@ using Moq;
 using Repository.Entities;
 using Repository.Enums;
 using Repository.Interfaces;
+using System.ComponentModel.DataAnnotations;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class QuizQuizSetServiceTest : BaseControllerTest
+    public class QuizQuizSetServiceTest : BaseServiceTest
     {
         private readonly Mock<IQuizQuizSetRepo> _mockQuizQuizSetRepo;
         private readonly Mock<IQuizRepo> _mockQuizRepo;
@@ -83,6 +84,104 @@ namespace QuizUpLearn.Test.UnitTest
             _mockQuizSetRepo.Verify(r => r.GetQuizSetByIdAsync(quizSetId), Times.Once);
             _mockQuizQuizSetRepo.Verify(r => r.IsExistedAsync(quizId, quizSetId), Times.Once);
             _mockQuizQuizSetRepo.Verify(r => r.CreateAsync(It.IsAny<QuizQuizSet>()), Times.Once);
+        }
+        [Fact]
+        public async Task CreateAsync_WithNullDto_ShouldThrowArgumentNullException()
+        {
+            // Arrange
+            RequestQuizQuizSetDto? request = null;
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentNullException>(
+                () => _quizQuizSetService.CreateQuizQuizSetAsync(request!));
+
+            exception.ParamName.Should().Be("dto");
+            exception.Message.Should().Contain("DTO cannot be null.");
+        }
+
+        [Fact]
+        public async Task CreateAsync_WithNullQuizId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var request = new RequestQuizQuizSetDto
+            {
+                QuizId = null,
+                QuizSetId = Guid.NewGuid()
+            };
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.CreateQuizQuizSetAsync(request));
+
+            exception.Message.Should().Be("QuizId cannot be null");
+        }
+
+        [Fact]
+        public async Task CreateAsync_WithNullQuizSetId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var request = new RequestQuizQuizSetDto
+            {
+                QuizId = Guid.NewGuid(),
+                QuizSetId = null
+            };
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.CreateQuizQuizSetAsync(request));
+
+            exception.Message.Should().Be("QuizSetId cannot be null");
+        }
+
+        [Fact]
+        public async Task CreateAsync_WithNonExistentQuizId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var quizId = Guid.NewGuid();
+            var quizSetId = Guid.NewGuid();
+            var request = new RequestQuizQuizSetDto
+            {
+                QuizId = quizId,
+                QuizSetId = quizSetId
+            };
+
+            _mockQuizRepo.Setup(r => r.GetQuizByIdAsync(quizId))
+                .ReturnsAsync((Quiz?)null);
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.CreateQuizQuizSetAsync(request));
+
+            exception.Message.Should().Be($"Quiz with ID {quizId} not found");
+            _mockQuizRepo.Verify(r => r.GetQuizByIdAsync(quizId), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateAsync_WithNonExistentQuizSetId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var quizId = Guid.NewGuid();
+            var quizSetId = Guid.NewGuid();
+            var request = new RequestQuizQuizSetDto
+            {
+                QuizId = quizId,
+                QuizSetId = quizSetId
+            };
+
+            var quiz = new Quiz { Id = quizId, QuestionText = "Sample question", TOEICPart = "Part1" };
+
+            _mockQuizRepo.Setup(r => r.GetQuizByIdAsync(quizId))
+                .ReturnsAsync(quiz);
+            _mockQuizSetRepo.Setup(r => r.GetQuizSetByIdAsync(quizSetId))
+                .ReturnsAsync((QuizSet?)null);
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.CreateQuizQuizSetAsync(request));
+
+            exception.Message.Should().Be($"Quiz set with ID {quizSetId} not found");
+            _mockQuizRepo.Verify(r => r.GetQuizByIdAsync(quizId), Times.Once);
+            _mockQuizSetRepo.Verify(r => r.GetQuizSetByIdAsync(quizSetId), Times.Once);
         }
 
         [Fact]
@@ -168,6 +267,32 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
+        public async Task GetAllAsync_WithNegativePageNumber_ShouldThrowValidationException()
+        {
+            // Arrange
+            var pagination = new PaginationRequestDto { Page = -1, PageSize = 10 };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ValidationException>(async () =>
+                await _quizQuizSetService.GetAllQuizQuizSetAsync(pagination, false));
+
+            _mockQuizQuizSetRepo.Verify(r => r.GetAllAsync(It.IsAny<bool>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task GetAllAsync_WithNegativePageSize_ShouldThrowValidationException()
+        {
+            // Arrange
+            var pagination = new PaginationRequestDto { Page = 1, PageSize = -5 };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ValidationException>(async () =>
+                await _quizQuizSetService.GetAllQuizQuizSetAsync(pagination, false));
+
+            _mockQuizQuizSetRepo.Verify(r => r.GetAllAsync(It.IsAny<bool>()), Times.Never);
+        }
+
+        [Fact]
         public async Task GetByQuizIdAsync_WithValidQuizId_ShouldReturnPaginatedResponse()
         {
             // Arrange
@@ -199,6 +324,49 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
+        public async Task GetByQuizIdAsync_WithEmptyQuizId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var emptyQuizId = Guid.Empty;
+            var pagination = new PaginationRequestDto { Page = 1, PageSize = 10 };
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.GetQuizQuizSetByQuizIdAsync(emptyQuizId, pagination, false));
+
+            exception.Message.Should().Be("QuizId cannot be empty");
+            _mockQuizQuizSetRepo.Verify(r => r.GetByQuizIdAsync(It.IsAny<Guid>(), It.IsAny<bool>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task GetByQuizIdAsync_WithNegativePageNumber_ShouldThrowValidationException()
+        {
+            // Arrange
+            var quizId = Guid.NewGuid();
+            var pagination = new PaginationRequestDto { Page = -1, PageSize = 10 };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ValidationException>(
+                () => _quizQuizSetService.GetQuizQuizSetByQuizIdAsync(quizId, pagination, false));
+
+            _mockQuizQuizSetRepo.Verify(r => r.GetByQuizIdAsync(It.IsAny<Guid>(), It.IsAny<bool>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task GetByQuizIdAsync_WithNegativePageSize_ShouldThrowValidationException()
+        {
+            // Arrange
+            var quizId = Guid.NewGuid();
+            var pagination = new PaginationRequestDto { Page = 1, PageSize = -5 };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ValidationException>(
+                () => _quizQuizSetService.GetQuizQuizSetByQuizIdAsync(quizId, pagination, false));
+
+            _mockQuizQuizSetRepo.Verify(r => r.GetByQuizIdAsync(It.IsAny<Guid>(), It.IsAny<bool>()), Times.Never);
+        }
+
+        [Fact]
         public async Task GetByQuizSetIdAsync_WithValidQuizSetId_ShouldReturnPaginatedResponse()
         {
             // Arrange
@@ -227,6 +395,49 @@ namespace QuizUpLearn.Test.UnitTest
             result.Data.First().QuizSetId.Should().Be(quizSetId);
 
             _mockQuizQuizSetRepo.Verify(r => r.GetByQuizSetIdAsync(quizSetId, false), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetByQuizSetIdAsync_WithEmptyQuizSetId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var emptyQuizSetId = Guid.Empty;
+            var pagination = new PaginationRequestDto { Page = 1, PageSize = 10 };
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.GetQuizQuizSetByQuizSetIdAsync(emptyQuizSetId, pagination, false));
+
+            exception.Message.Should().Be("QuizSetId cannot be empty");
+            _mockQuizQuizSetRepo.Verify(r => r.GetByQuizSetIdAsync(It.IsAny<Guid>(), It.IsAny<bool>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task GetByQuizSetIdAsync_WithNegativePageNumber_ShouldThrowValidationException()
+        {
+            // Arrange
+            var quizSetId = Guid.NewGuid();
+            var pagination = new PaginationRequestDto { Page = -1, PageSize = 10 };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ValidationException>(
+                () => _quizQuizSetService.GetQuizQuizSetByQuizSetIdAsync(quizSetId, pagination, false));
+
+            _mockQuizQuizSetRepo.Verify(r => r.GetByQuizSetIdAsync(It.IsAny<Guid>(), It.IsAny<bool>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task GetByQuizSetIdAsync_WithNegativePageSize_ShouldThrowValidationException()
+        {
+            // Arrange
+            var quizSetId = Guid.NewGuid();
+            var pagination = new PaginationRequestDto { Page = 1, PageSize = -5 };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ValidationException>(
+                () => _quizQuizSetService.GetQuizQuizSetByQuizSetIdAsync(quizSetId, pagination, false));
+
+            _mockQuizQuizSetRepo.Verify(r => r.GetByQuizSetIdAsync(It.IsAny<Guid>(), It.IsAny<bool>()), Times.Never);
         }
 
         [Fact]
@@ -351,6 +562,118 @@ namespace QuizUpLearn.Test.UnitTest
             result.Should().BeNull();
             _mockQuizQuizSetRepo.Verify(r => r.UpdateAsync(id, It.IsAny<QuizQuizSet>()), Times.Once);
         }
+        [Fact]
+        public async Task UpdateAsync_WithNullDto_ShouldThrowNullReferenceException()
+        {
+            // Arrange
+            var id = Guid.NewGuid();
+            RequestQuizQuizSetDto? request = null;
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentNullException>(
+                () => _quizQuizSetService.UpdateQuizQuizSetAsync(id, request!));
+
+            _mockQuizRepo.Verify(r => r.GetQuizByIdAsync(It.IsAny<Guid>()), Times.Never);
+            _mockQuizSetRepo.Verify(r => r.GetQuizSetByIdAsync(It.IsAny<Guid>()), Times.Never);
+            _mockQuizQuizSetRepo.Verify(r => r.UpdateAsync(It.IsAny<Guid>(), It.IsAny<QuizQuizSet>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_WithNullQuizId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var id = Guid.NewGuid();
+            var request = new RequestQuizQuizSetDto
+            {
+                QuizId = null,
+                QuizSetId = Guid.NewGuid()
+            };
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.UpdateQuizQuizSetAsync(id, request));
+
+            exception.Message.Should().Be("QuizId and QuizSetId cannot be null");
+            _mockQuizRepo.Verify(r => r.GetQuizByIdAsync(It.IsAny<Guid>()), Times.Never);
+            _mockQuizSetRepo.Verify(r => r.GetQuizSetByIdAsync(It.IsAny<Guid>()), Times.Never);
+            _mockQuizQuizSetRepo.Verify(r => r.UpdateAsync(It.IsAny<Guid>(), It.IsAny<QuizQuizSet>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_WithNullQuizSetId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var id = Guid.NewGuid();
+            var request = new RequestQuizQuizSetDto
+            {
+                QuizId = Guid.NewGuid(),
+                QuizSetId = null
+            };
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.UpdateQuizQuizSetAsync(id, request));
+
+            exception.Message.Should().Be("QuizId and QuizSetId cannot be null");
+            _mockQuizRepo.Verify(r => r.GetQuizByIdAsync(It.IsAny<Guid>()), Times.Never);
+            _mockQuizSetRepo.Verify(r => r.GetQuizSetByIdAsync(It.IsAny<Guid>()), Times.Never);
+            _mockQuizQuizSetRepo.Verify(r => r.UpdateAsync(It.IsAny<Guid>(), It.IsAny<QuizQuizSet>()), Times.Never);
+        }
+        [Fact]
+        public async Task UpdateAsync_WithNonExistentQuizId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var id = Guid.NewGuid();
+            var quizId = Guid.NewGuid();
+            var quizSetId = Guid.NewGuid();
+            var request = new RequestQuizQuizSetDto
+            {
+                QuizId = quizId,
+                QuizSetId = quizSetId
+            };
+
+            _mockQuizRepo.Setup(r => r.GetQuizByIdAsync(quizId))
+                .ReturnsAsync((Quiz?)null);
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.UpdateQuizQuizSetAsync(id, request));
+
+            exception.Message.Should().Be($"Quiz with ID {quizId} not found");
+            _mockQuizRepo.Verify(r => r.GetQuizByIdAsync(quizId), Times.Once);
+            _mockQuizSetRepo.Verify(r => r.GetQuizSetByIdAsync(It.IsAny<Guid>()), Times.Never);
+            _mockQuizQuizSetRepo.Verify(r => r.UpdateAsync(It.IsAny<Guid>(), It.IsAny<QuizQuizSet>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_WithNonExistentQuizSetId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var id = Guid.NewGuid();
+            var quizId = Guid.NewGuid();
+            var quizSetId = Guid.NewGuid();
+            var request = new RequestQuizQuizSetDto
+            {
+                QuizId = quizId,
+                QuizSetId = quizSetId
+            };
+
+            var quiz = new Quiz { Id = quizId, QuestionText = "Sample question", TOEICPart = "Part1" };
+
+            _mockQuizRepo.Setup(r => r.GetQuizByIdAsync(quizId))
+                .ReturnsAsync(quiz);
+            _mockQuizSetRepo.Setup(r => r.GetQuizSetByIdAsync(quizSetId))
+                .ReturnsAsync((QuizSet?)null);
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.UpdateQuizQuizSetAsync(id, request));
+
+            exception.Message.Should().Be($"Quiz set with ID {quizSetId} not found");
+            _mockQuizRepo.Verify(r => r.GetQuizByIdAsync(quizId), Times.Once);
+            _mockQuizSetRepo.Verify(r => r.GetQuizSetByIdAsync(quizSetId), Times.Once);
+            _mockQuizQuizSetRepo.Verify(r => r.UpdateAsync(It.IsAny<Guid>(), It.IsAny<QuizQuizSet>()), Times.Never);
+        }
 
         [Fact]
         public async Task HardDeleteAsync_WithValidId_ShouldReturnTrue()
@@ -369,6 +692,38 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
+        public async Task HardDeleteAsync_WithEmptyId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var emptyId = Guid.Empty;
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.HardDeleteQuizQuizSetAsync(emptyId));
+
+            exception.Message.Should().Be("ID cannot be empty");
+            _mockQuizQuizSetRepo.Verify(r => r.HardDeleteAsync(It.IsAny<Guid>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task HardDeleteAsync_WithNonExistentId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var nonExistentId = Guid.NewGuid();
+
+            _mockQuizQuizSetRepo.Setup(r => r.GetByIdAsync(nonExistentId))
+                .ReturnsAsync((QuizQuizSet?)null);
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.HardDeleteQuizQuizSetAsync(nonExistentId));
+
+            exception.Message.Should().Be($"QuizQuizSet with ID {nonExistentId} not found");
+            _mockQuizQuizSetRepo.Verify(r => r.GetByIdAsync(nonExistentId), Times.Once);
+            _mockQuizQuizSetRepo.Verify(r => r.HardDeleteAsync(It.IsAny<Guid>()), Times.Never);
+        }
+
+        [Fact]
         public async Task IsExistedAsync_WithExistingAssociation_ShouldReturnTrue()
         {
             // Arrange
@@ -384,6 +739,36 @@ namespace QuizUpLearn.Test.UnitTest
             // Assert
             result.Should().BeTrue();
             _mockQuizQuizSetRepo.Verify(r => r.IsExistedAsync(quizId, quizSetId), Times.Once);
+        }
+
+        [Fact]
+        public async Task IsExistedAsync_WithEmptyQuizId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var emptyQuizId = Guid.Empty;
+            var quizSetId = Guid.NewGuid();
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.IsQuizQuizSetExistedAsync(emptyQuizId, quizSetId));
+
+            exception.Message.Should().Be("QuizId and QuizSetId cannot be empty");
+            _mockQuizQuizSetRepo.Verify(r => r.IsExistedAsync(It.IsAny<Guid>(), It.IsAny<Guid>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task IsExistedAsync_WithEmptyQuizSetId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var quizId = Guid.NewGuid();
+            var emptyQuizSetId = Guid.Empty;
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.IsQuizQuizSetExistedAsync(quizId, emptyQuizSetId));
+
+            exception.Message.Should().Be("QuizId and QuizSetId cannot be empty");
+            _mockQuizQuizSetRepo.Verify(r => r.IsExistedAsync(It.IsAny<Guid>(), It.IsAny<Guid>()), Times.Never);
         }
 
         [Fact]
@@ -542,6 +927,115 @@ namespace QuizUpLearn.Test.UnitTest
             result.Should().BeTrue();
             _mockQuizRepo.Verify(r => r.GetQuizzesByQuizSetIdAsync(quizSetId), Times.Once);
             _mockQuizRepo.Verify(r => r.HardDeleteQuizzesBatchAsync(quizzes), Times.Once);
+        }
+
+
+        [Fact]
+        public async Task GetQuizCountByQuizSetAsync_WithEmptyQuizSetId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var emptyQuizSetId = Guid.Empty;
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.GetQuizCountByQuizSetAsync(emptyQuizSetId));
+
+            exception.Message.Should().Be("QuizSetId cannot be null");
+            _mockQuizQuizSetRepo.Verify(r => r.GetQuizCountByQuizSetAsync(It.IsAny<Guid>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task AddQuizToQuizSetAsync_WithEmptyQuizId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var emptyQuizId = Guid.Empty;
+            var quizSetId = Guid.NewGuid();
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.AddQuizToQuizSetAsync(emptyQuizId, quizSetId));
+
+            exception.Message.Should().Be("QuizId and QuizSetId cannot be empty");
+            _mockQuizQuizSetRepo.Verify(r => r.IsExistedAsync(It.IsAny<Guid>(), It.IsAny<Guid>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task AddQuizToQuizSetAsync_WithEmptyQuizSetId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var quizId = Guid.NewGuid();
+            var emptyQuizSetId = Guid.Empty;
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.AddQuizToQuizSetAsync(quizId, emptyQuizSetId));
+
+            exception.Message.Should().Be("QuizId and QuizSetId cannot be empty");
+            _mockQuizQuizSetRepo.Verify(r => r.IsExistedAsync(It.IsAny<Guid>(), It.IsAny<Guid>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task AddQuizzesToQuizSetAsync_WithEmptyQuizSetId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var quizIds = new List<Guid> { Guid.NewGuid() };
+            var emptyQuizSetId = Guid.Empty;
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.AddQuizzesToQuizSetAsync(quizIds, emptyQuizSetId));
+
+            exception.Message.Should().Be("QuizSetId cannot be empty");
+            _mockQuizQuizSetRepo.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<QuizQuizSet>>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task AddQuizzesToQuizSetAsync_WithEmptyQuizIds_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var quizIds = new List<Guid>();
+            var quizSetId = Guid.NewGuid();
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.AddQuizzesToQuizSetAsync(quizIds, quizSetId));
+
+            exception.Message.Should().Be("QuizIds cannot be empty");
+            _mockQuizQuizSetRepo.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<QuizQuizSet>>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task DeleteQuizQuizSetByQuizIdAsync_WithEmptyQuizId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var emptyQuizId = Guid.Empty;
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.DeleteQuizQuizSetByQuizIdAsync(emptyQuizId));
+
+            exception.Message.Should().Be("QuizId cannot be empty");
+            _mockQuizQuizSetRepo.Verify(r => r.DeleteByQuizIdAsync(It.IsAny<Guid>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task DeleteQuizQuizSetByQuizSetIdAsync_WithEmptyQuizSetId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var emptyQuizSetId = Guid.Empty;
+            var quizSet = new QuizSet
+            {
+                Id = emptyQuizSetId,
+                Title = "Sample quiz set",
+                QuizSetType = QuizSetTypeEnum.Practice
+            };
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizQuizSetService.DeleteQuizQuizSetByQuizSetIdAsync(emptyQuizSetId));
+
+            exception.Message.Should().Be("QuizSetId cannot be empty");
+            _mockQuizQuizSetRepo.Verify(r => r.DeleteByQuizSetIdAsync(It.IsAny<Guid>()), Times.Never);
         }
     }
 }

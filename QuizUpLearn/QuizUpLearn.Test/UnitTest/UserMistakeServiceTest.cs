@@ -13,7 +13,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class UserMistakeServiceTest : BaseControllerTest
+    public class UserMistakeServiceTest : BaseServiceTest
     {
         private readonly Mock<IUserMistakeRepo> _mockUserMistakeRepo;
         private readonly Mock<IUserWeakPointRepo> _mockUserWeakPointRepo;

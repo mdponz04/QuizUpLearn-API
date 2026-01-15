@@ -11,7 +11,7 @@ using Repository.Interfaces;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class QuizSetCommentServiceTest : BaseControllerTest
+    public class QuizSetCommentServiceTest : BaseServiceTest
     {
         private readonly Mock<IQuizSetCommentRepo> _mockQuizSetCommentRepo;
         private readonly IMapper _mapper;

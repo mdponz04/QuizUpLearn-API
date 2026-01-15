@@ -19,6 +19,10 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseAnswerOptionDto> CreateAnswerOptionAsync(RequestAnswerOptionDto dto)
         {
+            if(dto.QuizId == Guid.Empty)
+            {
+                throw new ArgumentException("QuizId cannot be empty.");
+            }
             var entity = _mapper.Map<AnswerOption>(dto);
             var created = await _repo.CreateAsync(entity);
             return _mapper.Map<ResponseAnswerOptionDto>(created);
@@ -49,6 +53,10 @@ namespace BusinessLogic.Services
 
         public async Task<bool> DeleteAnswerOptionAsync(Guid id)
         {
+            if (id == Guid.Empty)
+            {
+                throw new ArgumentException("Id cannot be empty.");
+            }
             return await _repo.DeleteAsync(id);
         }
 

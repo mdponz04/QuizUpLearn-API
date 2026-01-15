@@ -8,7 +8,7 @@ using Repository.Interfaces;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class VocabularyGrammarServiceTest : BaseControllerTest
+    public class VocabularyGrammarServiceTest : BaseServiceTest
     {
         private readonly Mock<IVocabularyRepo> _mockVocabularyRepo;
         private readonly Mock<IGrammarRepo> _mockGrammarRepo;

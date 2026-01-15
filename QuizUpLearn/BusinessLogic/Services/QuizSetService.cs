@@ -26,10 +26,9 @@ namespace BusinessLogic.Services
                 throw new ArgumentNullException("Quiz Set cannot be null");
             if (quizSetDto.CreatedBy == null || quizSetDto.CreatedBy == Guid.Empty)
                 throw new ArgumentException("CreatedBy cannot be null or empty");
-            if(quizSetDto.Title == null)
+            if(string.IsNullOrEmpty(quizSetDto.Title))
                 throw new ArgumentException("Title cannot be null or empty");
-            if(quizSetDto.QuizSetType == null)
-                throw new ArgumentException("QuizSetType cannot be null");
+            ValidateHelper.Validate(quizSetDto);
             var quizSet = _mapper.Map<QuizSet>(quizSetDto);
             var createdQuizSet = await _quizSetRepo.CreateQuizSetAsync(quizSet);
             return _mapper.Map<QuizSetResponseDto>(createdQuizSet);
@@ -76,6 +75,7 @@ namespace BusinessLogic.Services
 
         public async Task<PaginationResponseDto<QuizSetResponseDto>> GetPublishedQuizSetsAsync(PaginationRequestDto pagination)
         {
+            ValidateHelper.Validate(pagination);
             var filters = ExtractFilterValues(pagination);
 
             var quizSets = await _quizSetRepo.GetPublishedQuizSetsAsync();

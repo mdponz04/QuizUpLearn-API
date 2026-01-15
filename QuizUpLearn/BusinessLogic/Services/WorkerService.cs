@@ -19,6 +19,7 @@ namespace BusinessLogic.Services
 
         public Task EnqueueJob(Func<IServiceProvider, CancellationToken, Task> job)
         {
+            if(job == null) throw  new ArgumentNullException("Background job cant be null");
             _jobQueue.Enqueue(job);
             _signal.Release();
             return Task.CompletedTask;

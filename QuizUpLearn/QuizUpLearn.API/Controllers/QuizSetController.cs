@@ -27,6 +27,7 @@ namespace QuizUpLearn.API.Controllers
         /// <returns>Newly created quiz set</returns>
         [HttpPost]
         [Authorize]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult<QuizSetResponseDto>> CreateQuizSet([FromBody] QuizSetRequestDto quizSetDto)
         {
             if(quizSetDto == null)
@@ -60,6 +61,7 @@ namespace QuizUpLearn.API.Controllers
         /// <returns>List of quiz sets</returns>
         [HttpPost("search")]
         [Authorize]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult<PaginationResponseDto<QuizSetResponseDto>>> GetAllQuizSets(
             [FromBody] PaginationRequestDto request)
         {
@@ -74,7 +76,7 @@ namespace QuizUpLearn.API.Controllers
         /// <param name="request">Pagination and filter parameters</param>
         /// <returns>List of quiz sets by creator</returns>
         [HttpPost("creator/search")]
-        [SubscriptionAndRoleAuthorize]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         [Authorize]
         public async Task<ActionResult<PaginationResponseDto<QuizSetResponseDto>>> GetQuizSetsByCreator(
             Guid? creatorId,
@@ -113,6 +115,7 @@ namespace QuizUpLearn.API.Controllers
         /// <returns>Updated quiz set</returns>
         [HttpPut("{id}")]
         [Authorize]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult<QuizSetResponseDto>> UpdateQuizSet(Guid id, [FromBody] QuizSetRequestDto quizSetDto)
         {
             if (!ModelState.IsValid)
@@ -132,6 +135,7 @@ namespace QuizUpLearn.API.Controllers
         /// <returns>Success/failure status</returns>
         [HttpDelete("{id}")]
         [Authorize]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<IActionResult> SoftDeleteQuizSet(Guid id)
         {
             var result = await _quizSetService.SoftDeleteQuizSetAsync(id);
@@ -148,6 +152,7 @@ namespace QuizUpLearn.API.Controllers
         /// <returns>Success/failure status</returns>
         [HttpDelete("{id}/permanent")]
         [Authorize]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<IActionResult> HardDeleteQuizSet(Guid id)
         {
             var result = await _quizSetService.HardDeleteQuizSetAsync(id);
@@ -159,6 +164,7 @@ namespace QuizUpLearn.API.Controllers
 
         [HttpPost("{id}/restore")]
         [Authorize]
+        [SubscriptionAndRoleAuthorize("Moderator")]
         public async Task<ActionResult<QuizSetResponseDto>> RestoreQuizSet(Guid id)
         {
             var restoredQuizSet = await _quizSetService.RestoreQuizSetAsync(id);
@@ -166,6 +172,7 @@ namespace QuizUpLearn.API.Controllers
                 throw new HttpException(HttpStatusCode.NotFound, "Quiz set not found");
             return Ok(restoredQuizSet);
         }
+/*
         [HttpPost("{id:guid}/request-validate")]
         [Authorize]
         [SubscriptionAndRoleAuthorize("User", RequirePremiumContent = true)]
@@ -185,6 +192,6 @@ namespace QuizUpLearn.API.Controllers
             if (!result)
                 throw new HttpException(HttpStatusCode.NotFound, "Quiz set not found");
             return Ok("Validate quiz set success");
-        }
+        }*/
     }
 }

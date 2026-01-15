@@ -5,7 +5,7 @@ using Moq;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class WorkerServiceTest : BaseControllerTest
+    public class WorkerServiceTest : BaseServiceTest
     {
         private readonly Mock<IServiceScopeFactory> _mockScopeFactory;
         private readonly Mock<IServiceScope> _mockServiceScope;
@@ -56,6 +56,20 @@ namespace QuizUpLearn.Test.UnitTest
 
             // Cleanup
             cts.Cancel();
+        }
+        
+        [Fact]
+        public async Task EnqueueJob_WithNullJob_ShouldThrowArgumentNullException()
+        {
+            // Arrange
+            Func<IServiceProvider, CancellationToken, Task> nullJob = null!;
+
+            // Act
+            Func<Task> act = async () => await _workerService.EnqueueJob(nullJob);
+
+            // Assert
+            await act.Should().ThrowAsync<ArgumentNullException>()
+                .WithMessage("*job*");
         }
 
         [Fact]

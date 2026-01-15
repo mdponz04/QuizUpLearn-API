@@ -11,7 +11,7 @@ using Repository.Interfaces;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class NotificationServiceTest : BaseControllerTest
+    public class NotificationServiceTest : BaseServiceTest
     {
         private readonly Mock<INotificationRepo> _mockNotificationRepo;
         private readonly IMapper _mapper;
@@ -99,7 +99,24 @@ namespace QuizUpLearn.Test.UnitTest
 
             _mockNotificationRepo.Verify(r => r.GetAllAsync(), Times.Once);
         }
+        [Fact]
+        public async Task GetAllAsync_WhenRepositoryThrowsException_ShouldPropagateException()
+        {
+            // Arrange
+            var expectedException = new InvalidOperationException("Database connection failed");
 
+            _mockNotificationRepo.Setup(r => r.GetAllAsync())
+                .ThrowsAsync(expectedException);
+
+            // Act
+            Func<Task> act = async () => await _notificationService.GetAllAsync();
+
+            // Assert
+            await act.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("Database connection failed");
+
+            _mockNotificationRepo.Verify(r => r.GetAllAsync(), Times.Once);
+        }
         [Fact]
         public async Task GetByIdAsync_WithExistingId_ShouldReturnNotification()
         {

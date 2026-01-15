@@ -28,7 +28,7 @@ namespace QuizUpLearn.API.Controllers
             _subscriptionPlanService = subscriptionPlanService;
             _paymentService = paymentService;
         }
-
+        
         [HttpPost("purchase")]
         [SubscriptionAndRoleAuthorize]
         public async Task<IActionResult> StartBuyingSubscription([FromBody] BuySubscriptionDto dto)

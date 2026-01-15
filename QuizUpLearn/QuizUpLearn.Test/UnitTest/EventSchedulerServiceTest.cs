@@ -10,7 +10,7 @@ using Repository.Interfaces;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class EventSchedulerServiceTest : BaseControllerTest
+    public class EventSchedulerServiceTest : BaseServiceTest
     {
         private readonly Mock<ILogger<EventSchedulerService>> _mockLogger;
         private readonly IServiceScopeFactory _scopeFactory;

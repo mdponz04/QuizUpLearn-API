@@ -11,7 +11,7 @@ using Repository.Interfaces;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class QuizGroupItemServiceTest : BaseControllerTest
+    public class QuizGroupItemServiceTest : BaseServiceTest
     {
         private readonly Mock<IQuizGroupItemRepo> _mockQuizGroupItemRepo;
         private readonly IMapper _mapper;
@@ -343,6 +343,105 @@ namespace QuizUpLearn.Test.UnitTest
             result.Pagination.TotalCount.Should().Be(0);
 
             _mockQuizGroupItemRepo.Verify(r => r.GetAllAsync(), Times.Once);
+        }
+
+
+        [Fact]
+        public async Task GetGroupItemByIdAsync_WithEmptyId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var emptyId = Guid.Empty;
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizGroupItemService.GetGroupItemByIdAsync(emptyId));
+
+            exception.Message.Should().Be("Invalid Group Item ID");
+            _mockQuizGroupItemRepo.Verify(r => r.GetByIdAsync(It.IsAny<Guid>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task CreateGroupItemAsync_WithNullRequest_ShouldThrowArgumentNullException()
+        {
+            // Arrange
+            RequestQuizGroupItemDto? request = null;
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentNullException>(
+                () => _quizGroupItemService.CreateGroupItemAsync(request!));
+
+            exception.Message.Should().Contain("Request DTO cannot be null");
+            _mockQuizGroupItemRepo.Verify(r => r.CreateAsync(It.IsAny<QuizGroupItem>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task UpdateGroupItemAsync_WithEmptyId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var emptyId = Guid.Empty;
+            var request = new RequestQuizGroupItemDto { Name = "Updated Vocabulary Section" };
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizGroupItemService.UpdateGroupItemAsync(emptyId, request));
+
+            exception.Message.Should().Be("Invalid Group Item ID");
+            _mockQuizGroupItemRepo.Verify(r => r.UpdateAsync(It.IsAny<Guid>(), It.IsAny<QuizGroupItem>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task UpdateGroupItemAsync_WithNullRequest_ShouldThrowArgumentNullException()
+        {
+            // Arrange
+            var id = Guid.NewGuid();
+            RequestQuizGroupItemDto? request = null;
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentNullException>(
+                () => _quizGroupItemService.UpdateGroupItemAsync(id, request!));
+
+            exception.Message.Should().Contain("Request DTO cannot be null");
+            _mockQuizGroupItemRepo.Verify(r => r.UpdateAsync(It.IsAny<Guid>(), It.IsAny<QuizGroupItem>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task DeleteGroupItemAsync_WithEmptyId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var emptyId = Guid.Empty;
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(
+                () => _quizGroupItemService.DeleteGroupItemAsync(emptyId));
+
+            exception.Message.Should().Be("Invalid Group Item ID");
+            _mockQuizGroupItemRepo.Verify(r => r.DeleteAsync(It.IsAny<Guid>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task GetAllGroupItemAsync_WithNegativePage_ShouldThrowValidationException()
+        {
+            // Arrange
+            var pagination = new PaginationRequestDto { Page = -1, PageSize = 10 };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<System.ComponentModel.DataAnnotations.ValidationException>(async () =>
+                await _quizGroupItemService.GetAllGroupItemAsync(pagination));
+
+            _mockQuizGroupItemRepo.Verify(r => r.GetAllAsync(), Times.Never);
+        }
+
+        [Fact]
+        public async Task GetAllGroupItemAsync_WithNegativePageSize_ShouldThrowValidationException()
+        {
+            // Arrange
+            var pagination = new PaginationRequestDto { Page = 1, PageSize = -5 };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<System.ComponentModel.DataAnnotations.ValidationException>(async () =>
+                await _quizGroupItemService.GetAllGroupItemAsync(pagination));
+
+            _mockQuizGroupItemRepo.Verify(r => r.GetAllAsync(), Times.Never);
         }
     }
 }

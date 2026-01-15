@@ -9,10 +9,11 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Repository.Entities;
 using Repository.Interfaces;
+using System.ComponentModel.DataAnnotations;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class UserQuizSetLikeServiceTest : BaseControllerTest
+    public class UserQuizSetLikeServiceTest : BaseServiceTest
     {
         private readonly Mock<IUserQuizSetLikeRepo> _mockUserQuizSetLikeRepo;
         private readonly IMapper _mapper;
@@ -70,6 +71,48 @@ namespace QuizUpLearn.Test.UnitTest
 
             _mockUserQuizSetLikeRepo.Verify(r => r.IsExistAsync(userId, quizSetId), Times.Once);
             _mockUserQuizSetLikeRepo.Verify(r => r.CreateAsync(It.IsAny<UserQuizSetLike>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateAsync_WithNullDto_ShouldThrowArgumentNullException()
+        {
+            // Arrange
+            RequestUserQuizSetLikeDto? requestDto = null;
+
+            // Act
+            Func<Task> act = async () => await _userQuizSetLikeService.CreateAsync(requestDto!);
+
+            // Assert
+            await act.Should().ThrowAsync<ArgumentNullException>();
+
+            _mockUserQuizSetLikeRepo.Verify(r => r.IsExistAsync(It.IsAny<Guid>(), It.IsAny<Guid>()), Times.Never);
+            _mockUserQuizSetLikeRepo.Verify(r => r.CreateAsync(It.IsAny<UserQuizSetLike>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task CreateAsync_WhenLikeAlreadyExists_ShouldThrowInvalidOperationException()
+        {
+            // Arrange
+            var userId = Guid.NewGuid();
+            var quizSetId = Guid.NewGuid();
+            var requestDto = new RequestUserQuizSetLikeDto
+            {
+                UserId = userId,
+                QuizSetId = quizSetId
+            };
+
+            _mockUserQuizSetLikeRepo.Setup(r => r.IsExistAsync(userId, quizSetId))
+                .ReturnsAsync(true);
+
+            // Act
+            Func<Task> act = async () => await _userQuizSetLikeService.CreateAsync(requestDto);
+
+            // Assert
+            await act.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("User has already liked this quiz set");
+
+            _mockUserQuizSetLikeRepo.Verify(r => r.IsExistAsync(userId, quizSetId), Times.Once);
+            _mockUserQuizSetLikeRepo.Verify(r => r.CreateAsync(It.IsAny<UserQuizSetLike>()), Times.Never);
         }
 
         [Fact]
@@ -153,6 +196,17 @@ namespace QuizUpLearn.Test.UnitTest
             result.Pagination.TotalCount.Should().Be(2);
 
             _mockUserQuizSetLikeRepo.Verify(r => r.GetAllAsync(false), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetAllAsync_WithInvalidPaginationPageSize_ShouldThrowValidationException()
+        {
+            var pagination = new PaginationRequestDto { Page = 1, PageSize = -1 };
+
+            await Assert.ThrowsAsync<ValidationException>(async () =>
+                await _userQuizSetLikeService.GetAllAsync(pagination, false));
+
+            _mockUserQuizSetLikeRepo.Verify(r => r.GetAllAsync(It.IsAny<bool>()), Times.Never);
         }
 
         [Fact]
@@ -462,6 +516,18 @@ namespace QuizUpLearn.Test.UnitTest
             // Assert
             result.Should().Be(0);
             _mockUserQuizSetLikeRepo.Verify(r => r.GetLikeCountByQuizSetAsync(quizSetId), Times.Once);
+        }
+        [Fact]
+        public async Task GetLikeCountByQuizSetAsync_WithEmptyGuid_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var quizSetId = Guid.Empty;
+
+            // Act
+            Func<Task> act = async () => await _userQuizSetLikeService.GetLikeCountByQuizSetAsync(quizSetId);
+
+            // Assert
+            await act.Should().ThrowAsync<ArgumentException>();
         }
     }
 }

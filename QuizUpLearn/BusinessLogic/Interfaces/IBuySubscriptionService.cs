@@ -1,6 +1,4 @@
-﻿using BusinessLogic.DTOs;
-
-namespace BusinessLogic.Interfaces
+﻿namespace BusinessLogic.Interfaces
 {
     public interface IBuySubscriptionService
     {

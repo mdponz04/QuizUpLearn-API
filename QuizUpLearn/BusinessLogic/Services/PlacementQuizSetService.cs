@@ -37,9 +37,19 @@ namespace BusinessLogic.Services
             _quizGroupItemService = quizGroupItemService;
         }
 
+        private static bool IsValidExcelFile(string fileName)
+        {
+            var extension = Path.GetExtension(fileName)?.ToLowerInvariant();
+            return extension is ".xlsx" or ".xls";
+        }
 
         public async Task<QuizSetResponseDto> ImportExcelQuizSetFile(IFormFile file, Guid userId)
         {
+            // Validate file extension
+            if (file?.FileName == null || !IsValidExcelFile(file.FileName))
+            {
+                throw new ArgumentException("Only Excel files (.xlsx, .xls) are supported for import.");
+            }
             await using var stream = file.OpenReadStream();
             var quizzesData = ExtractQuestions(stream);
 

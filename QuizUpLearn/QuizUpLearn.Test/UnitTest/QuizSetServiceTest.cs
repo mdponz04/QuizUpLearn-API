@@ -2,6 +2,7 @@ using AutoMapper;
 using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.QuizGroupItemDtos;
 using BusinessLogic.DTOs.QuizSetDtos;
+using BusinessLogic.Interfaces;
 using BusinessLogic.MappingProfile;
 using BusinessLogic.Services;
 using FluentAssertions;
@@ -14,7 +15,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class QuizSetServiceTest : BaseControllerTest
+    public class QuizSetServiceTest : BaseServiceTest
     {
         private readonly Mock<IQuizSetRepo> _mockQuizSetRepo;
         private readonly IMapper _mapper;
@@ -313,15 +314,17 @@ namespace QuizUpLearn.Test.UnitTest
         }
 
         [Fact]
-        public async Task GetPublishedQuizSetsAsync_WhenRepositoryReturnsNull_ShouldHandleGracefully()
+        public async Task GetPublishedQuizSetsAsync_WithInvalidPagination_ShouldThrowValidationException()
         {
-            // Arrange
-            var pagination = new PaginationRequestDto { Page = 1, PageSize = 10 };
-            _mockQuizSetRepo.Setup(r => r.GetPublishedQuizSetsAsync())
-                .ReturnsAsync((IEnumerable<QuizSet>)null);
+            var invalidPaginationRequest = new PaginationRequestDto
+            {
+                Page = -1,
+                PageSize = 150
+            };
 
-            // Act & Assert
-            await Assert.ThrowsAsync<ArgumentNullException>(() => _quizSetService.GetPublishedQuizSetsAsync(pagination));
+            await Assert.ThrowsAsync<ValidationException>(() => _quizSetService.GetPublishedQuizSetsAsync(invalidPaginationRequest));
+
+            _mockQuizSetRepo.Verify(r => r.GetPublishedQuizSetsAsync(), Times.Never);
         }
 
         #endregion

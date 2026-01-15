@@ -2,6 +2,7 @@
 using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.UserQuizSetLikeDtos;
 using BusinessLogic.Extensions;
+using BusinessLogic.Helpers;
 using BusinessLogic.Interfaces;
 using Repository.Entities;
 using Repository.Interfaces;
@@ -21,6 +22,8 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseUserQuizSetLikeDto> CreateAsync(RequestUserQuizSetLikeDto dto)
         {
+            if(dto == null)
+                throw new ArgumentNullException(nameof(dto), "DTO cannot be null.");
             var exists = await _userQuizSetLikeRepo.IsExistAsync(dto.UserId, dto.QuizSetId);
             if (exists)
                 throw new InvalidOperationException("User has already liked this quiz set");
@@ -40,6 +43,8 @@ namespace BusinessLogic.Services
 
         public async Task<PaginationResponseDto<ResponseUserQuizSetLikeDto>> GetAllAsync(PaginationRequestDto pagination, bool includeDeleted = false)
         {
+            if (pagination == null) pagination = new PaginationRequestDto();
+            ValidateHelper.Validate(pagination);
             var entities = await _userQuizSetLikeRepo.GetAllAsync(includeDeleted);
             var dtos = _mapper.Map<IEnumerable<ResponseUserQuizSetLikeDto>>(entities);
             return dtos.ToPagedResponse(pagination);
@@ -103,6 +108,8 @@ namespace BusinessLogic.Services
 
         public async Task<int> GetLikeCountByQuizSetAsync(Guid quizSetId)
         {
+            if(quizSetId == Guid.Empty)
+                throw new ArgumentException("Quiz Set ID cannot be empty.");
             return await _userQuizSetLikeRepo.GetLikeCountByQuizSetAsync(quizSetId);
         }
     }

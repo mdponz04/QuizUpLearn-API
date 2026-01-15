@@ -8,10 +8,11 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Repository.Entities;
 using Repository.Interfaces;
+using System.ComponentModel.DataAnnotations;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class QuizServiceTest : BaseControllerTest
+    public class QuizServiceTest : BaseServiceTest
     {
         private readonly Mock<IQuizRepo> _mockQuizRepo;
         private readonly IMapper _mapper;
@@ -503,6 +504,20 @@ namespace QuizUpLearn.Test.UnitTest
             result.Data.Should().HaveCount(1);
             result.Data.First().QuestionText.Should().Be("Question 1");
             _mockQuizRepo.Verify(r => r.GetAllQuizzesAsync(), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetAllQuizzesAsync_WithInvalidPagination_ShouldThrowValidationException()
+        {
+            var invalidPaginationRequest = new PaginationRequestDto
+            {
+                Page = -1,
+                PageSize = 150
+            };
+
+            await Assert.ThrowsAsync<ValidationException>(() => _quizService.GetAllQuizzesAsync(invalidPaginationRequest));
+
+            _mockQuizRepo.Verify(r => r.GetAllQuizzesAsync(), Times.Never);
         }
 
         [Fact]

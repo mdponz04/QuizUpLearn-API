@@ -40,6 +40,13 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseSubscriptionDto> CreateAsync(RequestSubscriptionDto dto)
         {
+            if (dto == null)
+                throw new ArgumentNullException("Subscription dto cannot be null");
+            if (dto.UserId == Guid.Empty || dto.UserId == null)
+                throw new ArgumentException("UserId cannot be empty.");
+            if(dto.SubscriptionPlanId == Guid.Empty || dto.SubscriptionPlanId == null)
+                throw new ArgumentException("SubscriptionPlanId cannot be empty.");
+
             var entity = _mapper.Map<Subscription>(dto);
             var created = await _repo.CreateAsync(entity);
             return _mapper.Map<ResponseSubscriptionDto>(created);

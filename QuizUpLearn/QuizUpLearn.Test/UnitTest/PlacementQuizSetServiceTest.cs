@@ -13,10 +13,11 @@ using Repository.Entities;
 using Repository.Enums;
 using Repository.Interfaces;
 using OfficeOpenXml;
+using System.Text;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class PlacementQuizSetServiceTest : BaseControllerTest
+    public class PlacementQuizSetServiceTest : BaseServiceTest
     {
         private readonly Mock<IQuizSetService> _mockQuizSetService;
         private readonly Mock<IQuizRepo> _mockQuizRepo;
@@ -361,6 +362,35 @@ namespace QuizUpLearn.Test.UnitTest
                 options.Count(o => o.IsCorrect) == 2 &&
                 options.All(o => !string.IsNullOrEmpty(o.OptionLabel)) &&
                 options.All(o => !string.IsNullOrEmpty(o.OptionText)))), Times.Once);
+        }
+
+        [Fact]
+        public async Task ImportExcelQuizSetFile_WithNonExcelFile_ShouldThrowException()
+        {
+            // Arrange
+            var userId = Guid.NewGuid();
+            var fileName = "invalid_file.txt";
+
+            // Create a mock non-Excel file (plain text content)
+            var textContent = Encoding.UTF8.GetBytes("This is not an Excel file content");
+            var mockFile = new Mock<IFormFile>();
+            mockFile.Setup(f => f.FileName).Returns(fileName);
+            mockFile.Setup(f => f.OpenReadStream()).Returns(new MemoryStream(textContent));
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
+                _placementQuizSetService.ImportExcelQuizSetFile(mockFile.Object, userId));
+
+            // Verify that the exception is related to Excel processing
+            exception.Should().NotBeNull();
+            exception.Message.Should().NotBeEmpty();
+
+            // Verify that no services were called since the method should fail early
+            _mockQuizSetService.Verify(s => s.CreateQuizSetAsync(It.IsAny<QuizSetRequestDto>()), Times.Never);
+            _mockQuizGroupItemService.Verify(s => s.CreateGroupItemAsync(It.IsAny<RequestQuizGroupItemDto>()), Times.Never);
+            _mockQuizRepo.Verify(r => r.CreateQuizzesBatchAsync(It.IsAny<List<Quiz>>()), Times.Never);
+            _mockAnswerOptionRepo.Verify(r => r.CreateBatchAsync(It.IsAny<List<AnswerOption>>()), Times.Never);
+            _mockQuizQuizSetService.Verify(s => s.AddQuizzesToQuizSetAsync(It.IsAny<List<Guid>>(), It.IsAny<Guid>()), Times.Never);
         }
 
         private byte[] CreateMockExcelFileContent()

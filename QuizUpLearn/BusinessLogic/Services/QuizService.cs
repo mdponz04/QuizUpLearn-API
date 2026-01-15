@@ -48,6 +48,7 @@ namespace BusinessLogic.Services
 
         public async Task<PaginationResponseDto<QuizResponseDto>> GetAllQuizzesAsync(PaginationRequestDto pagination)
         {
+            ValidateHelper.Validate(pagination);
             var quizzes = await _quizRepo.GetAllQuizzesAsync();
             var query = quizzes.AsQueryable();
 

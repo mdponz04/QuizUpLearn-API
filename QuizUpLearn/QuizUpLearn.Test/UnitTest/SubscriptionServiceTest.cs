@@ -13,7 +13,7 @@ using Repository.Interfaces;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class SubscriptionServiceTest : BaseControllerTest
+    public class SubscriptionServiceTest : BaseServiceTest
     {
         private readonly Mock<ISubscriptionRepo> _mockSubscriptionRepo;
         private readonly Mock<ISubscriptionPlanService> _mockSubscriptionPlanService;
@@ -353,6 +353,96 @@ namespace QuizUpLearn.Test.UnitTest
             result.CreatedAt.Should().Be(createdSubscription.CreatedAt);
 
             _mockSubscriptionRepo.Verify(r => r.CreateAsync(It.IsAny<Subscription>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateAsync_WithNullDto_ShouldThrowArgumentNullException()
+        {
+            // Arrange
+            RequestSubscriptionDto dto = null!;
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentNullException>(() => _subscriptionService.CreateAsync(dto));
+        }
+
+        [Fact]
+        public async Task CreateAsync_WithEmptyUserId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var requestDto = new RequestSubscriptionDto
+            {
+                UserId = Guid.Empty,
+                SubscriptionPlanId = Guid.NewGuid(),
+                EndDate = DateTime.UtcNow.AddDays(30)
+            };
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(() => _subscriptionService.CreateAsync(requestDto));
+            exception.Message.Should().Be("UserId cannot be empty.");
+        }
+
+        [Fact]
+        public async Task CreateAsync_WithNullUserId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var requestDto = new RequestSubscriptionDto
+            {
+                UserId = null,
+                SubscriptionPlanId = Guid.NewGuid(),
+                EndDate = DateTime.UtcNow.AddDays(30)
+            };
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(() => _subscriptionService.CreateAsync(requestDto));
+            exception.Message.Should().Be("UserId cannot be empty.");
+        }
+
+        [Fact]
+        public async Task CreateAsync_WithEmptySubscriptionPlanId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var requestDto = new RequestSubscriptionDto
+            {
+                UserId = Guid.NewGuid(),
+                SubscriptionPlanId = Guid.Empty,
+                EndDate = DateTime.UtcNow.AddDays(30)
+            };
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(() => _subscriptionService.CreateAsync(requestDto));
+            exception.Message.Should().Be("SubscriptionPlanId cannot be empty.");
+        }
+
+        [Fact]
+        public async Task CreateAsync_WithNullSubscriptionPlanId_ShouldThrowArgumentException()
+        {
+            // Arrange
+            var requestDto = new RequestSubscriptionDto
+            {
+                UserId = Guid.NewGuid(),
+                SubscriptionPlanId = null,
+                EndDate = DateTime.UtcNow.AddDays(30)
+            };
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(() => _subscriptionService.CreateAsync(requestDto));
+            exception.Message.Should().Be("SubscriptionPlanId cannot be empty.");
+        }
+
+        [Fact]
+        public async Task CreateAsync_WithBothUserIdAndSubscriptionPlanIdEmpty_ShouldThrowArgumentExceptionForUserId()
+        {
+            // Arrange
+            var requestDto = new RequestSubscriptionDto
+            {
+                UserId = Guid.Empty,
+                SubscriptionPlanId = Guid.Empty,
+                EndDate = DateTime.UtcNow.AddDays(30)
+            };
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<ArgumentException>(() => _subscriptionService.CreateAsync(requestDto));
+            exception.Message.Should().Be("UserId cannot be empty.");
         }
 
         [Fact]

@@ -10,7 +10,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace QuizUpLearn.Test.UnitTest
 {
-    public class SubscriptionPlanServiceTest : BaseControllerTest
+    public class SubscriptionPlanServiceTest : BaseServiceTest
     {
         private readonly Mock<ISubscriptionPlanRepo> _mockRepo;
         private readonly Mock<IMapper> _mockMapper;
@@ -503,6 +503,24 @@ namespace QuizUpLearn.Test.UnitTest
 
             _mockRepo.Verify(r => r.GetFreeSubscriptionPlan(), Times.Once);
             _mockMapper.Verify(m => m.Map<ResponseSubscriptionPlanDto>(freeSubscriptionPlan), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetFreeSubscriptionPlanAsync_WhenRepositoryFails_ShouldThrowException()
+        {
+            // Arrange
+            _mockRepo.Setup(r => r.GetFreeSubscriptionPlan())
+                .ThrowsAsync(new InvalidOperationException("Failed to create or retrieve free subscription plan"));
+
+            // Act
+            Func<Task> act = async () => await _subscriptionPlanService.GetFreeSubscriptionPlanAsync();
+
+            // Assert
+            await act.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("Failed to create or retrieve free subscription plan");
+
+            _mockRepo.Verify(r => r.GetFreeSubscriptionPlan(), Times.Once);
+            _mockMapper.Verify(m => m.Map<ResponseSubscriptionPlanDto>(It.IsAny<SubscriptionPlan>()), Times.Never);
         }
 
         [Fact]

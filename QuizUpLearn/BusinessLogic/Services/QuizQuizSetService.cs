@@ -2,6 +2,7 @@ using AutoMapper;
 using BusinessLogic.DTOs;
 using BusinessLogic.DTOs.QuizQuizSetDtos;
 using BusinessLogic.Extensions;
+using BusinessLogic.Helpers;
 using BusinessLogic.Interfaces;
 using Repository.Entities;
 using Repository.Enums;
@@ -30,9 +31,13 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseQuizQuizSetDto> CreateQuizQuizSetAsync(RequestQuizQuizSetDto dto)
         {
-            if(dto.QuizId == null || dto.QuizSetId == null)
-                throw new ArgumentException("QuizId and QuizSetId cannot be null");
-            
+            if(dto == null)
+                throw new ArgumentNullException(nameof(dto), "DTO cannot be null.");
+            if (dto.QuizId == null)
+                throw new ArgumentException("QuizId cannot be null");
+            if(dto.QuizSetId == null)
+                throw new ArgumentException("QuizSetId cannot be null");
+
             var quiz = await _quizRepo.GetQuizByIdAsync(dto.QuizId.Value);
             if (quiz == null)
                 throw new ArgumentException($"Quiz with ID {dto.QuizId} not found");
@@ -58,6 +63,8 @@ namespace BusinessLogic.Services
 
         public async Task<PaginationResponseDto<ResponseQuizQuizSetDto>> GetAllQuizQuizSetAsync(PaginationRequestDto pagination, bool includeDeleted = false)
         {
+            if(pagination == null) pagination = new PaginationRequestDto();
+            ValidateHelper.Validate(pagination);
             var entities = await _quizQuizSetRepo.GetAllAsync(includeDeleted);
             var dtos = _mapper.Map<IEnumerable<ResponseQuizQuizSetDto>>(entities);
             return dtos.ToPagedResponse(pagination);
@@ -65,6 +72,11 @@ namespace BusinessLogic.Services
 
         public async Task<PaginationResponseDto<ResponseQuizQuizSetDto>> GetQuizQuizSetByQuizIdAsync(Guid quizId, PaginationRequestDto pagination, bool includeDeleted = false)
         {
+            if (quizId == Guid.Empty)
+                throw new ArgumentException("QuizId cannot be empty");
+            if (pagination == null) pagination = new PaginationRequestDto();
+            ValidateHelper.Validate(pagination);
+
             var entities = await _quizQuizSetRepo.GetByQuizIdAsync(quizId, includeDeleted);
             var dtos = _mapper.Map<IEnumerable<ResponseQuizQuizSetDto>>(entities);
             return dtos.ToPagedResponse(pagination);
@@ -72,6 +84,11 @@ namespace BusinessLogic.Services
 
         public async Task<PaginationResponseDto<ResponseQuizQuizSetDto>> GetQuizQuizSetByQuizSetIdAsync(Guid quizSetId, PaginationRequestDto pagination, bool includeDeleted = false)
         {
+            if (quizSetId == Guid.Empty)
+                throw new ArgumentException("QuizSetId cannot be empty");
+            if (pagination == null) pagination = new PaginationRequestDto();
+            ValidateHelper.Validate(pagination);
+
             var entities = await _quizQuizSetRepo.GetByQuizSetIdAsync(quizSetId, includeDeleted);
             var dtos = _mapper.Map<IEnumerable<ResponseQuizQuizSetDto>>(entities);
             return dtos.ToPagedResponse(pagination);
@@ -85,7 +102,9 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseQuizQuizSetDto?> UpdateQuizQuizSetAsync(Guid id, RequestQuizQuizSetDto dto)
         {
-            if(dto.QuizId == null || dto.QuizSetId == null)
+            if(dto == null)
+                throw new ArgumentNullException("DTO cannot be null.");
+            if (dto.QuizId == null || dto.QuizSetId == null)
                 throw new ArgumentException("QuizId and QuizSetId cannot be null");
             // Validate that quiz and quiz set exist
             var quiz = await _quizRepo.GetQuizByIdAsync(dto.QuizId.Value);
@@ -103,20 +122,30 @@ namespace BusinessLogic.Services
 
         public async Task<bool> HardDeleteQuizQuizSetAsync(Guid id)
         {
+            if(id == Guid.Empty)
+                throw new ArgumentException("ID cannot be empty");
+            if (await _quizQuizSetRepo.GetByIdAsync(id) == null)
+                throw new ArgumentException($"QuizQuizSet with ID {id} not found");
             return await _quizQuizSetRepo.HardDeleteAsync(id);
         }
 
         public async Task<bool> IsQuizQuizSetExistedAsync(Guid quizId, Guid quizSetId)
         {
+            if (quizId == Guid.Empty || quizSetId == Guid.Empty)
+                throw new ArgumentException("QuizId and QuizSetId cannot be empty");
             return await _quizQuizSetRepo.IsExistedAsync(quizId, quizSetId);
         }
 
         public async Task<int> GetQuizCountByQuizSetAsync(Guid quizSetId)
         {
+            if (quizSetId == Guid.Empty)
+                throw new ArgumentException("QuizSetId cannot be null");
             return await _quizQuizSetRepo.GetQuizCountByQuizSetAsync(quizSetId);
         }
         public async Task<bool> AddQuizToQuizSetAsync(Guid quizId, Guid quizSetId)
         {
+            if(quizId == Guid.Empty || quizSetId == Guid.Empty)
+                throw new ArgumentException("QuizId and QuizSetId cannot be empty");
             try
             {
                 var dto = new RequestQuizQuizSetDto { QuizId = quizId, QuizSetId = quizSetId };
@@ -128,8 +157,13 @@ namespace BusinessLogic.Services
                 return false;
             }
         }
+
         public async Task<bool> AddQuizzesToQuizSetAsync(List<Guid> quizIds, Guid quizSetId)
         {
+            if(quizSetId == Guid.Empty)
+                throw new ArgumentException("QuizSetId cannot be empty");
+            if(quizIds.Count == 0)
+                throw new ArgumentException("QuizIds cannot be empty");
             try
             {
                 var quizSet = await _quizSetRepo.GetQuizSetByIdAsync(quizSetId);
@@ -169,11 +203,15 @@ namespace BusinessLogic.Services
 
         public async Task<bool> DeleteQuizQuizSetByQuizIdAsync(Guid quizId)
         {
+            if(quizId == Guid.Empty)
+                throw new ArgumentException("QuizId cannot be empty");
             return await _quizQuizSetRepo.DeleteByQuizIdAsync(quizId);
         }
 
         public async Task<bool> DeleteQuizQuizSetByQuizSetIdAsync(Guid quizSetId)
         {
+            if(quizSetId == Guid.Empty)
+                throw new ArgumentException("QuizSetId cannot be empty");
             var quizSet = await _quizSetRepo.GetQuizSetByIdAsync(quizSetId);
 
             if (quizSet != null && quizSet.QuizSetType == QuizSetTypeEnum.Placement)
