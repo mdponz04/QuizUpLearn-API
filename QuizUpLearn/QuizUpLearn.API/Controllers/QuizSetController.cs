@@ -61,7 +61,7 @@ namespace QuizUpLearn.API.Controllers
         /// <returns>List of quiz sets</returns>
         [HttpPost("search")]
         [Authorize]
-        [SubscriptionAndRoleAuthorize("Moderator")]
+        [SubscriptionAndRoleAuthorize]
         public async Task<ActionResult<PaginationResponseDto<QuizSetResponseDto>>> GetAllQuizSets(
             [FromBody] PaginationRequestDto request)
         {
@@ -76,7 +76,7 @@ namespace QuizUpLearn.API.Controllers
         /// <param name="request">Pagination and filter parameters</param>
         /// <returns>List of quiz sets by creator</returns>
         [HttpPost("creator/search")]
-        [SubscriptionAndRoleAuthorize("Moderator")]
+        [SubscriptionAndRoleAuthorize]
         [Authorize]
         public async Task<ActionResult<PaginationResponseDto<QuizSetResponseDto>>> GetQuizSetsByCreator(
             Guid? creatorId,
