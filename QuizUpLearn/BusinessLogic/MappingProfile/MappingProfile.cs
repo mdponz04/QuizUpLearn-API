@@ -89,6 +89,9 @@ namespace BusinessLogic.MappingProfile
             //QuizReport mappings
             CreateMap<Repository.Entities.QuizReport, DTOs.QuizReportDtos.ResponseQuizReportDto>();
             CreateMap<Repository.Entities.QuizReport, DTOs.QuizReportDtos.RequestQuizReportDto>().ReverseMap();
+            //UserReport mappings
+            CreateMap<Repository.Entities.UserReport, DTOs.UserReportDtos.ResponseUserReportDto>();
+            CreateMap<Repository.Entities.UserReport, DTOs.UserReportDtos.RequestUserReportDto>().ReverseMap();
             //QuizSetComment mappings
             CreateMap<Repository.Entities.QuizSetComment, DTOs.QuizSetCommentDtos.ResponseQuizSetCommentDto>();
             CreateMap<Repository.Entities.QuizSetComment, DTOs.QuizSetCommentDtos.RequestQuizSetCommentDto>().ReverseMap();

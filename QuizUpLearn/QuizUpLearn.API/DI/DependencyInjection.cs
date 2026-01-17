@@ -104,6 +104,7 @@ namespace QuizUpLearn.API.DI
             services.AddScoped<IGrammarRepo, GrammarRepo>();
             services.AddScoped<IVocabularyRepo, VocabularyRepo>();
             services.AddScoped<IQuizReportRepo, QuizReportRepo>();
+            services.AddScoped<IUserReportRepo, UserReportRepo>();
             services.AddScoped<IQuizSetCommentRepo, QuizSetCommentRepo>();
             services.AddScoped<IUserQuizSetFavoriteRepo, UserQuizSetFavoriteRepo>();
             services.AddScoped<IUserQuizSetLikeRepo, UserQuizSetLikeRepo>();
@@ -149,6 +150,7 @@ namespace QuizUpLearn.API.DI
             services.AddScoped<IVocabularyService, VocabularyService>();
             services.AddScoped<IVocabularyGrammarService, VocabularyGrammarService>();
             services.AddScoped<IQuizReportService, QuizReportService>();
+            services.AddScoped<IUserReportService, UserReportService>();
             services.AddScoped<IQuizSetCommentService, QuizSetCommentService>();
             services.AddScoped<IUserQuizSetFavoriteService, UserQuizSetFavoriteService>();
             services.AddScoped<IUserQuizSetLikeService, UserQuizSetLikeService>();

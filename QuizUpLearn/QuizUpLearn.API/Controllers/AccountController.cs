@@ -24,6 +24,16 @@ namespace QuizUpLearn.API.Controllers
             return Ok(accounts);
         }
 
+        [HttpPost("search")]
+        [SubscriptionAndRoleAuthorize("Administrator")]
+        public async Task<ActionResult<PaginationResponseDto<ResponseAccountDto>>> GetAll(
+            [FromBody] PaginationRequestDto pagination, 
+            [FromQuery] bool includeDeleted = false)
+        {
+            var result = await _service.GetAllAsync(pagination, includeDeleted);
+            return Ok(result);
+        }
+
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById([FromRoute] Guid id)
         {
@@ -41,6 +51,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpPut("{id}")]
+        [SubscriptionAndRoleAuthorize("Administrator")]
         public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] RequestAccountDto dto)
         {
             var updated = await _service.UpdateAsync(id, dto);

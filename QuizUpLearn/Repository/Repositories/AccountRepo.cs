@@ -47,7 +47,20 @@ namespace Repository.Repositories
 
             // Complete Account fields
             account.UserId = newUser.Id;
-            account.RoleId = defaultRole.Id;
+            // Nếu account chưa có RoleId hoặc RoleId là Guid.Empty, sử dụng default role "User"
+            if (account.RoleId == Guid.Empty)
+            {
+                account.RoleId = defaultRole.Id;
+            }
+            else
+            {
+                // Kiểm tra xem RoleId có tồn tại không
+                var roleExists = await _context.Roles.AnyAsync(r => r.Id == account.RoleId);
+                if (!roleExists)
+                {
+                    throw new ArgumentException($"Role với ID {account.RoleId} không tồn tại");
+                }
+            }
             account.IsActive = true;
             account.IsEmailVerified = true;
             account.IsBanned = false;

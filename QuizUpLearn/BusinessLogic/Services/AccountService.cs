@@ -1,5 +1,6 @@
 using AutoMapper;
 using BusinessLogic.DTOs;
+using BusinessLogic.Extensions;
 using BusinessLogic.Interfaces;
 using Repository.Entities;
 using Repository.Interfaces;
@@ -28,6 +29,13 @@ namespace BusinessLogic.Services
         {
             var list = await _repo.GetAllAsync(includeDeleted);
             return _mapper.Map<IEnumerable<ResponseAccountDto>>(list);
+        }
+
+        public async Task<PaginationResponseDto<ResponseAccountDto>> GetAllAsync(PaginationRequestDto pagination, bool includeDeleted = false)
+        {
+            var entities = await _repo.GetAllAsync(includeDeleted);
+            var dtos = _mapper.Map<IEnumerable<ResponseAccountDto>>(entities);
+            return dtos.ToPagedResponse(pagination);
         }
 
         public async Task<ResponseAccountDto?> GetByIdAsync(Guid id)
