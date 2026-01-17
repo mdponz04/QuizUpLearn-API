@@ -41,6 +41,7 @@ namespace Repository.DBContext
         public DbSet<Badge> Badges { get; set; }
         public DbSet<UserBadge> UserBadges { get; set; }
         public DbSet<BadgeRule> BadgeRules { get; set; }
+        public DbSet<UserReport> UserReports { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Account>()
