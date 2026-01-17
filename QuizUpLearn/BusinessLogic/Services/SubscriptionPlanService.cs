@@ -84,11 +84,10 @@ namespace BusinessLogic.Services
 
             if(existing.CanAccessAiFeatures != dto.CanAccessAiFeatures)
                 existing.CanAccessAiFeatures = dto.CanAccessAiFeatures;
-
-            if(existing.IsActive != dto.IsActive)
-                existing.IsActive = dto.IsActive;
-
+            existing.IsActive = dto.IsActive;
+            
             existing.UpdatedAt = DateTime.UtcNow;
+            existing.IsBuyable = dto.IsBuyable;
 
             var updated = await _repo.UpdateAsync(id, existing);
             return updated == null ? null : _mapper.Map<ResponseSubscriptionPlanDto>(updated);

@@ -22,5 +22,6 @@ namespace Repository.Entities
         public virtual ICollection<UserMistake> UserMistakes { get; set; } = new List<UserMistake>();
         public virtual ICollection<UserWeakPoint> UserWeakPoints { get; set; } = new List<UserWeakPoint>();
         public virtual ICollection<UserBadge> UserBadges { get; set; } = new List<UserBadge>();
+        public virtual ICollection<UserReport> UserReports { get; set; } = new List<UserReport>();
     }
 }
