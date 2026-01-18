@@ -1,12 +1,8 @@
 using BusinessLogic.DTOs;
 using BusinessLogic.Interfaces;
+using BusinessLogic.Helpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 
 namespace QuizUpLearn.API.Controllers
 {
@@ -15,12 +11,12 @@ namespace QuizUpLearn.API.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IIdentityService _identityService;
-        private readonly IConfiguration _configuration;
+        private readonly IAccountService _accountService;
 
-        public AuthController(IIdentityService identityService, IConfiguration configuration)
+        public AuthController(IIdentityService identityService, IAccountService accountService)
         {
             _identityService = identityService;
-            _configuration = configuration;
+            _accountService = accountService;
         }
 
         [HttpPost("register")]
@@ -38,12 +34,16 @@ namespace QuizUpLearn.API.Controllers
             var login = await _identityService.LoginAsync(dto);
             if (login == null) return Unauthorized();
 
-            var access = GenerateJwtToken(login.Account);
-            var refresh = GenerateRefreshToken(login.Account);
+            var access = _identityService.GenerateJwtToken(login.Account);
             login.AccessToken = access.token;
-            login.ExpiresAt = access.expiresAt;
-            login.RefreshToken = refresh.token;
-            login.RefreshExpiresAt = refresh.expiresAt;
+            login.ExpiresAt = TimeZoneHelper.ConvertToVietnamTime(access.expiresAt);
+
+            var refreshToken = _identityService.GenerateRefreshToken();
+            login.RefreshToken = refreshToken;
+            login.RefreshExpiresAt = TimeZoneHelper.ConvertToVietnamTime(DateTime.UtcNow.AddDays(30));
+            
+            await _identityService.SaveRefreshTokenAsync(login.Account.Id, refreshToken);
+            
             return Ok(login);
         }
 
@@ -54,12 +54,16 @@ namespace QuizUpLearn.API.Controllers
             var login = await _identityService.LoginWithGoogleAsync(dto);
             if (login == null) return Unauthorized(new { message = "Token không hợp lệ hoặc không thể xác thực" });
 
-            var access = GenerateJwtToken(login.Account);
-            var refresh = GenerateRefreshToken(login.Account);
+            var access = _identityService.GenerateJwtToken(login.Account);
             login.AccessToken = access.token;
-            login.ExpiresAt = access.expiresAt;
-            login.RefreshToken = refresh.token;
-            login.RefreshExpiresAt = refresh.expiresAt;
+            login.ExpiresAt = TimeZoneHelper.ConvertToVietnamTime(access.expiresAt);
+
+            var refreshToken = _identityService.GenerateRefreshToken();
+            login.RefreshToken = refreshToken;
+            login.RefreshExpiresAt = TimeZoneHelper.ConvertToVietnamTime(DateTime.UtcNow.AddDays(30));
+            
+            await _identityService.SaveRefreshTokenAsync(login.Account.Id, refreshToken);
+            
             return Ok(login);
         }
 
@@ -88,171 +92,40 @@ namespace QuizUpLearn.API.Controllers
             return Ok(new { success = true });
         }
 
-        private (string token, DateTime expiresAt) GenerateJwtToken(ResponseAccountDto account)
-        {
-            var jwt = _configuration.GetSection("Jwt");
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt["Key"]!));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expires = DateTime.UtcNow.AddMinutes(int.Parse(jwt["ExpiresMinutes"]!));
-
-            var claims = new List<Claim>
-            {
-                new Claim(JwtRegisteredClaimNames.Sub, account.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Email, account.Email ?? string.Empty),
-                new Claim("userId", account.UserId.ToString()),
-                new Claim("roleId", account.RoleId.ToString()),
-                new Claim("roleName", account.RoleName ?? string.Empty)
-            };
-
-            var token = new JwtSecurityToken(
-                issuer: jwt["Issuer"],
-                audience: jwt["Audience"],
-                claims: claims,
-                expires: expires,
-                signingCredentials: creds
-            );
-
-            return (new JwtSecurityTokenHandler().WriteToken(token), expires);
-        }
-
         [HttpPost("refresh")]
         [AllowAnonymous]
-        public IActionResult Refresh([FromBody] RefreshTokenRequestDto dto)
+        public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequestDto dto)
         {
-            if (dto == null || string.IsNullOrWhiteSpace(dto.RefreshToken))
-                return BadRequest(new { message = "Refresh token is required" });
+            var isValid = await _identityService.ValidateRefreshTokenAsync(dto.AccountId, dto.RefreshToken);
+            if (!isValid) return Unauthorized();
 
-            var (isValid, principal, errorMessage) = ValidateRefreshToken(dto.RefreshToken);
-            if (!isValid || principal == null)
-                return Unauthorized(new { message = errorMessage ?? "Invalid refresh token" });
+            await _identityService.DeleteRefreshTokenAsync(dto.AccountId, dto.RefreshToken);
 
-            var accountId = principal.FindFirstValue(JwtRegisteredClaimNames.Sub);
-            var email = principal.FindFirstValue(JwtRegisteredClaimNames.Email) ?? string.Empty;
-            var userIdStr = principal.FindFirst("userId")?.Value ?? Guid.Empty.ToString();
-            var roleIdStr = principal.FindFirst("roleId")?.Value ?? Guid.Empty.ToString();
-            var roleName = principal.FindFirst("roleName")?.Value ?? string.Empty;
+            var account = await _accountService.GetByIdAsync(dto.AccountId);
+            if (account == null) return Unauthorized();
 
-            if (string.IsNullOrEmpty(accountId) || !Guid.TryParse(accountId, out var accountIdGuid))
-                return Unauthorized(new { message = "Invalid token claims" });
+            var access = _identityService.GenerateJwtToken(account);
+            
+            var newRefreshToken = _identityService.GenerateRefreshToken();
+            await _identityService.SaveRefreshTokenAsync(dto.AccountId, newRefreshToken);
 
-            if (string.IsNullOrEmpty(roleIdStr) || !Guid.TryParse(roleIdStr, out var roleIdGuid))
-                return Unauthorized(new { message = "Invalid role ID in token" });
-
-            var account = new ResponseAccountDto
+            return Ok(new
             {
-                Id = accountIdGuid,
-                Email = email,
-                Username = string.Empty,
-                AvatarUrl = string.Empty,
-                UserId = Guid.TryParse(userIdStr, out var userId) ? userId : Guid.Empty,
-                RoleId = roleIdGuid,
-                RoleName = roleName,
-                IsEmailVerified = false,
-                LastLoginAt = null,
-                LoginAttempts = 0,
-                LockoutUntil = null,
-                IsActive = true,
-                IsBanned = false,
-                CreatedAt = DateTime.MinValue,
-                UpdatedAt = null,
-                DeletedAt = null
-            };
-
-            var access = GenerateJwtToken(account);
-            var refresh = GenerateRefreshToken(account);
-
-            return Ok(new LoginResponseDto
-            {
-                Account = account,
                 AccessToken = access.token,
-                ExpiresAt = access.expiresAt,
-                RefreshToken = refresh.token,
-                RefreshExpiresAt = refresh.expiresAt
+                ExpiresAt = TimeZoneHelper.ConvertToVietnamTime(access.expiresAt),
+                RefreshToken = newRefreshToken,
+                RefreshExpiresAt = TimeZoneHelper.ConvertToVietnamTime(DateTime.UtcNow.AddDays(30))
             });
         }
 
-        private (string token, DateTime expiresAt) GenerateRefreshToken(ResponseAccountDto account)
+        [HttpPost("logout")]
+        [Authorize]
+        public async Task<IActionResult> Logout([FromBody] RefreshTokenRequestDto dto)
         {
-            var jwt = _configuration.GetSection("Jwt");
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt["Key"]!));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expires = DateTime.UtcNow.AddDays(int.Parse(jwt["RefreshExpiresDays"]!));
-
-            var claims = new List<Claim>
-            {
-                new Claim(JwtRegisteredClaimNames.Sub, account.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Email, account.Email ?? string.Empty),
-                new Claim("userId", account.UserId.ToString()),
-                new Claim("roleId", account.RoleId.ToString()),
-                new Claim("roleName", account.RoleName ?? string.Empty),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-            };
-
-            var token = new JwtSecurityToken(
-                issuer: jwt["Issuer"],
-                audience: jwt["Audience"],
-                claims: claims,
-                expires: expires,
-                signingCredentials: creds
-            );
-            return (new JwtSecurityTokenHandler().WriteToken(token), expires);
+            await _identityService.DeleteRefreshTokenAsync(dto.AccountId, dto.RefreshToken);
+            return Ok(new { success = true });
         }
 
-        private (bool isValid, ClaimsPrincipal? principal, string? errorMessage) ValidateRefreshToken(string refreshToken)
-        {
-            var jwt = _configuration.GetSection("Jwt");
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.UTF8.GetBytes(jwt["Key"]!);
-            
-            if (!tokenHandler.CanReadToken(refreshToken))
-            {
-                return (false, null, "Invalid token format");
-            }
-
-            try
-            {
-                var principal = tokenHandler.ValidateToken(refreshToken, new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidateAudience = true,
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    ValidIssuer = jwt["Issuer"],
-                    ValidAudience = jwt["Audience"],
-                    IssuerSigningKey = new SymmetricSecurityKey(key),
-                    ClockSkew = TimeSpan.FromMinutes(5) // Cho phép 5 phút tolerance để tránh lỗi timing giữa server và client
-                }, out var validatedToken);
-
-                // Kiểm tra xem token có phải là refresh token không (có JTI claim)
-                var jti = principal.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
-                if (string.IsNullOrEmpty(jti))
-                {
-                    return (false, null, "Token is not a valid refresh token");
-                }
-
-                return (true, principal, null);
-            }
-            catch (SecurityTokenExpiredException)
-            {
-                return (false, null, "Refresh token has expired");
-            }
-            catch (SecurityTokenInvalidSignatureException)
-            {
-                return (false, null, "Invalid token signature");
-            }
-            catch (SecurityTokenInvalidIssuerException)
-            {
-                return (false, null, "Invalid token issuer");
-            }
-            catch (SecurityTokenInvalidAudienceException)
-            {
-                return (false, null, "Invalid token audience");
-            }
-            catch (Exception ex)
-            {
-                return (false, null, $"Token validation failed: {ex.Message}");
-            }
-        }
     }
 }
 

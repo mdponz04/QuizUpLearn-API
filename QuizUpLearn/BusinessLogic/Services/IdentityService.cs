@@ -8,6 +8,11 @@ using BCrypt.Net;
 using Microsoft.Extensions.Configuration;
 using FirebaseAdmin.Auth;
 using BusinessLogic.Helpers;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.Extensions.Caching.Distributed;
 
 namespace BusinessLogic.Services
 {
@@ -21,6 +26,7 @@ namespace BusinessLogic.Services
         private readonly IConfiguration _configuration;
         private readonly ISubscriptionService _subscriptionService;
         private readonly ISubscriptionPlanService _subscriptionPlanService;
+        private readonly IDistributedCache _cache;
 
         public IdentityService(
             IAccountRepo accountRepo,
@@ -30,7 +36,8 @@ namespace BusinessLogic.Services
             IConfiguration configuration,
             IMapper mapper,
             ISubscriptionService subscriptionService,
-            ISubscriptionPlanService subscriptionPlanService)
+            ISubscriptionPlanService subscriptionPlanService,
+            IDistributedCache cache)
         {
             _accountRepo = accountRepo;
             _userRepo = userRepo;
@@ -40,6 +47,7 @@ namespace BusinessLogic.Services
             _mapper = mapper;
             _subscriptionService = subscriptionService;
             _subscriptionPlanService = subscriptionPlanService;
+            _cache = cache;
         }
 
         public async Task<LoginResponseDto?> LoginAsync(LoginRequestDto dto)
@@ -300,10 +308,90 @@ namespace BusinessLogic.Services
             }
         }
 
+        public (string token, DateTime expiresAt) GenerateJwtToken(ResponseAccountDto account)
+        {
+            var jwt = _configuration.GetSection("Jwt");
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt["Key"]!));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var expires = DateTime.UtcNow.AddMinutes(int.Parse(jwt["ExpiresMinutes"]!));
+            var issuer = jwt["Issuer"]?.Trim() ?? throw new InvalidOperationException("JWT Issuer is not configured");
+            var audience = jwt["Audience"]?.Trim() ?? throw new InvalidOperationException("JWT Audience is not configured");
+
+            var claims = new List<Claim>
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, account.Id.ToString()),
+                new Claim(JwtRegisteredClaimNames.Email, account.Email ?? string.Empty),
+                new Claim("userId", account.UserId.ToString()),
+                new Claim("roleId", account.RoleId.ToString()),
+                new Claim("roleName", account.RoleName ?? string.Empty)
+            };
+
+            // Thêm exp claim một cách rõ ràng để đảm bảo có trong payload
+            var now = DateTime.UtcNow;
+            var expClaim = new Claim(JwtRegisteredClaimNames.Exp,
+                new DateTimeOffset(expires).ToUnixTimeSeconds().ToString(),
+                ClaimValueTypes.Integer64);
+            claims.Add(expClaim);
+
+            // Thêm nbf và iat claims
+            var nbfClaim = new Claim(JwtRegisteredClaimNames.Nbf,
+                new DateTimeOffset(now).ToUnixTimeSeconds().ToString(),
+                ClaimValueTypes.Integer64);
+            var iatClaim = new Claim(JwtRegisteredClaimNames.Iat,
+                new DateTimeOffset(now).ToUnixTimeSeconds().ToString(),
+                ClaimValueTypes.Integer64);
+            claims.Add(nbfClaim);
+            claims.Add(iatClaim);
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(claims),
+                NotBefore = now,
+                IssuedAt = now,
+                Expires = expires,
+                Issuer = issuer,
+                Audience = audience,
+                SigningCredentials = creds
+            };
+
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+
+            return (tokenHandler.WriteToken(token), expires);
+        }
+
         private static string GenerateSixDigitOtp()
         {
             var random = new Random();
             return random.Next(0, 1000000).ToString("D6");
+        }
+
+        public string GenerateRefreshToken()
+        {
+            return Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(64));
+        }
+
+        public async Task SaveRefreshTokenAsync(Guid accountId, string refreshToken)
+        {
+            var key = $"refresh:{accountId}:{refreshToken}";
+            var options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(30)
+            };
+            await _cache.SetStringAsync(key, "1", options);
+        }
+
+        public async Task<bool> ValidateRefreshTokenAsync(Guid accountId, string refreshToken)
+        {
+            var key = $"refresh:{accountId}:{refreshToken}";
+            var value = await _cache.GetStringAsync(key);
+            return !string.IsNullOrEmpty(value);
+        }
+
+        public async Task DeleteRefreshTokenAsync(Guid accountId, string refreshToken)
+        {
+            var key = $"refresh:{accountId}:{refreshToken}";
+            await _cache.RemoveAsync(key);
         }
     }
 }
