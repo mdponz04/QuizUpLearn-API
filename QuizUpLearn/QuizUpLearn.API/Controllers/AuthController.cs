@@ -220,7 +220,7 @@ namespace QuizUpLearn.API.Controllers
                     ValidIssuer = jwt["Issuer"],
                     ValidAudience = jwt["Audience"],
                     IssuerSigningKey = new SymmetricSecurityKey(key),
-                    ClockSkew = TimeSpan.Zero // Không cho phép clock skew để tránh lỗi timing
+                    ClockSkew = TimeSpan.FromMinutes(5) // Cho phép 5 phút tolerance để tránh lỗi timing giữa server và client
                 }, out var validatedToken);
 
                 // Kiểm tra xem token có phải là refresh token không (có JTI claim)
