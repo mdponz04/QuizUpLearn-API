@@ -77,7 +77,9 @@ namespace BusinessLogic.MappingProfile
             CreateMap<Repository.Entities.Subscription, DTOs.SubscriptionDtos.ResponseSubscriptionDto>();
             //Subscription plan mappings
             CreateMap<Repository.Entities.SubscriptionPlan, DTOs.SubscriptionPlanDtos.RequestSubscriptionPlanDto>().ReverseMap();
-            CreateMap<Repository.Entities.SubscriptionPlan, DTOs.SubscriptionPlanDtos.ResponseSubscriptionPlanDto>();
+            CreateMap<Repository.Entities.SubscriptionPlan, DTOs.SubscriptionPlanDtos.ResponseSubscriptionPlanDto>().ForMember(
+                dest => dest.TotalSubscribers, 
+                opt => opt.MapFrom(src => src.Subscriptions != null ? src.Subscriptions.Count : 0));
             //Payment transaction mappings
             CreateMap<Repository.Entities.PaymentTransaction, DTOs.PaymentTransactionDtos.RequestPaymentTransactionDto>().ReverseMap();
             CreateMap<Repository.Entities.PaymentTransaction, DTOs.PaymentTransactionDtos.ResponsePaymentTransactionDto>();
