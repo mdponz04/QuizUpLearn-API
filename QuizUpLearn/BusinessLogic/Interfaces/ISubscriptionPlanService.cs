@@ -11,5 +11,6 @@ namespace BusinessLogic.Interfaces
         Task<ResponseSubscriptionPlanDto?> UpdateAsync(Guid id, RequestSubscriptionPlanDto dto);
         Task<ResponseSubscriptionPlanDto> GetFreeSubscriptionPlanAsync();
         Task<bool> DeleteAsync(Guid id);
+        Task<bool> ChangeIsBuyableAsync(Guid id);
     }
 }

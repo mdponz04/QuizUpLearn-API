@@ -16,12 +16,17 @@ namespace Repository.Repositories
 
         public async Task<IEnumerable<SubscriptionPlan>> GetAllAsync()
         {
-            return await _context.SubscriptionPlans.ToListAsync();
+            return await _context.SubscriptionPlans
+                .Include(sp => sp.Subscriptions)
+                .ToListAsync();
         }
 
         public async Task<SubscriptionPlan?> GetByIdAsync(Guid id)
         {
-            return await _context.SubscriptionPlans.FindAsync(id);
+            return await _context.SubscriptionPlans
+                .Where(sp => sp.Id == id)
+                .Include(sp => sp.Subscriptions)
+                .FirstOrDefaultAsync();
         }
 
         public async Task<SubscriptionPlan?> CreateAsync(SubscriptionPlan subscriptionPlan)
@@ -55,6 +60,7 @@ namespace Repository.Repositories
         {
             var existing = await _context.SubscriptionPlans
                 .Where(sp => sp.Name.ToLower() == "free")
+                .Include(sp => sp.Subscriptions)
                 .FirstOrDefaultAsync();
             if(existing != null) 
                 return existing;
@@ -72,6 +78,17 @@ namespace Repository.Repositories
             _context.SubscriptionPlans.Add(freePlan);
             await _context.SaveChangesAsync();
             return freePlan;
+        }
+
+        public async Task<bool> ChangeIsBuyable(Guid id)
+        {
+            var entity = await GetByIdAsync(id);
+            if (entity == null) return false;
+
+            entity.IsBuyable = !entity.IsBuyable;
+            _context.SubscriptionPlans.Update(entity);
+            await _context.SaveChangesAsync();
+            return true;
         }
     }
 }

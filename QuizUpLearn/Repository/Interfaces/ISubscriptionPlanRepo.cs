@@ -10,5 +10,6 @@ namespace Repository.Interfaces
         Task<SubscriptionPlan?> UpdateAsync(Guid id, SubscriptionPlan subscriptionPlan);
         Task<bool> DeleteAsync(Guid id);
         Task<SubscriptionPlan> GetFreeSubscriptionPlan();
+        Task<bool> ChangeIsBuyable(Guid id);
     }
 }
