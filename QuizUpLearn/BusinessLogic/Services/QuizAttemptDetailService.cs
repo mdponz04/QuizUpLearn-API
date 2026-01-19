@@ -165,14 +165,36 @@ namespace BusinessLogic.Services
                 throw new InvalidOperationException("Attempt not found");
             }
 
+            // Tối ưu: Load tất cả Quiz và AnswerOptions một lần thay vì N lần query
+            var questionIds = dto.Answers.Select(a => a.QuestionId).Distinct().ToList();
+            var allQuizzes = await _quizRepo.GetQuizzesByIdsAsync(questionIds);
+            var quizDict = allQuizzes.ToDictionary(q => q.Id);
+
+            // Tạo dictionary cho AnswerOptions để lookup nhanh (O(1))
+            var answerOptionDict = new Dictionary<Guid, AnswerOption>();
+            var answerOptionsByQuizId = new Dictionary<Guid, List<AnswerOption>>();
+            foreach (var quiz in allQuizzes)
+            {
+                if (quiz.AnswerOptions != null)
+                {
+                    var optionsList = quiz.AnswerOptions.ToList();
+                    answerOptionsByQuizId[quiz.Id] = optionsList;
+                    foreach (var option in optionsList)
+                    {
+                        answerOptionDict[option.Id] = option;
+                    }
+                }
+            }
+
             int correctCount = 0;
             int wrongCount = 0;
             int totalTimeSpent = 0;
             var answerResults = new List<AnswerResultDto>();
             var wrongQuestionIdsSet = new HashSet<Guid>();
             var wrongAnswersByQuestion = new Dictionary<Guid, string>();
+            var detailsToInsert = new List<QuizAttemptDetail>();
 
-            // Lưu và chấm điểm từng câu trả lời
+            // Lưu và chấm điểm từng câu trả lời (xử lý trong memory, không query DB)
             foreach (var answer in dto.Answers)
             {
                 // Kiểm tra đáp án đúng
@@ -181,42 +203,49 @@ namespace BusinessLogic.Services
 
                 if (Guid.TryParse(answer.UserAnswer, out Guid selectedAnswerOptionId))
                 {
-                    var selectedAnswerOption = await _answerOptionRepo.GetByIdAsync(selectedAnswerOptionId);
-                    
-                    if (selectedAnswerOption != null && selectedAnswerOption.QuizId == answer.QuestionId)
+                    // Lookup AnswerOption từ dictionary (O(1) lookup)
+                    if (answerOptionDict.TryGetValue(selectedAnswerOptionId, out var selectedAnswerOption))
                     {
-                        isCorrect = selectedAnswerOption.IsCorrect;
-                        
-                        // Tìm đáp án đúng (nếu người dùng chọn sai)
-                        if (!isCorrect)
+                        if (selectedAnswerOption.QuizId == answer.QuestionId)
                         {
-                            var answerOptions = await _answerOptionRepo.GetByQuizIdAsync(answer.QuestionId);
-                            var correctOption = answerOptions.FirstOrDefault(ao => ao.IsCorrect);
-                            correctAnswerOptionId = correctOption?.Id;
+                            isCorrect = selectedAnswerOption.IsCorrect;
+                            
+                            // Tìm đáp án đúng (nếu người dùng chọn sai)
+                            if (!isCorrect)
+                            {
+                                // Lookup từ dictionary thay vì query DB
+                                if (answerOptionsByQuizId.TryGetValue(answer.QuestionId, out var answerOptions))
+                                {
+                                    var correctOption = answerOptions.FirstOrDefault(ao => ao.IsCorrect);
+                                    correctAnswerOptionId = correctOption?.Id;
+                                }
+                            }
                         }
                     }
                 }
                 else
                 {
-                    // Nếu không parse được, tìm đáp án đúng
-                    var answerOptions = await _answerOptionRepo.GetByQuizIdAsync(answer.QuestionId);
-                    var correctOption = answerOptions.FirstOrDefault(ao => ao.IsCorrect);
-                    correctAnswerOptionId = correctOption?.Id;
+                    // Nếu không parse được, tìm đáp án đúng từ dictionary
+                    if (answerOptionsByQuizId.TryGetValue(answer.QuestionId, out var answerOptions))
+                    {
+                        var correctOption = answerOptions.FirstOrDefault(ao => ao.IsCorrect);
+                        correctAnswerOptionId = correctOption?.Id;
+                    }
                 }
 
-                // Tạo QuizAttemptDetail
+                // Tạo QuizAttemptDetail (chưa insert)
                 var detail = new QuizAttemptDetail
                 {
                     AttemptId = dto.AttemptId,
                     QuestionId = answer.QuestionId,
-                    UserAnswer = answer.UserAnswer,
+                    UserAnswer = answer.UserAnswer ?? string.Empty,
                     IsCorrect = isCorrect,
                     TimeSpent = answer.TimeSpent,
                     QuizId = answer.QuestionId,
                     QuizAttemptId = dto.AttemptId
                 };
 
-                await _repo.CreateAsync(detail);
+                detailsToInsert.Add(detail);
                 
                 // Tính tổng thời gian
                 if (answer.TimeSpent.HasValue)
@@ -245,6 +274,9 @@ namespace BusinessLogic.Services
                 });
             }
 
+            // Batch insert tất cả QuizAttemptDetail một lần (thay vì N lần SaveChanges)
+            await _repo.CreateBatchAsync(detailsToInsert);
+
             // Cập nhật QuizAttempt với kết quả
             attempt.CorrectAnswers = correctCount;
             attempt.WrongAnswers = wrongCount;
@@ -266,6 +298,100 @@ namespace BusinessLogic.Services
                 Status = attempt.Status,
                 AnswerResults = answerResults
             };
+
+            // Nền 1: Tạo/update UserMistake cho các câu trả lời sai
+            var wrongQuestionIds = wrongQuestionIdsSet.ToList();
+            var wrongAnswersSnapshot = wrongAnswersByQuestion.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+            var userId = attempt.UserId;
+
+            var userMistakeTask = Task.Run(async () =>
+            {
+                if (!wrongQuestionIds.Any() || userId == Guid.Empty)
+                {
+                    return;
+                }
+
+                try
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    var userMistakeRepo = scope.ServiceProvider.GetRequiredService<IUserMistakeRepo>();
+                    var userMistakeService = scope.ServiceProvider.GetRequiredService<IUserMistakeService>();
+
+                    // Tạo/Update UserMistake cho các câu trả lời sai
+                    foreach (var quizId in wrongQuestionIds)
+                    {
+                        try
+                        {
+                            var existingMistake = await userMistakeRepo.GetByUserIdAndQuizIdAsync(userId, quizId);
+                            wrongAnswersSnapshot.TryGetValue(quizId, out var userAnswer);
+                            
+                            // Đảm bảo UserAnswer không null (dùng string.Empty nếu null hoặc empty)
+                            var safeUserAnswer = string.IsNullOrWhiteSpace(userAnswer) ? string.Empty : userAnswer;
+
+                            if (existingMistake == null)
+                            {
+                                // Tạo mới UserMistake với đầy đủ field
+                                await userMistakeService.AddAsync(new RequestUserMistakeDto
+                                {
+                                    UserId = userId,
+                                    QuizId = quizId,
+                                    TimesAttempted = 1,
+                                    TimesWrong = 1,
+                                    LastAttemptedAt = DateTime.UtcNow,
+                                    IsAnalyzed = false,
+                                    UserAnswer = safeUserAnswer
+                                });
+                            }
+                            else
+                            {
+                                // Update UserMistake với đầy đủ field
+                                // Lưu ý: UserAnswer chỉ update nếu có giá trị mới, không thì giữ nguyên giá trị cũ
+                                await userMistakeService.UpdateAsync(existingMistake.Id, new RequestUserMistakeDto
+                                {
+                                    UserId = userId,
+                                    QuizId = quizId,
+                                    TimesAttempted = existingMistake.TimesAttempted + 1,
+                                    TimesWrong = existingMistake.TimesWrong + 1,
+                                    LastAttemptedAt = DateTime.UtcNow,
+                                    IsAnalyzed = existingMistake.IsAnalyzed,
+                                    UserAnswer = !string.IsNullOrWhiteSpace(safeUserAnswer) ? safeUserAnswer : existingMistake.UserAnswer
+                                });
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log error for individual quiz
+                            // Could add logging here if needed
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log error for background UserMistake processing
+                    // Could add logging here if needed
+                }
+            });
+
+            // Nền 2: Sau khi cập nhật UserMistake xong thì chạy phân tích AI (không ảnh hưởng response)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await userMistakeTask;
+                    if (userId != Guid.Empty)
+                    {
+                        using var scope = _scopeFactory.CreateScope();
+                        var aiService = scope.ServiceProvider.GetRequiredService<IAIService>();
+                        await aiService.AnalyzeUserMistakesAndAdviseAsync(userId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log error for background AI analysis
+                    // Could add logging here if needed
+                }
+            });
+
             return response;
         }
 
@@ -569,18 +695,6 @@ namespace BusinessLogic.Services
 
             await _attemptRepo.UpdateAsync(dto.AttemptId, attempt);
 
-            // Cập nhật User.TotalPoints nếu điểm placement test cao hơn điểm hiện tại
-            var userId = attempt.UserId;
-            if (userId != Guid.Empty)
-            {
-                var user = await _userRepo.GetByIdAsync(userId);
-                if (user != null && totalPlacementScore > user.TotalPoints)
-                {
-                    user.TotalPoints = totalPlacementScore;
-                    await _userRepo.UpdateAsync(userId, user);
-                }
-            }
-
             var response = new ResponsePlacementTestDto
             {
                 AttemptId = dto.AttemptId,
@@ -591,6 +705,34 @@ namespace BusinessLogic.Services
                 TotalQuestions = attempt.TotalQuestions,
                 Status = attempt.Status
             };
+
+            // Nền 0: Cập nhật User.TotalPoints nếu điểm placement test cao hơn điểm hiện tại (chạy song song với UserMistake)
+            var userId = attempt.UserId;
+            var totalPlacementScoreSnapshot = totalPlacementScore;
+            _ = Task.Run(async () =>
+            {
+                if (userId == Guid.Empty)
+                {
+                    return;
+                }
+
+                try
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    var userRepo = scope.ServiceProvider.GetRequiredService<IUserRepo>();
+                    var user = await userRepo.GetByIdAsync(userId);
+                    if (user != null && totalPlacementScoreSnapshot > user.TotalPoints)
+                    {
+                        user.TotalPoints = totalPlacementScoreSnapshot;
+                        await userRepo.UpdateAsync(userId, user);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log error for background User.TotalPoints update
+                    // Could add logging here if needed
+                }
+            });
 
             // Nền 1: Tạo/update UserMistake cho các câu trả lời sai
             var wrongQuestionIds = wrongQuestionIdsSet.ToList();
