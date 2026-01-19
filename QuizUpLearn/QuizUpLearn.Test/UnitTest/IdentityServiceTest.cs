@@ -6,6 +6,7 @@ using BusinessLogic.Interfaces;
 using BusinessLogic.MappingProfile;
 using BusinessLogic.Services;
 using FluentAssertions;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -23,6 +24,7 @@ namespace QuizUpLearn.Test.UnitTest
         private readonly Mock<IConfiguration> _mockConfiguration;
         private readonly Mock<ISubscriptionService> _mockSubscriptionService;
         private readonly Mock<ISubscriptionPlanService> _mockSubscriptionPlanService;
+        private readonly Mock<IDistributedCache> _mockCache;
         private readonly IMapper _mapper;
         private readonly IdentityService _identityService;
 
@@ -35,6 +37,7 @@ namespace QuizUpLearn.Test.UnitTest
             _mockConfiguration = new Mock<IConfiguration>();
             _mockSubscriptionService = new Mock<ISubscriptionService>();
             _mockSubscriptionPlanService = new Mock<ISubscriptionPlanService>();
+            _mockCache = new Mock<IDistributedCache>();
 
             // Setup real AutoMapper with the actual mapping profile
             var mapperConfig = new MapperConfiguration(cfg =>
@@ -57,7 +60,8 @@ namespace QuizUpLearn.Test.UnitTest
                 _mockConfiguration.Object,
                 _mapper,
                 _mockSubscriptionService.Object,
-                _mockSubscriptionPlanService.Object);
+                _mockSubscriptionPlanService.Object,
+                _mockCache.Object);
         }
 
         [Fact]
