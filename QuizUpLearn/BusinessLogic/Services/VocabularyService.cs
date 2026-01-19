@@ -55,6 +55,12 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseVocabularyDto?> UpdateAsync(Guid id, RequestVocabularyDto request)
         {
+            // Không cho sửa từ vựng nếu đang được quiz sử dụng
+            if (await _repo.HasQuizzesAsync(id))
+            {
+                throw new InvalidOperationException("Cannot update vocabulary that is already used by quizzes.");
+            }
+
             // Validate unique KeyWord trong cùng ToeicPart (exclude current record)
             if (await _repo.ExistsByKeyWordAndPartAsync(request.KeyWord, request.ToeicPart, id))
             {

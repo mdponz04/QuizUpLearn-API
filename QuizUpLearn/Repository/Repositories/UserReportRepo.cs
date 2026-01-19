@@ -25,6 +25,16 @@ namespace Repository.Repositories
             if (!userExists)
                 throw new ArgumentException("User not found");
 
+            // Validate CommentId if provided
+            if (entity.CommentId.HasValue && entity.CommentId.Value != Guid.Empty)
+            {
+                var commentExists = await _context.QuizSetComments
+                    .AnyAsync(c => c.Id == entity.CommentId.Value);
+
+                if (!commentExists)
+                    throw new ArgumentException("Comment not found");
+            }
+
             await _context.UserReports.AddAsync(entity);
             await _context.SaveChangesAsync();
             return entity;

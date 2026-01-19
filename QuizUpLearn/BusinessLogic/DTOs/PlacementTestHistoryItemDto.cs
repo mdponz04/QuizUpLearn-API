@@ -16,7 +16,6 @@ namespace BusinessLogic.DTOs
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         
-        // Placement test specific fields
         public int LisPoint { get; set; }
         public int TotalCorrectLisAns { get; set; }
         public int ReaPoint { get; set; }

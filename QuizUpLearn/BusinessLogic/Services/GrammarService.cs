@@ -46,6 +46,12 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseGrammarDto?> UpdateAsync(Guid id, RequestGrammarDto request)
         {
+            // Không cho sửa grammar nếu đang được quiz sử dụng
+            if (await _repo.HasQuizzesAsync(id))
+            {
+                throw new InvalidOperationException("Cannot update grammar that is already used by quizzes.");
+            }
+
             if (await _repo.ExistsByNameAsync(request.Name, id))
             {
                 throw new InvalidOperationException($"Grammar with name '{request.Name}' already exists.");
