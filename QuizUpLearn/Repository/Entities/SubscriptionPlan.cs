@@ -11,5 +11,6 @@ namespace Repository.Entities
         public bool CanAccessAiFeatures { get; set; } = false;
         public bool IsActive { get; set; } = true;
         public bool IsBuyable { get; set; } = true;
+        public ICollection<Subscription> Subscriptions { get; set; } = new List<Subscription>();
     }
 }
