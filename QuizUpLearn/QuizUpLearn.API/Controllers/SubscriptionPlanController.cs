@@ -81,5 +81,17 @@ namespace QuizUpLearn.API.Controllers
             var freePlan = await _service.GetFreeSubscriptionPlanAsync();
             return Ok(freePlan);
         }
+        [HttpPut("update-buyable/{id:guid}")]
+        [Authorize]
+        [SubscriptionAndRoleAuthorize("Administrator")]
+        public async Task<ActionResult> UpdateBuyablePlan(Guid id)
+        {
+            var result = await _service.ChangeIsBuyableAsync(id);
+            if (!result)
+            {
+                return NotFound($"Plan with id: {id} is not found.");
+            }
+            return Ok("Change IsBuyable success");
+        }
     }
 }

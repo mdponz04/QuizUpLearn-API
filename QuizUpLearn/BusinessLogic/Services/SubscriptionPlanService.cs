@@ -30,11 +30,13 @@ namespace BusinessLogic.Services
             // Validate the pagination object
             var validationResults = new List<ValidationResult>();
             var validationContext = new ValidationContext(pagination);
+
             if (!Validator.TryValidateObject(pagination, validationContext, validationResults, true))
             {
                 throw new ArgumentException("Invalid pagination parameters.");
             }
             var entities = await _repo.GetAllAsync();
+            
             var dtos = _mapper.Map<List<ResponseSubscriptionPlanDto>>(entities);
             return await dtos.AsQueryable().ToPagedResponseAsync(pagination);
         }
@@ -104,6 +106,11 @@ namespace BusinessLogic.Services
         {
             var freePlan = await _repo.GetFreeSubscriptionPlan();
             return _mapper.Map<ResponseSubscriptionPlanDto>(freePlan);
+        }
+
+        public async Task<bool> ChangeIsBuyableAsync(Guid id)
+        {
+            return await _repo.ChangeIsBuyable(id);
         }
     }
 }
