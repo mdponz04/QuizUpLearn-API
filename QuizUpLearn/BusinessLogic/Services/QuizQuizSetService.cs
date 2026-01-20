@@ -170,21 +170,24 @@ namespace BusinessLogic.Services
                 if (quizSet == null)
                     throw new ArgumentException($"Quiz set with ID {quizSetId} not found");
 
-                var dtos = new List<RequestQuizQuizSetDto>();
-                foreach (var quizId in quizIds)
-                {
-                    var quiz = await _quizRepo.GetQuizByIdAsync(quizId);
-                    if (quiz == null) continue;
+                // Batch query: Get all quizzes in one query instead of N queries
+                var quizzes = (await _quizRepo.GetQuizzesByIdsAsync(quizIds)).ToList();
+                var validQuizIds = quizzes.Select(q => q.Id).ToHashSet();
 
-                    var exists = await _quizQuizSetRepo.IsExistedAsync(quizId, quizSetId);
-                    if (exists) continue;
+                // Batch query: Get all existing associations in one query instead of N queries
+                var existingAssociations = (await _quizQuizSetRepo.GetByQuizSetIdAsync(quizSetId, false))
+                    .Select(qq => qq.QuizId)
+                    .ToHashSet();
 
-                    dtos.Add(new RequestQuizQuizSetDto
+                // Filter out quizzes that don't exist or already associated
+                var dtos = quizIds
+                    .Where(quizId => validQuizIds.Contains(quizId) && !existingAssociations.Contains(quizId))
+                    .Select(quizId => new RequestQuizQuizSetDto
                     {
                         QuizId = quizId,
                         QuizSetId = quizSetId
-                    });
-                }
+                    })
+                    .ToList();
 
                 if (dtos.Any())
                 {

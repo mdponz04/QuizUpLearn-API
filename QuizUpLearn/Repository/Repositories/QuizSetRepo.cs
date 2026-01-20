@@ -58,19 +58,41 @@ namespace Repository.Repositories
             if (existingQuizSet == null || existingQuizSet.DeletedAt != null)
                 return null;
 
-            if(!string.IsNullOrEmpty(quizSet.Title))
-                existingQuizSet.Title = quizSet.Title;
-            if(!string.IsNullOrEmpty(quizSet.Description))
-                existingQuizSet.Description = quizSet.Description;
-            if (!string.IsNullOrEmpty(quizSet.QuizSetType.ToString()))
-                existingQuizSet.QuizSetType = quizSet.QuizSetType;
+            bool hasChanges = false;
 
-            existingQuizSet.IsPublished = quizSet.IsPublished;
-            existingQuizSet.IsPremiumOnly = quizSet.IsPremiumOnly;
+            if(!string.IsNullOrEmpty(quizSet.Title) && existingQuizSet.Title != quizSet.Title)
+            {
+                existingQuizSet.Title = quizSet.Title;
+                hasChanges = true;
+            }
+            if(!string.IsNullOrEmpty(quizSet.Description) && existingQuizSet.Description != quizSet.Description)
+            {
+                existingQuizSet.Description = quizSet.Description;
+                hasChanges = true;
+            }
+            if(existingQuizSet.QuizSetType != quizSet.QuizSetType)
+            {
+                existingQuizSet.QuizSetType = quizSet.QuizSetType;
+                hasChanges = true;
+            }
+
+            if(existingQuizSet.IsPublished != quizSet.IsPublished)
+            {
+                existingQuizSet.IsPublished = quizSet.IsPublished;
+                hasChanges = true;
+            }
+            if(existingQuizSet.IsPremiumOnly != quizSet.IsPremiumOnly)
+            {
+                existingQuizSet.IsPremiumOnly = quizSet.IsPremiumOnly;
+                hasChanges = true;
+            }
             
-            existingQuizSet.UpdatedAt = DateTime.UtcNow;
-            _context.QuizSets.Update(existingQuizSet);
-            await _context.SaveChangesAsync();
+            if(hasChanges)
+            {
+                existingQuizSet.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+            
             return existingQuizSet;
         }
 

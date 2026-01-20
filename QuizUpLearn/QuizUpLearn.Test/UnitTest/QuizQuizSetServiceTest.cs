@@ -837,12 +837,10 @@ namespace QuizUpLearn.Test.UnitTest
 
             _mockQuizSetRepo.Setup(r => r.GetQuizSetByIdAsync(quizSetId))
                 .ReturnsAsync(quizSet);
-            _mockQuizRepo.Setup(r => r.GetQuizByIdAsync(quizIds[0]))
-                .ReturnsAsync(quiz1);
-            _mockQuizRepo.Setup(r => r.GetQuizByIdAsync(quizIds[1]))
-                .ReturnsAsync(quiz2);
-            _mockQuizQuizSetRepo.Setup(r => r.IsExistedAsync(It.IsAny<Guid>(), quizSetId))
-                .ReturnsAsync(false);
+            _mockQuizRepo.Setup(r => r.GetQuizzesByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+                .ReturnsAsync(new List<Quiz> { quiz1, quiz2 });
+            _mockQuizQuizSetRepo.Setup(r => r.GetByQuizSetIdAsync(quizSetId, false))
+                .ReturnsAsync(new List<QuizQuizSet>()); // No existing associations
             _mockQuizQuizSetRepo.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<QuizQuizSet>>()))
                 .Returns(Task.CompletedTask);
 
