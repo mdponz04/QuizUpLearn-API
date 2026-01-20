@@ -168,5 +168,23 @@ namespace BusinessLogic.Services
 
             return list;
         }
+
+        public async Task<bool> IsVocabularyGrammarPairUsedAsync(Guid vocabularyId, Guid grammarId)
+        {
+            var grammar = await _grammarRepo.GetByIdAsync(grammarId);
+            
+            
+            if (grammar == null || grammar.Quizzes.Count == 0)
+                return false;
+            foreach (var quiz in grammar.Quizzes)
+            {
+                if(quiz.VocabularyId == vocabularyId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 }
