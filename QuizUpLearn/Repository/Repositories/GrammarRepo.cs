@@ -24,7 +24,10 @@ namespace Repository.Repositories
 
         public async Task<Grammar?> GetByIdAsync(Guid id)
         {
-            return await _context.Grammars.FindAsync(id);
+            return await _context.Grammars
+                .Include(g => g.Quizzes)
+                .Where(g => g.Id == id)
+                .FirstOrDefaultAsync();
         }
 
         public async Task<Grammar?> CreateAsync(Grammar grammar)
