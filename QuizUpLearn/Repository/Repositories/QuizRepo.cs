@@ -88,38 +88,89 @@ namespace Repository.Repositories
             if (existingQuiz == null || existingQuiz.DeletedAt != null)
                 return null;
 
-            if(quiz.GrammarId != null)
+            bool hasChanges = false;
+
+            if(quiz.GrammarId != null && existingQuiz.GrammarId != quiz.GrammarId)
+            {
                 existingQuiz.GrammarId = quiz.GrammarId;
-            if(quiz.VocabularyId != null)
+                hasChanges = true;
+            }
+            if(quiz.VocabularyId != null && existingQuiz.VocabularyId != quiz.VocabularyId)
+            {
                 existingQuiz.VocabularyId = quiz.VocabularyId;
-            if (!string.IsNullOrEmpty(quiz.QuestionText))
+                hasChanges = true;
+            }
+            if (!string.IsNullOrEmpty(quiz.QuestionText) && existingQuiz.QuestionText != quiz.QuestionText)
+            {
                 existingQuiz.QuestionText = quiz.QuestionText;
-            if(!string.IsNullOrEmpty(quiz.CorrectAnswer))
+                hasChanges = true;
+            }
+            if(!string.IsNullOrEmpty(quiz.CorrectAnswer) && existingQuiz.CorrectAnswer != quiz.CorrectAnswer)
+            {
                 existingQuiz.CorrectAnswer = quiz.CorrectAnswer;
+                hasChanges = true;
+            }
             
-            existingQuiz.AudioURL = quiz.AudioURL;
-            existingQuiz.ImageURL = quiz.ImageURL;
+            if(existingQuiz.AudioURL != quiz.AudioURL)
+            {
+                existingQuiz.AudioURL = quiz.AudioURL;
+                hasChanges = true;
+            }
+            if(existingQuiz.ImageURL != quiz.ImageURL)
+            {
+                existingQuiz.ImageURL = quiz.ImageURL;
+                hasChanges = true;
+            }
             
-            if(!string.IsNullOrEmpty(quiz.TOEICPart))
+            if(!string.IsNullOrEmpty(quiz.TOEICPart) && existingQuiz.TOEICPart != quiz.TOEICPart)
+            {
                 existingQuiz.TOEICPart = quiz.TOEICPart;
-            if(existingQuiz.TimesAnswered > 0)
+                hasChanges = true;
+            }
+            if(existingQuiz.TimesAnswered != quiz.TimesAnswered)
+            {
                 existingQuiz.TimesAnswered = quiz.TimesAnswered;
-            if(existingQuiz.TimesCorrect > 0)
+                hasChanges = true;
+            }
+            if(existingQuiz.TimesCorrect != quiz.TimesCorrect)
+            {
                 existingQuiz.TimesCorrect = quiz.TimesCorrect;
-            if(existingQuiz.QuizGroupItemId != null)
+                hasChanges = true;
+            }
+            if(existingQuiz.QuizGroupItemId != quiz.QuizGroupItemId)
+            {
                 existingQuiz.QuizGroupItemId = quiz.QuizGroupItemId;
+                hasChanges = true;
+            }
 
-            if(quiz.ImageDescription != null)
+            if(quiz.ImageDescription != null && existingQuiz.ImageDescription != quiz.ImageDescription)
+            {
                 existingQuiz.ImageDescription = quiz.ImageDescription;
-            if(quiz.AudioScript != null)
+                hasChanges = true;
+            }
+            if(quiz.AudioScript != null && existingQuiz.AudioScript != quiz.AudioScript)
+            {
                 existingQuiz.AudioScript = quiz.AudioScript;
-            existingQuiz.OrderIndex = quiz.OrderIndex;
-            existingQuiz.IsActive = quiz.IsActive;
+                hasChanges = true;
+            }
+            if(existingQuiz.OrderIndex != quiz.OrderIndex)
+            {
+                existingQuiz.OrderIndex = quiz.OrderIndex;
+                hasChanges = true;
+            }
+            if(existingQuiz.IsActive != quiz.IsActive)
+            {
+                existingQuiz.IsActive = quiz.IsActive;
+                hasChanges = true;
+            }
 
-            quiz.UpdatedAt = DateTime.UtcNow;
-            _context.Quizzes.Update(existingQuiz);
-            await _context.SaveChangesAsync();
-            return quiz;
+            if(hasChanges)
+            {
+                existingQuiz.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+            
+            return existingQuiz;
         }
 
         public async Task<bool> SoftDeleteQuizAsync(Guid id)
