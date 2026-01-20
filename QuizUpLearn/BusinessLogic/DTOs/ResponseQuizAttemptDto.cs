@@ -5,6 +5,7 @@ namespace BusinessLogic.DTOs
         public Guid Id { get; set; }
         public Guid UserId { get; set; }
         public Guid QuizSetId { get; set; }
+        public string? QuizSetName { get; set; }
         public string AttemptType { get; set; }
         public int TotalQuestions { get; set; }
         public int CorrectAnswers { get; set; }

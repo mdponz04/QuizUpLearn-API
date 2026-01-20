@@ -80,7 +80,7 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpDelete("{id}/hard")]
-        [SubscriptionAndRoleAuthorize("Moderator")]
+        [SubscriptionAndRoleAuthorize("Moderator", "Administrator")]
         public async Task<ActionResult<bool>> HardDelete(Guid id)
         {
             var result = await _userReportService.HardDeleteAsync(id);
