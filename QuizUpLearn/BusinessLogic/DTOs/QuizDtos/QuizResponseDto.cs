@@ -13,7 +13,9 @@ namespace BusinessLogic.DTOs.QuizDtos
         public string? QuestionText { get; set; }
         public string? CorrectAnswer { get; set; }
         public string? AudioURL { get; set; }
+        public string? AudioScript { get; set; }
         public string? ImageURL { get; set; }
+        public string? ImageDescription { get; set; }
         public string? TOEICPart { get; set; }
         public int TimesAnswered { get; set; }
         public int TimesCorrect { get; set; }
