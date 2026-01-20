@@ -447,9 +447,6 @@ namespace BusinessLogic.Services
 
             var mapped = _mapper.Map<List<ResponseQuizAttemptDto>>(attempts);
 
-            // Fill QuizSetName depending on attempt type:
-            // - single/multi/1v1: use real quiz set title
-            // - others: fixed labels
             foreach (var a in mapped)
             {
                 var type = (a.AttemptType ?? string.Empty).Trim().ToLowerInvariant();
@@ -469,11 +466,11 @@ namespace BusinessLogic.Services
                 }
                 else if (type == "placement")
                 {
-                    a.QuizSetName = "Đề placement test";
+                    a.QuizSetName = "Đề đầu vào";
                 }
                 else if (type == "mistake_quiz")
                 {
-                    a.QuizSetName = "Đề luyện câu sai";
+                    a.QuizSetName = "Đề chữa sai";
                 }
                 else
                 {
