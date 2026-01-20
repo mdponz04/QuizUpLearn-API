@@ -16,12 +16,14 @@ namespace QuizUpLearn.API.Controllers
         private readonly IAIService _aiService;
         private readonly IWorkerService _workerService;
         private readonly IQuizService _quizService;
+        private readonly IVocabularyGrammarService _vocabGrammarService;
 
-        public AIController(IAIService aiService, IWorkerService workerService, IQuizService quizService)
+        public AIController(IAIService aiService, IWorkerService workerService, IQuizService quizService, IVocabularyGrammarService vocabGrammarService)
         {
             _aiService = aiService;
             _workerService = workerService;
             _quizService = quizService;
+            _vocabGrammarService = vocabGrammarService;
         }
 
         [HttpPost("generate-quiz-set")]
@@ -33,6 +35,9 @@ namespace QuizUpLearn.API.Controllers
                 return BadRequest("Prompt cannot be empty.");
             }
             
+            if(await _vocabGrammarService.IsVocabularyGrammarPairUsedAsync(inputData.VocabularyId, inputData.GrammarId))
+                return BadRequest("The selected vocabulary & grammar pair has already been used to generate a quiz.");
+
             var userId = (Guid)HttpContext.Items["UserId"]!;
 
             inputData.CreatorId = userId;
