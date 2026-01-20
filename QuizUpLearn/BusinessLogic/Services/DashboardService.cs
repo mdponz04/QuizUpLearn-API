@@ -176,7 +176,7 @@ namespace BusinessLogic.Services
                         {
                             Id = attempt.Id,
                             ActivityType = "QuizCompleted",
-                            Description = $"Completed {quizSet.Title} Quiz",
+                            Description = $"Đã hoàn thành bài kiểm tra {quizSet.Title}",
                             Timestamp = attempt.CreatedAt,
                             Metadata = new Dictionary<string, object>
                             {
