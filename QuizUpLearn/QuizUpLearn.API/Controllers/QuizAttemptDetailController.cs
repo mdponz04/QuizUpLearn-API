@@ -37,10 +37,14 @@ namespace QuizUpLearn.API.Controllers
         }
 
         [HttpGet("attempt/{attemptId}")]
-        public async Task<IActionResult> GetByAttemptId([FromRoute] Guid attemptId, [FromQuery] bool isDeleted = false)
+        public async Task<IActionResult> GetByAttemptId(
+            [FromRoute] Guid attemptId, 
+            [FromQuery] PaginationRequestDto pagination,
+            [FromQuery] bool isDeleted = false)
         {
-            var quizAttemptDetails = await _service.GetByAttemptIdAsync(attemptId, isDeleted);
-            return Ok(quizAttemptDetails);
+            pagination ??= new PaginationRequestDto();
+            var result = await _service.GetByAttemptIdPagedAsync(attemptId, pagination, isDeleted);
+            return Ok(result);
         }
 
         [HttpGet("attempt/{attemptId}/placement-test")]

@@ -67,6 +67,33 @@ namespace Repository.Repositories
                 .ToListAsync();
         }
 
+        public async Task<(IEnumerable<QuizAttemptDetail> details, int totalCount)> GetByAttemptIdPagedAsync(
+            Guid attemptId, 
+            int page = 1, 
+            int pageSize = 10, 
+            bool includeDeleted = false)
+        {
+            var query = _context.QuizAttemptDetails
+                .AsQueryable()
+                .Where(qad => qad.QuizAttemptId == attemptId && (includeDeleted || qad.DeletedAt == null))
+                .Include(qad => qad.Quiz)
+                    .ThenInclude(q => q!.QuizGroupItem)
+                .Include(qad => qad.Quiz)
+                    .ThenInclude(q => q!.AnswerOptions)
+                .Include(qad => qad.QuizAttempt)
+                    .ThenInclude(qa => qa!.QuizSet)
+                .OrderBy(qad => qad.CreatedAt);
+
+            var totalCount = await query.CountAsync();
+            
+            var details = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (details, totalCount);
+        }
+
         public async Task<bool> RestoreAsync(Guid id)
         {
             var quizAttemptDetail = await _context.QuizAttemptDetails.FindAsync(id);

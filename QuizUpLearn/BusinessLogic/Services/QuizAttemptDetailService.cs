@@ -4,6 +4,7 @@ using BusinessLogic.DTOs.UserMistakeDtos;
 using BusinessLogic.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Repository.Entities;
+using Repository.Enums;
 using Repository.Interfaces;
 
 namespace BusinessLogic.Services
@@ -82,6 +83,69 @@ namespace BusinessLogic.Services
         {
             var list = await _repo.GetByAttemptIdAsync(attemptId, includeDeleted);
             return _mapper.Map<IEnumerable<ResponseQuizAttemptDetailDto>>(list);
+        }
+
+        public async Task<PaginationResponseDto<ResponseQuizAttemptDetailExtendedDto>> GetByAttemptIdPagedAsync(
+            Guid attemptId, 
+            PaginationRequestDto pagination, 
+            bool includeDeleted = false)
+        {
+            pagination ??= new PaginationRequestDto();
+            
+            var (details, totalCount) = await _repo.GetByAttemptIdPagedAsync(
+                attemptId, 
+                pagination.Page, 
+                pagination.PageSize, 
+                includeDeleted);
+
+            var detailList = details.ToList();
+            var extendedDtos = new List<ResponseQuizAttemptDetailExtendedDto>();
+
+            foreach (var detail in detailList)
+            {
+                var dto = new ResponseQuizAttemptDetailExtendedDto
+                {
+                    Id = detail.Id,
+                    AttemptId = detail.AttemptId,
+                    QuestionId = detail.QuestionId,
+                    QuestionText = detail.Quiz?.QuestionText ?? string.Empty,
+                    UserAnswer = detail.UserAnswer,
+                    IsCorrect = detail.IsCorrect,
+                    TimeSpent = detail.TimeSpent,
+                    CreatedAt = detail.CreatedAt,
+                    UpdatedAt = detail.UpdatedAt,
+                    DeletedAt = detail.DeletedAt,
+                    AudioURL = detail.Quiz?.AudioURL,
+                    ImageURL = detail.Quiz?.ImageURL,
+                    QuizGroupItemId = detail.Quiz?.QuizGroupItemId
+                };
+
+                // Get QuizSet name only if QuizSetType is Practice (0)
+                if (detail.QuizAttempt?.QuizSet != null && 
+                    detail.QuizAttempt.QuizSet.QuizSetType == QuizSetTypeEnum.Practice)
+                {
+                    dto.QuizSetName = detail.QuizAttempt.QuizSet.Title;
+                }
+
+                // Get UserAnswerText from AnswerOption if UserAnswer is a Guid
+                if (!string.IsNullOrWhiteSpace(detail.UserAnswer) && 
+                    Guid.TryParse(detail.UserAnswer, out Guid answerOptionId))
+                {
+                    var answerOption = detail.Quiz?.AnswerOptions?
+                        .FirstOrDefault(ao => ao.Id == answerOptionId);
+                    if (answerOption != null)
+                    {
+                        dto.UserAnswerText = answerOption.OptionText;
+                    }
+                }
+
+                extendedDtos.Add(dto);
+            }
+
+            return PaginationResponseDto<ResponseQuizAttemptDetailExtendedDto>.Create(
+                pagination, 
+                totalCount, 
+                extendedDtos);
         }
 
         public async Task<ResponsePlacementTestDto> GetPlacementTestByAttemptIdAsync(Guid attemptId)

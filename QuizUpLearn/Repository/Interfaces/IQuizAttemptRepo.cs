@@ -13,5 +13,27 @@ namespace Repository.Interfaces
         Task<QuizAttempt?> UpdateAsync(Guid id, QuizAttempt quizAttempt);
         Task<bool> SoftDeleteAsync(Guid id);
         Task<bool> RestoreAsync(Guid id);
+        
+        // Optimized methods for history with pagination
+        Task<(IEnumerable<QuizAttempt> attempts, int totalCount)> GetUserHistoryPagedAsync(
+            Guid userId,
+            Guid? quizSetId = null,
+            string? status = null,
+            string? attemptType = null,
+            string sortBy = "CreatedAt",
+            string sortOrder = "desc",
+            int page = 1,
+            int pageSize = 10,
+            bool includeDeleted = false);
+        
+        Task<(IEnumerable<QuizAttempt> attempts, int totalCount)> GetPlacementTestHistoryPagedAsync(
+            Guid userId,
+            Guid? quizSetId = null,
+            string? status = null,
+            string sortBy = "CreatedAt",
+            string sortOrder = "desc",
+            int page = 1,
+            int pageSize = 10,
+            bool includeDeleted = false);
     }
 }

@@ -433,36 +433,21 @@ namespace BusinessLogic.Services
 
         public async Task<PlayerHistoryResponseDto> GetPlayerHistoryAsync(PlayerHistoryRequestDto request)
         {
-            var allAttempts = await _repo.GetByUserIdAsync(request.UserId, includeDeleted: false);
-            var attempts = allAttempts.AsQueryable();
-
-            // Apply filters
-            if (request.QuizSetId.HasValue)
-                attempts = attempts.Where(a => a.QuizSetId == request.QuizSetId.Value);
-
-            if (!string.IsNullOrEmpty(request.Status))
-                attempts = attempts.Where(a => a.Status == request.Status);
-
-            if (!string.IsNullOrEmpty(request.AttemptType))
-                attempts = attempts.Where(a => a.AttemptType == request.AttemptType);
-
-            // Apply sorting
-            attempts = request.SortBy.ToLower() switch
-            {
-                "score" => request.SortOrder.ToLower() == "asc" ? attempts.OrderBy(a => a.Score) : attempts.OrderByDescending(a => a.Score),
-                "accuracy" => request.SortOrder.ToLower() == "asc" ? attempts.OrderBy(a => a.Accuracy) : attempts.OrderByDescending(a => a.Accuracy),
-                _ => request.SortOrder.ToLower() == "asc" ? attempts.OrderBy(a => a.CreatedAt) : attempts.OrderByDescending(a => a.CreatedAt)
-            };
-
-            var totalCount = attempts.Count();
-            var pagedAttempts = attempts
-                .Skip((request.Page - 1) * request.PageSize)
-                .Take(request.PageSize)
-                .ToList();
+            // Use optimized repository method with pagination at database level
+            var (attempts, totalCount) = await _repo.GetUserHistoryPagedAsync(
+                request.UserId,
+                request.QuizSetId,
+                request.Status,
+                request.AttemptType,
+                request.SortBy,
+                request.SortOrder,
+                request.Page,
+                request.PageSize,
+                includeDeleted: false);
 
             return new PlayerHistoryResponseDto
             {
-                Attempts = _mapper.Map<IEnumerable<ResponseQuizAttemptDto>>(pagedAttempts),
+                Attempts = _mapper.Map<IEnumerable<ResponseQuizAttemptDto>>(attempts),
                 TotalCount = totalCount,
                 Page = request.Page,
                 PageSize = request.PageSize
@@ -471,58 +456,41 @@ namespace BusinessLogic.Services
 
         public async Task<PlacementTestHistoryResponseDto> GetPlacementTestHistoryAsync(PlayerHistoryRequestDto request)
         {
-            var allAttempts = await _repo.GetByUserIdAsync(request.UserId, includeDeleted: false);
-            var attempts = allAttempts.AsQueryable()
-                .Where(a => a.AttemptType == "placement");
-
-            // Apply filters
-            if (request.QuizSetId.HasValue)
-                attempts = attempts.Where(a => a.QuizSetId == request.QuizSetId.Value);
-
-            if (!string.IsNullOrEmpty(request.Status))
-                attempts = attempts.Where(a => a.Status == request.Status);
-
-            // Apply sorting
-            attempts = request.SortBy.ToLower() switch
-            {
-                "score" => request.SortOrder.ToLower() == "asc" ? attempts.OrderBy(a => a.Score) : attempts.OrderByDescending(a => a.Score),
-                "accuracy" => request.SortOrder.ToLower() == "asc" ? attempts.OrderBy(a => a.Accuracy) : attempts.OrderByDescending(a => a.Accuracy),
-                _ => request.SortOrder.ToLower() == "asc" ? attempts.OrderBy(a => a.CreatedAt) : attempts.OrderByDescending(a => a.CreatedAt)
-            };
-
-            var totalCount = attempts.Count();
-            var pagedAttempts = attempts
-                .Skip((request.Page - 1) * request.PageSize)
-                .Take(request.PageSize)
-                .ToList();
+            // Use optimized repository method with pagination at database level
+            // This method already includes QuizAttemptDetails and Quiz to avoid N+1 queries
+            var (attempts, totalCount) = await _repo.GetPlacementTestHistoryPagedAsync(
+                request.UserId,
+                request.QuizSetId,
+                request.Status,
+                request.SortBy,
+                request.SortOrder,
+                request.Page,
+                request.PageSize,
+                includeDeleted: false);
 
             var historyItems = new List<PlacementTestHistoryItemDto>();
 
-            foreach (var attempt in pagedAttempts)
+            // Process attempts - QuizAttemptDetails and Quiz are already loaded via Include
+            foreach (var attempt in attempts)
             {
-                // Lấy QuizAttemptDetails để tính LisPoint và ReaPoint
-                var details = await _detailRepo.GetByAttemptIdAsync(attempt.Id, includeDeleted: false);
-                var detailList = details.ToList();
-
                 int correctLisCount = 0;
                 int correctReaCount = 0;
 
-                foreach (var detail in detailList)
+                // Details are already loaded via Include, no need to query again
+                var details = attempt.QuizAttemptDetails?.Where(d => d.DeletedAt == null) ?? Enumerable.Empty<QuizAttemptDetail>();
+
+                foreach (var detail in details)
                 {
-                    if (detail.IsCorrect == true)
+                    if (detail.IsCorrect == true && detail.Quiz != null)
                     {
-                        // Lấy Quiz để biết TOEICPart
-                        var quiz = await _quizRepo.GetQuizByIdAsync(detail.QuestionId);
-                        if (quiz != null)
-                        {
-                            var isListening = quiz.TOEICPart == "PART1" || quiz.TOEICPart == "PART2" ||
-                                            quiz.TOEICPart == "PART3" || quiz.TOEICPart == "PART4";
-                            
-                            if (isListening)
-                                correctLisCount++;
-                            else
-                                correctReaCount++;
-                        }
+                        // Quiz is already loaded via Include, no need to query again
+                        var isListening = detail.Quiz.TOEICPart == "PART1" || detail.Quiz.TOEICPart == "PART2" ||
+                                        detail.Quiz.TOEICPart == "PART3" || detail.Quiz.TOEICPart == "PART4";
+                        
+                        if (isListening)
+                            correctLisCount++;
+                        else
+                            correctReaCount++;
                     }
                 }
 
