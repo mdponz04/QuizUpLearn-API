@@ -11,10 +11,11 @@
         public bool IsAIGenerated { get; set; } = true;
         public string DifficultyLevel { get; set; } = string.Empty;
         public List<RequestAnswerOptionDto> AnswerOptions { get; set; } = new List<RequestAnswerOptionDto>();
-        // optional fields
         public string CorrectAnswer { get; set; } = string.Empty;
         public string? AudioURL { get; set; }
+        public string? AudioScript { get; set; }
         public string? ImageURL { get; set; }
+        public string? ImageDescription { get; set; }
         public int? OrderIndex { get; set; }
     }
     

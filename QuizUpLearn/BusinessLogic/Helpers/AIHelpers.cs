@@ -387,13 +387,16 @@ Return JSON:
             , ResponseUserMistakeDto mistake
             , ResponseQuizGroupItemDto quizGroupItem = null!)
         {
+            var passageText = quizGroupItem?.PassageText ?? string.Empty;
+            var imageDescription = quizGroupItem?.ImageDescription ?? quiz.ImageDescription;
+            var audioScript = quizGroupItem?.AudioScript ?? quiz.AudioScript;
             return $@"
 Quiz
 TOIEC part: ""{quiz.TOEICPart}""
 Các thông tin thêm (nếu có):
-Đoạn văn: ""{quizGroupItem?.PassageText ?? string.Empty}""
-Lời thoại của đoạn audio: ""{quizGroupItem?.AudioScript ?? string.Empty}""
-Mô tả hình ảnh: ""{quizGroupItem?.ImageDescription ?? string.Empty}""
+Đoạn văn: ""{passageText}""
+Lời thoại của đoạn audio: ""{audioScript}""
+Mô tả hình ảnh: ""{imageDescription}""
 
 Câu hỏi: ""{quiz.QuestionText}""
 Các câu trả lời: ""{answersText}""

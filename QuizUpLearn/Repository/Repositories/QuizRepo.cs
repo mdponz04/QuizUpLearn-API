@@ -88,21 +88,17 @@ namespace Repository.Repositories
             if (existingQuiz == null || existingQuiz.DeletedAt != null)
                 return null;
 
-            if(existingQuiz.GrammarId != quiz.GrammarId
-                && quiz.GrammarId != Guid.Empty
-                && quiz.GrammarId != null)
+            if(quiz.GrammarId != null)
                 existingQuiz.GrammarId = quiz.GrammarId;
-            if(existingQuiz.VocabularyId != quiz.VocabularyId
-                && quiz.VocabularyId != Guid.Empty
-                && quiz.VocabularyId != null)
+            if(quiz.VocabularyId != null)
                 existingQuiz.VocabularyId = quiz.VocabularyId;
             if (!string.IsNullOrEmpty(quiz.QuestionText))
                 existingQuiz.QuestionText = quiz.QuestionText;
             if(!string.IsNullOrEmpty(quiz.CorrectAnswer))
                 existingQuiz.CorrectAnswer = quiz.CorrectAnswer;
             
-            existingQuiz.AudioURL = string.IsNullOrEmpty(quiz.AudioURL) ? null : quiz.AudioURL;
-            existingQuiz.ImageURL = string.IsNullOrEmpty(quiz.ImageURL) ? null : quiz.ImageURL;
+            existingQuiz.AudioURL = quiz.AudioURL;
+            existingQuiz.ImageURL = quiz.ImageURL;
             
             if(!string.IsNullOrEmpty(quiz.TOEICPart))
                 existingQuiz.TOEICPart = quiz.TOEICPart;
@@ -110,9 +106,13 @@ namespace Repository.Repositories
                 existingQuiz.TimesAnswered = quiz.TimesAnswered;
             if(existingQuiz.TimesCorrect > 0)
                 existingQuiz.TimesCorrect = quiz.TimesCorrect;
-            if(existingQuiz.QuizGroupItemId != quiz.QuizGroupItemId)
+            if(existingQuiz.QuizGroupItemId != null)
                 existingQuiz.QuizGroupItemId = quiz.QuizGroupItemId;
 
+            if(quiz.ImageDescription != null)
+                existingQuiz.ImageDescription = quiz.ImageDescription;
+            if(quiz.AudioScript != null)
+                existingQuiz.AudioScript = quiz.AudioScript;
             existingQuiz.OrderIndex = quiz.OrderIndex;
             existingQuiz.IsActive = quiz.IsActive;
 
