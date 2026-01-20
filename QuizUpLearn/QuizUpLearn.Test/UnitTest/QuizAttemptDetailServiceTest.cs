@@ -530,25 +530,35 @@ namespace QuizUpLearn.Test.UnitTest
                 IsCorrect = true
             };
 
+            // Mock attempt
             _mockAttemptRepo.Setup(r => r.GetByIdAsync(attemptId))
                 .ReturnsAsync(attempt);
-            _mockAnswerOptionRepo.Setup(r => r.GetByIdAsync(answerOptionId1))
-                .ReturnsAsync(answerOption1);
-            _mockAnswerOptionRepo.Setup(r => r.GetByIdAsync(answerOptionId2))
-                .ReturnsAsync(answerOption2);
-            _mockAnswerOptionRepo.Setup(r => r.GetByQuizIdAsync(questionId2,false))
-                .ReturnsAsync(new List<AnswerOption> { answerOption2, correctAnswerOption2 });
-            _mockDetailRepo.Setup(r => r.CreateAsync(It.IsAny<QuizAttemptDetail>()))
-                .ReturnsAsync((QuizAttemptDetail d) => new QuizAttemptDetail
-                {
-                    Id = Guid.NewGuid(),
-                    AttemptId = d.AttemptId,
-                    QuestionId = d.QuestionId,
-                    UserAnswer = d.UserAnswer,
-                    IsCorrect = d.IsCorrect,
-                    TimeSpent = d.TimeSpent,
-                    CreatedAt = DateTime.UtcNow
-                });
+
+            // Mock quiz + answer options cho logic mới của SubmitAnswersAsync
+            var quiz1 = new Quiz
+            {
+                Id = questionId1,
+                QuestionText = "Q1",
+                TOEICPart = "PART5",
+                AnswerOptions = new List<AnswerOption> { answerOption1 }
+            };
+
+            var quiz2 = new Quiz
+            {
+                Id = questionId2,
+                QuestionText = "Q2",
+                TOEICPart = "PART5",
+                AnswerOptions = new List<AnswerOption> { answerOption2, correctAnswerOption2 }
+            };
+
+            _mockQuizRepo.Setup(r => r.GetQuizzesByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+                .ReturnsAsync(new List<Quiz> { quiz1, quiz2 });
+
+            // Mock batch insert details
+            _mockDetailRepo.Setup(r => r.CreateBatchAsync(It.IsAny<IEnumerable<QuizAttemptDetail>>()))
+                .ReturnsAsync(2);
+
+            // Mock update attempt
             _mockAttemptRepo.Setup(r => r.UpdateAsync(attemptId, It.IsAny<QuizAttempt>()))
                 .ReturnsAsync((Guid id, QuizAttempt a) => a);
 

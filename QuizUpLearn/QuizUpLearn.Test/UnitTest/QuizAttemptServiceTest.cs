@@ -638,8 +638,17 @@ namespace QuizUpLearn.Test.UnitTest
                 }
             };
 
-            _mockQuizAttemptRepo.Setup(r => r.GetByUserIdAsync(userId, false))
-                .ReturnsAsync(attempts);
+            _mockQuizAttemptRepo.Setup(r => r.GetUserHistoryPagedAsync(
+                    userId,
+                    It.IsAny<Guid?>(),
+                    It.IsAny<string?>(),
+                    It.IsAny<string?>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int>(),
+                    It.IsAny<int>(),
+                    false))
+                .ReturnsAsync((attempts.AsEnumerable(), attempts.Count));
 
             // Act
             var result = await _quizAttemptService.GetPlayerHistoryAsync(request);
@@ -681,8 +690,17 @@ namespace QuizUpLearn.Test.UnitTest
                 }
             };
 
-            _mockQuizAttemptRepo.Setup(r => r.GetByUserIdAsync(userId, false))
-                .ReturnsAsync(attempts);
+            _mockQuizAttemptRepo.Setup(r => r.GetUserHistoryPagedAsync(
+                    userId,
+                    It.IsAny<Guid?>(),
+                    It.IsAny<string?>(),
+                    It.IsAny<string?>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int>(),
+                    It.IsAny<int>(),
+                    false))
+                .ReturnsAsync((attempts.AsEnumerable(), attempts.Count));
 
             // Act
             var result = await _quizAttemptService.GetPlayerHistoryAsync(request);
@@ -717,10 +735,16 @@ namespace QuizUpLearn.Test.UnitTest
                 }
             };
 
-            _mockQuizAttemptRepo.Setup(r => r.GetByUserIdAsync(userId, false))
-                .ReturnsAsync(attempts);
-            _mockDetailRepo.Setup(r => r.GetByAttemptIdAsync(It.IsAny<Guid>(), false))
-                .ReturnsAsync(new List<QuizAttemptDetail>());
+            _mockQuizAttemptRepo.Setup(r => r.GetPlacementTestHistoryPagedAsync(
+                    userId,
+                    It.IsAny<Guid?>(),
+                    It.IsAny<string?>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int>(),
+                    It.IsAny<int>(),
+                    false))
+                .ReturnsAsync((attempts.AsEnumerable(), attempts.Count));
 
             // Act
             var result = await _quizAttemptService.GetPlacementTestHistoryAsync(request);
