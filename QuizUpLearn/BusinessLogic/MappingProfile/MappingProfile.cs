@@ -21,7 +21,10 @@ namespace BusinessLogic.MappingProfile
                 .ForMember(dest => dest.AvatarUrl, opt => opt.MapFrom(src => src.User != null ? src.User.AvatarUrl : string.Empty))
                 .ForMember(dest => dest.RoleName, opt => opt.MapFrom(src => src.Role != null ? src.Role.RoleName : string.Empty))
                 .ReverseMap();
-            CreateMap<Repository.Entities.Account, DTOs.RequestAccountDto>().ReverseMap();
+            CreateMap<Repository.Entities.Account, DTOs.RequestAccountDto>()
+                .ForMember(dest => dest.Password, opt => opt.Ignore()) // Ignore Password khi map từ Account sang DTO (vì không bao giờ trả password về client)
+                .ReverseMap()
+                .ForMember(dest => dest.PasswordHash, opt => opt.Ignore()); // Ignore PasswordHash khi map từ DTO sang Account (vì sẽ hash trong Service)
             
             // User Mappings
             CreateMap<Repository.Entities.User, DTOs.ResponseUserDto>();

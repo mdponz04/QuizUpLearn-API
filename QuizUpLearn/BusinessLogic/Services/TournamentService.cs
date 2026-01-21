@@ -427,12 +427,15 @@ namespace BusinessLogic.Services
 				.ToDictionary(g => g.Key, g => g.ToList());
 
 		// Tạo leaderboard items từ participants
+		// Tie-break khi cùng điểm: ưu tiên tổng thời gian làm bài (nhỏ hơn xếp trên), sau đó join sớm hơn
+		var totalTimeSpentByUser = new Dictionary<Guid, int>();
 		foreach (var participant in participantList)
 		{
 			var user = await _userRepo.GetByIdAsync(participant.ParticipantId);
 			if (user == null) continue;
 
 			var totalScore = 0;
+			var totalTimeSpent = 0; // tổng thời gian (giây) của các attempt được tính điểm theo ngày
 			var participantJoinDate = participant.JoinAt.Date;
 			var startDate = participantJoinDate > tournamentStartDate ? participantJoinDate : tournamentStartDate;
 
@@ -452,7 +455,7 @@ namespace BusinessLogic.Services
 				})
 				.ToList();
 
-			// Nhóm attempts theo ngày và lấy attempt mới nhất của mỗi ngày
+				// Nhóm attempts theo ngày và lấy attempt mới nhất của mỗi ngày
 			var dailyAttempts = validAttempts
 				.GroupBy(a => (a.UpdatedAt ?? a.CreatedAt).Date)
 				.Select(g => g.OrderByDescending(a => a.UpdatedAt ?? a.CreatedAt).First())
@@ -460,6 +463,10 @@ namespace BusinessLogic.Services
 
 			// Tính tổng điểm từ các attempts đã được nhóm theo ngày
 			totalScore = dailyAttempts.Sum(a => a.Score);
+				// Tính tổng thời gian: nếu TimeSpent null thì xem như không có dữ liệu (để tie-break sẽ fallback)
+				// Nếu muốn coi null = 0 thì đổi logic ở đây.
+				totalTimeSpent = dailyAttempts.Sum(a => a.TimeSpent ?? 0);
+				totalTimeSpentByUser[participant.ParticipantId] = totalTimeSpent;
 
 			result.Add(new TournamentLeaderboardItemDto
 			{
@@ -475,6 +482,11 @@ namespace BusinessLogic.Services
 			// Sắp xếp theo điểm giảm dần và gán rank
 			result = result
 				.OrderByDescending(x => x.Score)
+				.ThenBy(x =>
+				{
+					// Nếu không có dữ liệu thời gian thì cho xuống sau trong nhóm cùng điểm
+					return totalTimeSpentByUser.TryGetValue(x.UserId, out var t) && t > 0 ? t : int.MaxValue;
+				})
 				.ThenBy(x => x.Date)
 				.ToList();
 

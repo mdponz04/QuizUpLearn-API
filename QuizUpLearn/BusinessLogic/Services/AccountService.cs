@@ -4,6 +4,7 @@ using BusinessLogic.Extensions;
 using BusinessLogic.Interfaces;
 using Repository.Entities;
 using Repository.Interfaces;
+using BCrypt.Net;
 
 namespace BusinessLogic.Services
 {
@@ -20,7 +21,9 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseAccountDto> CreateAsync(RequestAccountDto dto)
         {
+            // Hash password trước khi map sang entity
             var entity = _mapper.Map<Account>(dto);
+            entity.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
             var created = await _repo.CreateAsync(entity);
             return _mapper.Map<ResponseAccountDto>(created);
         }
@@ -56,7 +59,22 @@ namespace BusinessLogic.Services
 
         public async Task<ResponseAccountDto?> UpdateAsync(Guid id, RequestAccountDto dto)
         {
+            var existingAccount = await _repo.GetByIdAsync(id);
+            if (existingAccount == null) return null;
+
             var entity = _mapper.Map<Account>(dto);
+            
+            // Chỉ hash và update password nếu có password mới
+            if (!string.IsNullOrWhiteSpace(dto.Password))
+            {
+                entity.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+            }
+            else
+            {
+                // Giữ nguyên password cũ
+                entity.PasswordHash = existingAccount.PasswordHash;
+            }
+            
             var updated = await _repo.UpdateAsync(id, entity);
             return updated == null ? null : _mapper.Map<ResponseAccountDto>(updated);
         }

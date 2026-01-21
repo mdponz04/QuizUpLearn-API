@@ -15,6 +15,7 @@ namespace BusinessLogic.Services
         private readonly IEventRepo _eventRepo;
         private readonly IEventParticipantRepo _eventParticipantRepo;
         private readonly IQuizSetRepo _quizSetRepo;
+        private readonly IQuizRepo _quizRepo;
         private readonly IUserRepo _userRepo;
         private readonly IAccountRepo _accountRepo;
         private readonly IRealtimeGameService _realtimeGameService;
@@ -27,6 +28,7 @@ namespace BusinessLogic.Services
             IEventRepo eventRepo,
             IEventParticipantRepo eventParticipantRepo,
             IQuizSetRepo quizSetRepo,
+            IQuizRepo quizRepo,
             IUserRepo userRepo,
             IAccountRepo accountRepo,
             IRealtimeGameService realtimeGameService,
@@ -38,6 +40,7 @@ namespace BusinessLogic.Services
             _eventRepo = eventRepo;
             _eventParticipantRepo = eventParticipantRepo;
             _quizSetRepo = quizSetRepo;
+            _quizRepo = quizRepo;
             _userRepo = userRepo;
             _accountRepo = accountRepo;
             _realtimeGameService = realtimeGameService;
@@ -82,6 +85,11 @@ namespace BusinessLogic.Services
             // ✅ VALIDATION: QuizSet phải có QuizSetType = Event
             if (quizSet.QuizSetType != QuizSetTypeEnum.Event)
                 throw new ArgumentException("QuizSet phải có QuizSetType là Event để tạo Event");
+
+            // ✅ VALIDATION: QuizSet phải có ít nhất 1 câu hỏi
+            var quizzes = await _quizRepo.GetQuizzesByQuizSetIdAsync(dto.QuizSetId);
+            if (quizzes == null || !quizzes.Any())
+                throw new ArgumentException("QuizSet của Event chưa có câu hỏi. Vui lòng thêm câu hỏi trước khi tạo Event.");
 
             // Validate dates
             if (dto.StartDate >= dto.EndDate)
@@ -253,6 +261,11 @@ namespace BusinessLogic.Services
 
             if (eventEntity.QuizSet.QuizSetType != QuizSetTypeEnum.Event)
                 throw new InvalidOperationException("QuizSet phải có QuizSetType là Event");
+
+            // ✅ VALIDATION: QuizSet phải có ít nhất 1 câu hỏi trước khi start
+            var quizzes = await _quizRepo.GetQuizzesByQuizSetIdAsync(eventEntity.QuizSetId);
+            if (quizzes == null || !quizzes.Any())
+                throw new InvalidOperationException("QuizSet của Event chưa có câu hỏi. Vui lòng thêm câu hỏi trước khi start Event.");
 
             // Check time
             var now = DateTime.UtcNow;

@@ -18,6 +18,7 @@ namespace QuizUpLearn.Test.UnitTest
         private readonly Mock<IEventRepo> _mockEventRepo;
         private readonly Mock<IEventParticipantRepo> _mockEventParticipantRepo;
         private readonly Mock<IQuizSetRepo> _mockQuizSetRepo;
+        private readonly Mock<IQuizRepo> _mockQuizRepo;
         private readonly Mock<IUserRepo> _mockUserRepo;
         private readonly Mock<IAccountRepo> _mockAccountRepo;
         private readonly Mock<IRealtimeGameService> _mockRealtimeGameService;
@@ -32,6 +33,7 @@ namespace QuizUpLearn.Test.UnitTest
             _mockEventRepo = new Mock<IEventRepo>();
             _mockEventParticipantRepo = new Mock<IEventParticipantRepo>();
             _mockQuizSetRepo = new Mock<IQuizSetRepo>();
+            _mockQuizRepo = new Mock<IQuizRepo>();
             _mockUserRepo = new Mock<IUserRepo>();
             _mockAccountRepo = new Mock<IAccountRepo>();
             _mockRealtimeGameService = new Mock<IRealtimeGameService>();
@@ -53,6 +55,7 @@ namespace QuizUpLearn.Test.UnitTest
                 _mockEventRepo.Object,
                 _mockEventParticipantRepo.Object,
                 _mockQuizSetRepo.Object,
+                _mockQuizRepo.Object,
                 _mockUserRepo.Object,
                 _mockAccountRepo.Object,
                 _mockRealtimeGameService.Object,
@@ -103,6 +106,8 @@ namespace QuizUpLearn.Test.UnitTest
 
             _mockQuizSetRepo.Setup(r => r.GetQuizSetByIdAsync(quizSetId))
                 .ReturnsAsync(quizSet);
+            _mockQuizRepo.Setup(r => r.GetQuizzesByQuizSetIdAsync(quizSetId))
+                .ReturnsAsync(new List<Quiz> { new Quiz { Id = Guid.NewGuid(), QuizSetId = quizSetId } });
             _mockEventRepo.Setup(r => r.CreateAsync(It.IsAny<Event>()))
                 .ReturnsAsync(createdEvent);
             _mockEventParticipantRepo.Setup(r => r.CountParticipantsByEventIdAsync(It.IsAny<Guid>()))

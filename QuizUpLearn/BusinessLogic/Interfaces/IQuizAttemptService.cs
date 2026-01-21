@@ -12,7 +12,6 @@ namespace BusinessLogic.Interfaces
         Task<IEnumerable<ResponseQuizAttemptDto>> GetByUserIdAsync(Guid userId, bool includeDeleted = false);
         Task<IEnumerable<ResponseQuizAttemptDto>> GetByQuizSetIdAsync(Guid quizSetId, bool includeDeleted = false);
         Task<ResponseQuizAttemptDto?> UpdateAsync(Guid id, RequestQuizAttemptDto dto);
-        Task<ResponseQuizAttemptDto?> FinishAsync(Guid id);
         Task<PlayerHistoryResponseDto> GetPlayerHistoryAsync(PlayerHistoryRequestDto request);
         Task<PlacementTestHistoryResponseDto> GetPlacementTestHistoryAsync(PlayerHistoryRequestDto request);
         Task<PlayerStatsDto> GetPlayerStatsAsync(Guid userId);

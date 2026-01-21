@@ -333,7 +333,8 @@ namespace QuizUpLearn.API.Hubs
                 var question = await _gameService.StartGameAsync(gamePin);
                 if (question == null)
                 {
-                    await Clients.Caller.SendAsync("Error", "Failed to start game");
+                    await Clients.Caller.SendAsync("Error",
+                        "Không thể bắt đầu game. Vui lòng kiểm tra: phòng đang ở trạng thái Lobby, có người chơi tham gia, và bộ câu hỏi của Event/QuizSet không bị rỗng.");
                     return;
                 }
 
@@ -374,7 +375,7 @@ namespace QuizUpLearn.API.Hubs
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error in StartGame for game {gamePin}");
-                await Clients.Caller.SendAsync("Error", "An error occurred while starting the game");
+                await Clients.Caller.SendAsync("Error", $"Đã xảy ra lỗi khi bắt đầu game: {ex.Message}");
             }
         }
 

@@ -17,6 +17,15 @@ namespace Repository.Repositories
         public async Task<Account> CreateAsync(Account account)
         {
             account.Email = account.Email.Trim().ToLowerInvariant();
+            
+            // Kiểm tra email trùng lặp
+            var existingAccount = await _context.Accounts
+                .FirstOrDefaultAsync(a => a.Email == account.Email);
+            if (existingAccount != null)
+            {
+                throw new ArgumentException($"Email '{account.Email}' đã tồn tại");
+            }
+
             // Ensure default Role exists (e.g., "User")
             var defaultRole = await _context.Roles.FirstOrDefaultAsync(r => r.RoleName == "User");
             if (defaultRole == null)
@@ -32,8 +41,18 @@ namespace Repository.Repositories
                 await _context.SaveChangesAsync();
             }
 
-            // Create minimal User
-            var username = account.Email.Contains('@') ? account.Email.Split('@')[0] : account.Email;
+            // Create minimal User với username unique
+            var baseUsername = account.Email.Contains('@') ? account.Email.Split('@')[0] : account.Email;
+            var username = baseUsername;
+            var counter = 1;
+            
+            // Kiểm tra username trùng lặp và tự động generate username unique
+            while (await _context.Users.AnyAsync(u => u.Username == username))
+            {
+                username = $"{baseUsername}{counter}";
+                counter++;
+            }
+            
             var newUser = new User
             {
                 Username = username,
