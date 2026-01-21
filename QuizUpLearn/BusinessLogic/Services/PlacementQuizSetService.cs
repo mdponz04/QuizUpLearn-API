@@ -45,7 +45,6 @@ namespace BusinessLogic.Services
 
         public async Task<QuizSetResponseDto> ImportExcelQuizSetFile(IFormFile file, Guid userId)
         {
-            // Validate file extension
             if (file?.FileName == null || !IsValidExcelFile(file.FileName))
             {
                 throw new ArgumentException("Only Excel files (.xlsx, .xls) are supported for import.");
@@ -77,7 +76,7 @@ namespace BusinessLogic.Services
             {
                 var quizDto = new QuizRequestDto
                 {
-                    QuestionText = quizData.Prompt,
+                    QuestionText = quizData.Prompt ?? string.Empty,
                     OrderIndex = quizData.GlobalIndex,
                     TOEICPart = $"PART{quizData.Part}",
                     CorrectAnswer = quizData.CorrectAnswer,
