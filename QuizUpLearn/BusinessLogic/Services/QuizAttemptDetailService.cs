@@ -492,7 +492,57 @@ namespace BusinessLogic.Services
                 AnswerResults = answerResults
             };
 
+            // Khôi phục: Xoá UserMistake/UserWeakPoint cho các câu đã làm đúng trong MistakeQuiz
+            var correctQuestionIds = correctQuestionIdsSet.ToList();
+            var userId = attempt.UserId;
 
+            if (userId != Guid.Empty && correctQuestionIds.Any())
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var userMistakeRepo = scope.ServiceProvider.GetRequiredService<IUserMistakeRepo>();
+                var userMistakeService = scope.ServiceProvider.GetRequiredService<IUserMistakeService>();
+                var userWeakPointService = scope.ServiceProvider.GetRequiredService<IUserWeakPointService>();
+
+                // Bước 1: Thu thập UserMistake cần xoá và WeakPoint liên quan
+                var mistakesToDelete = new List<UserMistake>();
+                var weakPointIdsToCheck = new HashSet<Guid>();
+
+                foreach (var quizId in correctQuestionIds)
+                {
+                    var existingMistake = await userMistakeRepo.GetByUserIdAndQuizIdAsync(userId, quizId);
+                    if (existingMistake != null)
+                    {
+                        mistakesToDelete.Add(existingMistake);
+                        if (existingMistake.UserWeakPointId.HasValue)
+                        {
+                            weakPointIdsToCheck.Add(existingMistake.UserWeakPointId.Value);
+                        }
+                    }
+                }
+
+                // Bước 2: Xoá UserMistake
+                foreach (var mistake in mistakesToDelete)
+                {
+                    await userMistakeService.DeleteAsync(mistake.Id);
+                }
+
+                // Bước 3: Xoá UserWeakPoint nếu không còn UserMistake liên kết
+                foreach (var weakPointId in weakPointIdsToCheck)
+                {
+                    var remainingMistakes = await userMistakeRepo.GetByUserWeakPointIdAsync(weakPointId);
+                    if (!remainingMistakes.Any())
+                    {
+                        try
+                        {
+                            await userWeakPointService.DeleteAsync(weakPointId);
+                        }
+                        catch
+                        {
+                            // Bỏ qua nếu đã bị xoá hoặc không tồn tại
+                        }
+                    }
+                }
+            }
 
             return response;
         }
