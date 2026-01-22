@@ -366,6 +366,25 @@ namespace BusinessLogic.Services
             // Theo yêu cầu mới: endpoint SubmitAnswers KHÔNG tạo UserMistake nữa.
             // Nếu cần tạo UserMistake thì sẽ dùng riêng flow MistakeQuiz / PlacementTest.
 
+            // Check và assign badges (chạy background, không block response)
+            if (attempt.Status == "completed")
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        using var scope = _scopeFactory.CreateScope();
+                        var badgeService = scope.ServiceProvider.GetRequiredService<IBadgeService>();
+                        await badgeService.CheckAndAssignBadgesAsync(attempt.UserId);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log error nhưng không throw
+                        // Có thể inject ILogger nếu cần
+                    }
+                });
+            }
+
             return response;
         }
 
@@ -538,7 +557,6 @@ namespace BusinessLogic.Services
                         }
                         catch
                         {
-                            // Bỏ qua nếu đã bị xoá hoặc không tồn tại
                         }
                     }
                 }
