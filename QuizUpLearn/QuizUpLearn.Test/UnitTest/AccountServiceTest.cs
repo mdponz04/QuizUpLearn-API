@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Repository.Entities;
 using Repository.Interfaces;
+using BCrypt.Net;
 
 namespace QuizUpLearn.Test.UnitTest
 {
@@ -40,14 +41,14 @@ namespace QuizUpLearn.Test.UnitTest
             var requestDto = new RequestAccountDto
             {
                 Email = "test@example.com",
-                PasswordHash = "hashed_password"
+                Password = "plain_password"
             };
 
             var createdAccount = new Account
             {
                 Id = Guid.NewGuid(),
                 Email = requestDto.Email,
-                PasswordHash = requestDto.PasswordHash,
+                PasswordHash = BCrypt.HashPassword(requestDto.Password),
                 UserId = Guid.NewGuid(),
                 RoleId = Guid.NewGuid(),
                 IsEmailVerified = false,
@@ -70,7 +71,8 @@ namespace QuizUpLearn.Test.UnitTest
 
             _mockAccountRepo.Verify(r => r.CreateAsync(It.Is<Account>(a =>
                 a.Email == requestDto.Email &&
-                a.PasswordHash == requestDto.PasswordHash)), Times.Once);
+                !string.IsNullOrEmpty(a.PasswordHash) &&
+                BCrypt.Verify(requestDto.Password, a.PasswordHash))), Times.Once);
         }
 
         [Fact]
@@ -203,14 +205,14 @@ namespace QuizUpLearn.Test.UnitTest
             var requestDto = new RequestAccountDto
             {
                 Email = "updated@example.com",
-                PasswordHash = "updated_hash"
+                Password = "new_password"
             };
 
-            var updatedAccount = new Account
+            var existingAccount = new Account
             {
                 Id = accountId,
-                Email = requestDto.Email,
-                PasswordHash = requestDto.PasswordHash,
+                Email = "old@example.com",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("old_password"),
                 UserId = Guid.NewGuid(),
                 RoleId = Guid.NewGuid(),
                 IsEmailVerified = true,
@@ -221,6 +223,23 @@ namespace QuizUpLearn.Test.UnitTest
                 UpdatedAt = DateTime.UtcNow
             };
 
+            var updatedAccount = new Account
+            {
+                Id = accountId,
+                Email = requestDto.Email,
+                PasswordHash = BCrypt.HashPassword(requestDto.Password),
+                UserId = existingAccount.UserId,
+                RoleId = existingAccount.RoleId,
+                IsEmailVerified = true,
+                IsActive = true,
+                IsBanned = false,
+                LoginAttempts = 0,
+                CreatedAt = existingAccount.CreatedAt,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _mockAccountRepo.Setup(r => r.GetByIdAsync(accountId))
+                .ReturnsAsync(existingAccount);
             _mockAccountRepo.Setup(r => r.UpdateAsync(accountId, It.IsAny<Account>()))
                 .ReturnsAsync(updatedAccount);
 
@@ -232,7 +251,10 @@ namespace QuizUpLearn.Test.UnitTest
             result!.Id.Should().Be(accountId);
             result.Email.Should().Be(requestDto.Email);
 
-            _mockAccountRepo.Verify(r => r.UpdateAsync(accountId, It.IsAny<Account>()), Times.Once);
+            _mockAccountRepo.Verify(r => r.UpdateAsync(accountId, It.Is<Account>(a =>
+                a.Email == requestDto.Email &&
+                !string.IsNullOrEmpty(a.PasswordHash) &&
+                BCrypt.Verify(requestDto.Password, a.PasswordHash))), Times.Once);
         }
 
         [Fact]
@@ -243,10 +265,10 @@ namespace QuizUpLearn.Test.UnitTest
             var requestDto = new RequestAccountDto
             {
                 Email = "test@example.com",
-                PasswordHash = "hash"
+                Password = "password"
             };
 
-            _mockAccountRepo.Setup(r => r.UpdateAsync(accountId, It.IsAny<Account>()))
+            _mockAccountRepo.Setup(r => r.GetByIdAsync(accountId))
                 .ReturnsAsync((Account?)null);
 
             // Act
@@ -254,7 +276,8 @@ namespace QuizUpLearn.Test.UnitTest
 
             // Assert
             result.Should().BeNull();
-            _mockAccountRepo.Verify(r => r.UpdateAsync(accountId, It.IsAny<Account>()), Times.Once);
+            _mockAccountRepo.Verify(r => r.GetByIdAsync(accountId), Times.Once);
+            _mockAccountRepo.Verify(r => r.UpdateAsync(It.IsAny<Guid>(), It.IsAny<Account>()), Times.Never);
         }
 
         [Fact]

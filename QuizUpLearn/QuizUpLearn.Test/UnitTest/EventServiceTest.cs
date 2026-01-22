@@ -107,7 +107,7 @@ namespace QuizUpLearn.Test.UnitTest
             _mockQuizSetRepo.Setup(r => r.GetQuizSetByIdAsync(quizSetId))
                 .ReturnsAsync(quizSet);
             _mockQuizRepo.Setup(r => r.GetQuizzesByQuizSetIdAsync(quizSetId))
-                .ReturnsAsync(new List<Quiz> { new Quiz { Id = Guid.NewGuid(), QuizSetId = quizSetId } });
+                .ReturnsAsync(new List<Quiz> { new Quiz { Id = Guid.NewGuid(), QuestionText = "Test Question", TOEICPart = "PART5" } });
             _mockEventRepo.Setup(r => r.CreateAsync(It.IsAny<Event>()))
                 .ReturnsAsync(createdEvent);
             _mockEventParticipantRepo.Setup(r => r.CountParticipantsByEventIdAsync(It.IsAny<Guid>()))
