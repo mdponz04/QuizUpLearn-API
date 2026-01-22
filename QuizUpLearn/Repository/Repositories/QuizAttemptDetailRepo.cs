@@ -63,7 +63,8 @@ namespace Repository.Repositories
                 .AsQueryable()
                 .Where(qad => qad.QuizAttemptId == attemptId && (includeDeleted || qad.DeletedAt == null))
                 .Include(qad => qad.Quiz)
-                .OrderBy(qad => qad.CreatedAt)
+                .OrderBy(qad => qad.OrderIndex ?? qad.Quiz!.OrderIndex ?? int.MaxValue)
+                .ThenBy(qad => qad.CreatedAt)
                 .ToListAsync();
         }
 
@@ -82,7 +83,8 @@ namespace Repository.Repositories
                     .ThenInclude(q => q!.AnswerOptions)
                 .Include(qad => qad.QuizAttempt)
                     .ThenInclude(qa => qa!.QuizSet)
-                .OrderBy(qad => qad.CreatedAt);
+                .OrderBy(qad => qad.OrderIndex ?? qad.Quiz!.OrderIndex ?? int.MaxValue)
+                .ThenBy(qad => qad.CreatedAt);
 
             var totalCount = await query.CountAsync();
             
@@ -124,6 +126,7 @@ namespace Repository.Repositories
             existing.UserAnswer = quizAttemptDetail.UserAnswer;
             existing.IsCorrect = quizAttemptDetail.IsCorrect;
             existing.TimeSpent = quizAttemptDetail.TimeSpent;
+            existing.OrderIndex = quizAttemptDetail.OrderIndex;
             existing.UpdatedAt = DateTime.UtcNow;
             
             // Update foreign key properties

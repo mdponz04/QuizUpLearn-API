@@ -8,6 +8,7 @@ namespace BusinessLogic.DTOs
         public string UserAnswer { get; set; }
         public bool? IsCorrect { get; set; }
         public int? TimeSpent { get; set; }
+        public int? OrderIndex { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public DateTime? DeletedAt { get; set; }

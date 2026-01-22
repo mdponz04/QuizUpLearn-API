@@ -50,6 +50,16 @@ namespace BusinessLogic.Services
         {
             var entity = _mapper.Map<QuizAttemptDetail>(dto);
             
+            // Nếu OrderIndex chưa được set, lấy từ Quiz
+            if (!entity.OrderIndex.HasValue)
+            {
+                var quiz = await _quizRepo.GetByIdAsync(dto.QuestionId);
+                if (quiz != null)
+                {
+                    entity.OrderIndex = quiz.OrderIndex;
+                }
+            }
+            
             // Nếu IsCorrect chưa được set, tự động tính từ UserAnswer
             if (!entity.IsCorrect.HasValue && !string.IsNullOrWhiteSpace(dto.UserAnswer))
             {
@@ -306,7 +316,8 @@ namespace BusinessLogic.Services
                     IsCorrect = isCorrect,
                     TimeSpent = answer.TimeSpent,
                     QuizId = answer.QuestionId,
-                    QuizAttemptId = dto.AttemptId
+                    QuizAttemptId = dto.AttemptId,
+                    OrderIndex = quizDict.TryGetValue(answer.QuestionId, out var quiz) ? quiz.OrderIndex : null
                 };
 
                 detailsToInsert.Add(detail);
@@ -363,10 +374,6 @@ namespace BusinessLogic.Services
                 AnswerResults = answerResults
             };
 
-            // Theo yêu cầu mới: endpoint SubmitAnswers KHÔNG tạo UserMistake nữa.
-            // Nếu cần tạo UserMistake thì sẽ dùng riêng flow MistakeQuiz / PlacementTest.
-
-            // Check và assign badges (chạy background, không block response)
             if (attempt.Status == "completed")
             {
                 _ = Task.Run(async () =>
@@ -379,8 +386,7 @@ namespace BusinessLogic.Services
                     }
                     catch (Exception ex)
                     {
-                        // Log error nhưng không throw
-                        // Có thể inject ILogger nếu cần
+                        ex.Message.ToString();
                     }
                 });
             }
@@ -562,6 +568,23 @@ namespace BusinessLogic.Services
                 }
             }
 
+            if (attempt.Status == "completed")
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        using var scope = _scopeFactory.CreateScope();
+                        var badgeService = scope.ServiceProvider.GetRequiredService<IBadgeService>();
+                        await badgeService.CheckAndAssignBadgesAsync(attempt.UserId);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log error nếu cần
+                    }
+                });
+            }
+
             return response;
         }
 
@@ -633,7 +656,8 @@ namespace BusinessLogic.Services
                     IsCorrect = isCorrect,
                     TimeSpent = answer.TimeSpent,
                     QuizId = answer.QuestionId,
-                    QuizAttemptId = dto.AttemptId
+                    QuizAttemptId = dto.AttemptId,
+                    OrderIndex = quiz?.OrderIndex
                 };
 
                 detailsToInsert.Add(detail);
@@ -695,6 +719,24 @@ namespace BusinessLogic.Services
                 TotalQuestions = attempt.TotalQuestions,
                 Status = attempt.Status
             };
+
+            // Check và assign badges (chạy background, không block response)
+            if (attempt.Status == "completed")
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        using var scope = _scopeFactory.CreateScope();
+                        var badgeService = scope.ServiceProvider.GetRequiredService<IBadgeService>();
+                        await badgeService.CheckAndAssignBadgesAsync(attempt.UserId);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log error nếu cần
+                    }
+                });
+            }
 
             // Nền 0: Cập nhật User.TotalPoints nếu điểm placement test cao hơn điểm hiện tại (chạy song song với UserMistake)
             var userId = attempt.UserId;

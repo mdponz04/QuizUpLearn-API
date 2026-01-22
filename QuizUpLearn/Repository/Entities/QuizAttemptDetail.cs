@@ -9,6 +9,7 @@ namespace Repository.Entities
         public string UserAnswer { get; set; }
         public bool? IsCorrect { get; set; }
         public int? TimeSpent { get; set; }
+        public int? OrderIndex { get; set; }
 
         public Guid? QuizAttemptId { get; set; }
         public Guid QuizId { get; set; }
