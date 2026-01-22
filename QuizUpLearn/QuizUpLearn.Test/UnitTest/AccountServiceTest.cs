@@ -57,7 +57,9 @@ namespace QuizUpLearn.Test.UnitTest
                 CreatedAt = DateTime.UtcNow
             };
 
+            Account? capturedAccount = null;
             _mockAccountRepo.Setup(r => r.CreateAsync(It.IsAny<Account>()))
+                .Callback<Account>(a => capturedAccount = a)
                 .ReturnsAsync(createdAccount);
 
             // Act
@@ -70,8 +72,10 @@ namespace QuizUpLearn.Test.UnitTest
 
             _mockAccountRepo.Verify(r => r.CreateAsync(It.Is<Account>(a =>
                 a.Email == requestDto.Email &&
-                !string.IsNullOrEmpty(a.PasswordHash) &&
-                BCrypt.Net.BCrypt.Verify(requestDto.Password, a.PasswordHash))), Times.Once);
+                !string.IsNullOrEmpty(a.PasswordHash))), Times.Once);
+            
+            capturedAccount.Should().NotBeNull();
+            BCrypt.Net.BCrypt.Verify(requestDto.Password, capturedAccount!.PasswordHash).Should().BeTrue();
         }
 
         [Fact]
@@ -239,7 +243,10 @@ namespace QuizUpLearn.Test.UnitTest
 
             _mockAccountRepo.Setup(r => r.GetByIdAsync(accountId))
                 .ReturnsAsync(existingAccount);
+            
+            Account? capturedAccount = null;
             _mockAccountRepo.Setup(r => r.UpdateAsync(accountId, It.IsAny<Account>()))
+                .Callback<Guid, Account>((id, a) => capturedAccount = a)
                 .ReturnsAsync(updatedAccount);
 
             // Act
@@ -252,8 +259,10 @@ namespace QuizUpLearn.Test.UnitTest
 
             _mockAccountRepo.Verify(r => r.UpdateAsync(accountId, It.Is<Account>(a =>
                 a.Email == requestDto.Email &&
-                !string.IsNullOrEmpty(a.PasswordHash) &&
-                BCrypt.Net.BCrypt.Verify(requestDto.Password, a.PasswordHash))), Times.Once);
+                !string.IsNullOrEmpty(a.PasswordHash))), Times.Once);
+            
+            capturedAccount.Should().NotBeNull();
+            BCrypt.Net.BCrypt.Verify(requestDto.Password, capturedAccount!.PasswordHash).Should().BeTrue();
         }
 
         [Fact]
