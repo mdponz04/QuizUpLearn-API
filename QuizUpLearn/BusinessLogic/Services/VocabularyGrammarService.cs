@@ -3,7 +3,6 @@ using BusinessLogic.DTOs.GrammarDtos;
 using BusinessLogic.DTOs.VocabularyDtos;
 using BusinessLogic.Helpers;
 using BusinessLogic.Interfaces;
-using Repository.Entities;
 using Repository.Interfaces;
 
 namespace BusinessLogic.Services
@@ -114,7 +113,8 @@ namespace BusinessLogic.Services
             }
 
             vocabGrammarUnusedPairs = ApplySearch(vocabGrammarUnusedPairs, pagination.SearchTerm);
-            vocabGrammarUnusedPairs = ApplyFilters(vocabGrammarUnusedPairs, ExtractFilterValues(pagination));
+            var filters = ExtractFilterValues(pagination);
+            vocabGrammarUnusedPairs = ApplyFilters(vocabGrammarUnusedPairs, filters.part, filters.vocabularyName, filters.grammarName);
 
             var paginationResponse = PaginationHelper.CreatePagedResponse(vocabGrammarUnusedPairs, pagination);
 
@@ -140,20 +140,24 @@ namespace BusinessLogic.Services
             return query.ToList();
         }
 
-        private string? ExtractFilterValues(PaginationRequestDto pagination)
+        private (string? part, string? vocabularyName, string? grammarName) ExtractFilterValues(PaginationRequestDto pagination)
         {
             var jsonExtractHelper = new JsonExtractHelper();
             if (pagination.Filters == null)
-                return (null);
+                return (null, null, null);
 
             string? part = jsonExtractHelper.GetStringFromFilter(pagination.Filters, "part");
+            string? vocabularyName = jsonExtractHelper.GetStringFromFilter(pagination.Filters, "vocabularyName");
+            string? grammarName = jsonExtractHelper.GetStringFromFilter(pagination.Filters, "grammarName");
 
-            return (part);
+            return (part, vocabularyName, grammarName);
         }
 
         private static List<GrammarVocabularyResponseDto> ApplyFilters(
             List<GrammarVocabularyResponseDto> list,
-            string? part = null)
+            string? part = null,
+            string? vocabularyName = null,
+            string? grammarName = null)
         {
             if(part != null)
             {
@@ -164,6 +168,24 @@ namespace BusinessLogic.Services
                 list = list.Where(gv => gv.Part != null && 
                                         gv.Part.Equals(normalizedFilterPart, StringComparison.OrdinalIgnoreCase))
                           .ToList();
+            }
+
+            if(vocabularyName != null)
+            {
+                var normalizedVocabName = vocabularyName.ToLower();
+                list = list.Where(gv => gv.Vocabulary != null &&
+                                        !string.IsNullOrEmpty(gv.Vocabulary.KeyWord) &&
+                                        gv.Vocabulary.KeyWord.ToLower().Contains(normalizedVocabName))
+                           .ToList();
+            }
+
+            if(grammarName != null)
+            {
+                var normalizedGrammarName = grammarName.ToLower();
+                list = list.Where(gv => gv.Grammar != null &&
+                                        !string.IsNullOrEmpty(gv.Grammar.Name) &&
+                                        gv.Grammar.Name.ToLower().Contains(normalizedGrammarName))
+                           .ToList();
             }
 
             return list;
