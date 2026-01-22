@@ -53,7 +53,7 @@ namespace BusinessLogic.Services
             // Nếu OrderIndex chưa được set, lấy từ Quiz
             if (!entity.OrderIndex.HasValue)
             {
-                var quiz = await _quizRepo.GetByIdAsync(dto.QuestionId);
+                var quiz = await _quizRepo.GetQuizByIdAsync(dto.QuestionId);
                 if (quiz != null)
                 {
                     entity.OrderIndex = quiz.OrderIndex;
