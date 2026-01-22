@@ -108,14 +108,6 @@ namespace QuizUpLearn.API.Controllers
             return Ok(updated);
         }
 
-        [HttpPost("{id}/finish")]
-        public async Task<IActionResult> Finish([FromRoute] Guid id)
-        {
-            var result = await _service.FinishAsync(id);
-            if (result == null) throw new HttpException(HttpStatusCode.NotFound, "Không tìm thấy lần làm bài");
-            return Ok(result);
-        }
-
         [HttpDelete("{id}")]
         public async Task<IActionResult> SoftDelete([FromRoute] Guid id)
         {

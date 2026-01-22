@@ -379,6 +379,13 @@ namespace BusinessLogic.Services
             if (session.Players.Count == 0)
                 return null; // Cần ít nhất 1 player
 
+            // Không thể start nếu quiz set không có câu hỏi (tránh IndexOutOfRange ở session.Questions[0])
+            if (session.Questions == null || session.Questions.Count == 0)
+            {
+                _logger.LogWarning($"❌ StartGame failed: Game {gamePin} has no questions (QuizSetId={session.QuizSetId}, EventId={session.EventId})");
+                return null;
+            }
+
             session.Status = GameStatus.InProgress;
             session.CurrentQuestionIndex = 0;
             session.QuestionStartedAt = DateTime.UtcNow;

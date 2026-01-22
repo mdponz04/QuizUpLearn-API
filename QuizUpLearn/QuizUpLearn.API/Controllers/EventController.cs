@@ -15,11 +15,6 @@ using System.Security.Claims;
 
 namespace QuizUpLearn.API.Controllers
 {
-    /// <summary>
-    /// API Controller cho Event Management
-    /// Event sử dụng QuizSet với QuizSetType = Event
-    /// Khi Start Event sẽ tạo GameRoom trong GameHub
-    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]

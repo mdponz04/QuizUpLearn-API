@@ -363,98 +363,8 @@ namespace BusinessLogic.Services
                 AnswerResults = answerResults
             };
 
-            // Nền 1: Tạo/update UserMistake cho các câu trả lời sai
-            var wrongQuestionIds = wrongQuestionIdsSet.ToList();
-            var wrongAnswersSnapshot = wrongAnswersByQuestion.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-            var userId = attempt.UserId;
-
-            var userMistakeTask = Task.Run(async () =>
-            {
-                if (!wrongQuestionIds.Any() || userId == Guid.Empty)
-                {
-                    return;
-                }
-
-                try
-                {
-                    using var scope = _scopeFactory.CreateScope();
-                    var userMistakeRepo = scope.ServiceProvider.GetRequiredService<IUserMistakeRepo>();
-                    var userMistakeService = scope.ServiceProvider.GetRequiredService<IUserMistakeService>();
-
-                    // Tạo/Update UserMistake cho các câu trả lời sai
-                    foreach (var quizId in wrongQuestionIds)
-                    {
-                        try
-                        {
-                            var existingMistake = await userMistakeRepo.GetByUserIdAndQuizIdAsync(userId, quizId);
-                            wrongAnswersSnapshot.TryGetValue(quizId, out var userAnswer);
-                            
-                            // Đảm bảo UserAnswer không null (dùng string.Empty nếu null hoặc empty)
-                            var safeUserAnswer = string.IsNullOrWhiteSpace(userAnswer) ? string.Empty : userAnswer;
-
-                            if (existingMistake == null)
-                            {
-                                // Tạo mới UserMistake với đầy đủ field
-                                await userMistakeService.AddAsync(new RequestUserMistakeDto
-                                {
-                                    UserId = userId,
-                                    QuizId = quizId,
-                                    TimesAttempted = 1,
-                                    TimesWrong = 1,
-                                    LastAttemptedAt = DateTime.UtcNow,
-                                    IsAnalyzed = false,
-                                    UserAnswer = safeUserAnswer
-                                });
-                            }
-                            else
-                            {
-                                // Update UserMistake với đầy đủ field
-                                // Lưu ý: UserAnswer chỉ update nếu có giá trị mới, không thì giữ nguyên giá trị cũ
-                                await userMistakeService.UpdateAsync(existingMistake.Id, new RequestUserMistakeDto
-                                {
-                                    UserId = userId,
-                                    QuizId = quizId,
-                                    TimesAttempted = existingMistake.TimesAttempted + 1,
-                                    TimesWrong = existingMistake.TimesWrong + 1,
-                                    LastAttemptedAt = DateTime.UtcNow,
-                                    IsAnalyzed = existingMistake.IsAnalyzed,
-                                    UserAnswer = !string.IsNullOrWhiteSpace(safeUserAnswer) ? safeUserAnswer : existingMistake.UserAnswer
-                                });
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            // Log error for individual quiz
-                            // Could add logging here if needed
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // Log error for background UserMistake processing
-                    // Could add logging here if needed
-                }
-            });
-
-            // Nền 2: Sau khi cập nhật UserMistake xong thì chạy phân tích AI (không ảnh hưởng response)
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await userMistakeTask;
-                    if (userId != Guid.Empty)
-                    {
-                        using var scope = _scopeFactory.CreateScope();
-                        var aiService = scope.ServiceProvider.GetRequiredService<IAIService>();
-                        await aiService.AnalyzeUserMistakesAndAdviseAsync(userId);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // Log error for background AI analysis
-                    // Could add logging here if needed
-                }
-            });
+            // Theo yêu cầu mới: endpoint SubmitAnswers KHÔNG tạo UserMistake nữa.
+            // Nếu cần tạo UserMistake thì sẽ dùng riêng flow MistakeQuiz / PlacementTest.
 
             return response;
         }
@@ -582,7 +492,7 @@ namespace BusinessLogic.Services
                 AnswerResults = answerResults
             };
 
-            // Xoá UserMistake và UserWeakPoint liên quan cho các câu đã làm đúng (chạy synchronous, không background)
+            // Khôi phục: Xoá UserMistake/UserWeakPoint cho các câu đã làm đúng trong MistakeQuiz
             var correctQuestionIds = correctQuestionIdsSet.ToList();
             var userId = attempt.UserId;
 
@@ -593,7 +503,7 @@ namespace BusinessLogic.Services
                 var userMistakeService = scope.ServiceProvider.GetRequiredService<IUserMistakeService>();
                 var userWeakPointService = scope.ServiceProvider.GetRequiredService<IUserWeakPointService>();
 
-                // Bước 1: Thu thập tất cả UserMistake sẽ bị xóa và các UserWeakPointId liên quan
+                // Bước 1: Thu thập UserMistake cần xoá và WeakPoint liên quan
                 var mistakesToDelete = new List<UserMistake>();
                 var weakPointIdsToCheck = new HashSet<Guid>();
 
@@ -610,27 +520,25 @@ namespace BusinessLogic.Services
                     }
                 }
 
-                // Bước 2: Xóa tất cả UserMistake trước
+                // Bước 2: Xoá UserMistake
                 foreach (var mistake in mistakesToDelete)
                 {
                     await userMistakeService.DeleteAsync(mistake.Id);
                 }
 
-                // Bước 3: Kiểm tra và xóa UserWeakPoint chỉ khi không còn UserMistake nào liên kết với nó
+                // Bước 3: Xoá UserWeakPoint nếu không còn UserMistake liên kết
                 foreach (var weakPointId in weakPointIdsToCheck)
                 {
-                    // Kiểm tra xem còn UserMistake nào khác có cùng UserWeakPointId không
                     var remainingMistakes = await userMistakeRepo.GetByUserWeakPointIdAsync(weakPointId);
                     if (!remainingMistakes.Any())
                     {
-                        // Không còn UserMistake nào liên kết với UserWeakPoint này → xóa UserWeakPoint
                         try
                         {
                             await userWeakPointService.DeleteAsync(weakPointId);
                         }
-                        catch (Exception)
+                        catch
                         {
-                            // Bỏ qua lỗi nếu UserWeakPoint đã bị xoá hoặc không tồn tại
+                            // Bỏ qua nếu đã bị xoá hoặc không tồn tại
                         }
                     }
                 }
