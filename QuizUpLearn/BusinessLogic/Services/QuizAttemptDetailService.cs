@@ -49,9 +49,13 @@ namespace BusinessLogic.Services
         public async Task<ResponseQuizAttemptDetailDto> CreateAsync(RequestQuizAttemptDetailDto dto)
         {
             var entity = _mapper.Map<QuizAttemptDetail>(dto);
-            
+            var attempt = await _attemptRepo.GetByIdAsync(dto.AttemptId);
+            if (attempt == null)
+            {
+                throw new InvalidOperationException("Quiz Attempt not found");
+            }
             // Nếu OrderIndex chưa được set, lấy từ Quiz
-            if (!entity.OrderIndex.HasValue)
+            if (!entity.OrderIndex.HasValue && attempt.AttemptType.ToLower() == "placement")
             {
                 var quiz = await _quizRepo.GetQuizByIdAsync(dto.QuestionId);
                 if (quiz != null)
