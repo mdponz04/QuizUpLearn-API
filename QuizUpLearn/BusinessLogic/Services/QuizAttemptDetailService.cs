@@ -106,6 +106,10 @@ namespace BusinessLogic.Services
         {
             pagination ??= new PaginationRequestDto();
             
+            // Lấy AttemptType để kiểm tra có phải mistake_quiz không
+            var attempt = await _attemptRepo.GetByIdAsync(attemptId);
+            var isMistakeQuiz = attempt?.AttemptType?.ToLower() == "mistake_quiz";
+            
             var (details, totalCount) = await _repo.GetByAttemptIdPagedAsync(
                 attemptId, 
                 pagination.Page, 
@@ -126,6 +130,8 @@ namespace BusinessLogic.Services
                     UserAnswer = detail.UserAnswer,
                     IsCorrect = detail.IsCorrect,
                     TimeSpent = detail.TimeSpent,
+                    // Chỉ trả về OrderIndex nếu là mistake_quiz
+                    OrderIndex = isMistakeQuiz ? (detail.OrderIndex ?? detail.Quiz?.OrderIndex) : null,
                     CreatedAt = detail.CreatedAt,
                     UpdatedAt = detail.UpdatedAt,
                     DeletedAt = detail.DeletedAt,
@@ -415,6 +421,27 @@ namespace BusinessLogic.Services
                 throw new InvalidOperationException($"This attempt is not a mistake quiz. AttemptType: {attempt.AttemptType}");
             }
 
+            // Tối ưu: Load tất cả Quiz và AnswerOptions một lần thay vì N lần query
+            var questionIds = dto.Answers.Select(a => a.QuestionId).Distinct().ToList();
+            var allQuizzes = await _quizRepo.GetQuizzesByIdsAsync(questionIds);
+            var quizDict = allQuizzes.ToDictionary(q => q.Id);
+
+            // Tạo dictionary cho AnswerOptions để lookup nhanh (O(1))
+            var answerOptionDict = new Dictionary<Guid, AnswerOption>();
+            var answerOptionsByQuizId = new Dictionary<Guid, List<AnswerOption>>();
+            foreach (var quiz in allQuizzes)
+            {
+                if (quiz.AnswerOptions != null)
+                {
+                    var optionsList = quiz.AnswerOptions.ToList();
+                    answerOptionsByQuizId[quiz.Id] = optionsList;
+                    foreach (var option in optionsList)
+                    {
+                        answerOptionDict[option.Id] = option;
+                    }
+                }
+            }
+
             int correctCount = 0;
             int wrongCount = 0;
             int totalTimeSpent = 0;
@@ -422,52 +449,67 @@ namespace BusinessLogic.Services
             var wrongQuestionIdsSet = new HashSet<Guid>();
             var correctQuestionIdsSet = new HashSet<Guid>();
             var wrongAnswersByQuestion = new Dictionary<Guid, string>();
+            var detailsToInsert = new List<QuizAttemptDetail>();
 
-            // Lưu và chấm điểm từng câu trả lời
+            // Lưu và chấm điểm từng câu trả lời (xử lý trong memory, không query DB)
             foreach (var answer in dto.Answers)
             {
+                // Lấy thông tin Quiz từ dictionary (O(1) lookup)
+                if (!quizDict.TryGetValue(answer.QuestionId, out var quiz) || quiz == null)
+                {
+                    continue;
+                }
+
                 // Kiểm tra đáp án đúng
                 bool isCorrect = false;
                 Guid? correctAnswerOptionId = null;
 
                 if (Guid.TryParse(answer.UserAnswer, out Guid selectedAnswerOptionId))
                 {
-                    var selectedAnswerOption = await _answerOptionRepo.GetByIdAsync(selectedAnswerOptionId);
-                    
-                    if (selectedAnswerOption != null && selectedAnswerOption.QuizId == answer.QuestionId)
+                    // Lookup AnswerOption từ dictionary (O(1) lookup)
+                    if (answerOptionDict.TryGetValue(selectedAnswerOptionId, out var selectedAnswerOption))
                     {
-                        isCorrect = selectedAnswerOption.IsCorrect;
-                        
-                        // Tìm đáp án đúng (nếu người dùng chọn sai)
-                        if (!isCorrect)
+                        if (selectedAnswerOption.QuizId == answer.QuestionId)
                         {
-                            var answerOptions = await _answerOptionRepo.GetByQuizIdAsync(answer.QuestionId);
-                            var correctOption = answerOptions.FirstOrDefault(ao => ao.IsCorrect);
-                            correctAnswerOptionId = correctOption?.Id;
+                            isCorrect = selectedAnswerOption.IsCorrect;
+                            
+                            // Tìm đáp án đúng (nếu người dùng chọn sai)
+                            if (!isCorrect)
+                            {
+                                // Lookup từ dictionary thay vì query DB
+                                if (answerOptionsByQuizId.TryGetValue(answer.QuestionId, out var answerOptions))
+                                {
+                                    var correctOption = answerOptions.FirstOrDefault(ao => ao.IsCorrect);
+                                    correctAnswerOptionId = correctOption?.Id;
+                                }
+                            }
                         }
                     }
                 }
                 else
                 {
-                    // Nếu không parse được, tìm đáp án đúng
-                    var answerOptions = await _answerOptionRepo.GetByQuizIdAsync(answer.QuestionId);
-                    var correctOption = answerOptions.FirstOrDefault(ao => ao.IsCorrect);
-                    correctAnswerOptionId = correctOption?.Id;
+                    // Nếu không parse được, tìm đáp án đúng từ dictionary
+                    if (answerOptionsByQuizId.TryGetValue(answer.QuestionId, out var answerOptions))
+                    {
+                        var correctOption = answerOptions.FirstOrDefault(ao => ao.IsCorrect);
+                        correctAnswerOptionId = correctOption?.Id;
+                    }
                 }
 
-                // Tạo QuizAttemptDetail
+                // Tạo QuizAttemptDetail (chưa insert) - Lưu OrderIndex từ Quiz
                 var detail = new QuizAttemptDetail
                 {
                     AttemptId = dto.AttemptId,
                     QuestionId = answer.QuestionId,
-                    UserAnswer = answer.UserAnswer,
+                    UserAnswer = answer.UserAnswer ?? string.Empty,
                     IsCorrect = isCorrect,
                     TimeSpent = answer.TimeSpent,
                     QuizId = answer.QuestionId,
-                    QuizAttemptId = dto.AttemptId
+                    QuizAttemptId = dto.AttemptId,
+                    OrderIndex = quiz.OrderIndex // Lưu OrderIndex từ Quiz
                 };
 
-                await _repo.CreateAsync(detail);
+                detailsToInsert.Add(detail);
                 
                 // Tính tổng thời gian
                 if (answer.TimeSpent.HasValue)
@@ -497,8 +539,9 @@ namespace BusinessLogic.Services
                 });
             }
 
-            // Cập nhật QuizAttempt với kết quả (đảm bảo AttemptType vẫn là "mistake_quiz")
-            attempt.AttemptType = "mistake_quiz"; // Đảm bảo không bị thay đổi thành "placement" hoặc type khác
+            await _repo.CreateBatchAsync(detailsToInsert);
+
+            attempt.AttemptType = "mistake_quiz"; 
             attempt.CorrectAnswers = correctCount;
             attempt.WrongAnswers = wrongCount;
             attempt.Score = correctCount;
