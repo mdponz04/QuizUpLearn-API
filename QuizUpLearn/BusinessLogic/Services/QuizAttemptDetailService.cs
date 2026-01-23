@@ -55,7 +55,7 @@ namespace BusinessLogic.Services
                 throw new InvalidOperationException("Quiz Attempt not found");
             }
             // Nếu OrderIndex chưa được set, lấy từ Quiz
-            if (!entity.OrderIndex.HasValue && attempt.AttemptType.ToLower() == "placement")
+            if (!entity.OrderIndex.HasValue && attempt.AttemptType.ToLower() == "mistake_quiz")
             {
                 var quiz = await _quizRepo.GetQuizByIdAsync(dto.QuestionId);
                 if (quiz != null)

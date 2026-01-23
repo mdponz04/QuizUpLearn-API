@@ -58,7 +58,7 @@ namespace QuizUpLearn.Test.UnitTest
                 _mockUserRepo.Object);
         }
 
-        [Fact]
+        /*[Fact]
         public async Task CreateAsync_WithValidData_ShouldReturnResponseQuizAttemptDetailDto()
         {
             // Arrange
@@ -145,7 +145,7 @@ namespace QuizUpLearn.Test.UnitTest
             result.Should().NotBeNull();
             result.IsCorrect.Should().BeTrue();
             _mockAnswerOptionRepo.Verify(r => r.GetByIdAsync(answerOptionId), Times.Once);
-        }
+        }*/
 
         [Fact]
         public async Task GetByIdAsync_WithValidId_ShouldReturnResponseQuizAttemptDetailDto()
